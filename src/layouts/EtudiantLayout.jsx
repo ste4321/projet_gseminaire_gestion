@@ -4,7 +4,7 @@ import Footer from '../components/Footer';
 import { Outlet } from 'react-router-dom';
 import useScripts from '../hooks/useScripts';
 
-function ProfLayout() {
+function EtudiantLayout() {
     useScripts([
         "/assets/vendor/libs/jquery/jquery.js",
         "/assets/vendor/libs/popper/popper.js",
@@ -18,7 +18,7 @@ function ProfLayout() {
   return (
     <div className="layout-wrapper layout-content-navbar">
       <div className="layout-container">
-        <Sidebar />
+        <Sidebar role="caca" />
           <div className="layout-page">
             <Header />
             <Outlet />
@@ -31,4 +31,4 @@ function ProfLayout() {
   );
 }
 
-export default ProfLayout;
+export default EtudiantLayout;
