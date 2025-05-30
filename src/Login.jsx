@@ -14,7 +14,7 @@ const Login = () => {
     const password = e.target.password.value;
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/login', {
+      const res = await axios.post('http://10.3.232.66:8000/api/login', {
         email,
         password,
       });

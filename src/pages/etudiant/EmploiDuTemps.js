@@ -1,65 +1,118 @@
-import React from 'react';
-// import Chart from 'react-apexcharts';
+import React, { useState } from 'react';
+import { PhotoProvider, PhotoView } from 'react-photo-view';
+import 'react-photo-view/dist/react-photo-view.css';
 
 const EmploiDuTemps = () => {
-  // const chartOptions = {
-  //   chart: {
-  //     id: 'inscriptions-chart',
-  //     toolbar: { show: false },
-  //   },
-  //   xaxis: {
-  //     categories: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-  //   },
-  //   title: {
-  //     text: 'Inscriptions par mois',
-  //     align: 'left',
-  //   },
-  //   colors: ['#696CFF'],
-  // };
+  const emploiSemestre1 = [
+    '/images/edt/edt1.jpg',
+    '/images/edt/edt2.jpg',
+    '/images/edt/edt3.jpg',
+    // '/images/edt/edt4.jpg',
+    // '/images/edt/edt5.jpg'
+  ];
+  const emploiSemestre2 = [
+    '/images/edt/edt1.jpg',
+    '/images/edt/edt2.jpg',
+    '/images/edt/edt3.jpg',
+    '/images/edt/edt2.jpg',
 
-  // const chartSeries = [
-  //   {
-  //     name: 'Étudiants',
-  //     data: [10, 25, 15, 40, 35, 50],
-  //   },
-  // ];
+  ];
+
+  const [semestre, setSemestre] = useState(1);
+  const [page, setPage] = useState(0);
+
+  const emploiActuel = semestre === 1 ? emploiSemestre1 : emploiSemestre2;
+  const totalPages = emploiActuel.length;
+
+  const handleChangeSemestre = (s) => {
+    setSemestre(s);
+    setPage(0);
+  };
+
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light">Etudiant /</span> Empoi du temps
+        <span className="text-muted fw-light">Étudiant /</span> Emploi du temps
       </h4>
 
       <div className="row">
-        <div className="col-lg-6 col-md-12 mb-4">
-          <div className="card">
-            <div className="card-body">
-              <h5 className="card-title text-primary">Bienvenue !</h5>
-              <p className="card-text">
-                Ceci est un exemple de dashboard pour l'étudiant.
-              </p>
-            </div>
-          </div>
-        </div>
+        <div className="col-md-12">
+          <ul className="nav nav-pills flex-column flex-md-row mb-3">
+            <li className="nav-item">
+              <button
+                className={`nav-link ${semestre === 1 ? 'active' : ''}`}
+                onClick={() => handleChangeSemestre(1)}
+              >
+                 Premier semestre
+              </button>
+            </li>
+            <li className="nav-item">
+              <button
+                className={`nav-link ${semestre === 2 ? 'active' : ''}`}
+                onClick={() => handleChangeSemestre(2)}
+              >
+                Deuxième semestre
+              </button>
+            </li>
+          </ul>
 
-        {/* Carte exemple : statistiques */}
-        <div className="col-lg-6 col-md-12 mb-4">
-          <div className="card text-white bg-primary">
-            <div className="card-body">
-              <h5 className="card-title">Étudiants inscrits</h5>
-              <p className="card-text display-6">153</p>
+          <div
+            className="card mb-4 text-center p-4"
+            style={{
+              minHeight: '500px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+          >
+            <div
+              style={{
+                flexGrow: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <PhotoProvider>
+                <PhotoView src={emploiActuel[page]}>
+                  <img
+                    src={emploiActuel[page]}
+                    alt={`Emploi du temps S${semestre} page ${page + 1}`}
+                    className="img-fluid"
+                    style={{
+                      maxHeight: '60vh',
+                      objectFit: 'contain',
+                      cursor: 'zoom-in',
+                      width: '100%',
+                      height: 'auto'
+                    }}
+                  />
+                </PhotoView>
+              </PhotoProvider>
+            </div>
+
+            <div className="mt-3 d-flex flex-column flex-md-row justify-content-center align-items-center gap-2">
+              <div>
+                <button
+                  className="btn btn-secondary me-2"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Précédent
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={page === totalPages - 1}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Suivant
+                </button>
+              </div>
+              <p className="mt-2">Page {page + 1} sur {totalPages}</p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* D’autres sections : graphiques, listes, stats, etc. */}
-      {/* <div className="row">
-        <div className="col-12 mb-4">
-          <div className="card p-3">
-            <Chart options={chartOptions} series={chartSeries} type="bar" height={300} />
-          </div>
-        </div>
-      </div> */}
     </div>
   );
 };
