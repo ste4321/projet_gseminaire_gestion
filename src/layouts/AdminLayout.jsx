@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar';
 import { Outlet } from 'react-router-dom';
 import useScripts from '../hooks/useScripts';
 import { EmploiProvider } from '../contexts/EmploiContext';
+import { ProfProvider } from '../contexts/ProfContext';
 
 function AdminLayout() {
   useScripts([
@@ -17,18 +18,20 @@ function AdminLayout() {
   ]);
 
   return (
-    <EmploiProvider>
-      <div className="layout-wrapper layout-content-navbar">
-        <div className="layout-container">
-          <Sidebar />
-          <div className="layout-page">
-            <Header />
-            <Outlet />
-            <div className="layout-overlay layout-menu-toggle"></div>
+    <ProfProvider>
+      <EmploiProvider>
+        <div className="layout-wrapper layout-content-navbar">
+          <div className="layout-container">
+            <Sidebar />
+            <div className="layout-page">
+              <Header />
+              <Outlet />
+              <div className="layout-overlay layout-menu-toggle"></div>
+            </div>
           </div>
         </div>
-      </div>
-    </EmploiProvider>
+      </EmploiProvider>
+    </ProfProvider>
   );
 }
 
