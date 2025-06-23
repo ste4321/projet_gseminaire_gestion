@@ -56,7 +56,7 @@ import EtudiantLayout from './layouts/EtudiantLayout';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 // idem pour étudiant...
 import useScripts from './hooks/useScripts';
-import EmploiDuTemps from './pages/etudiant/EmploiDuTemps';
+import EmploiDuTemps from './components/EmploiDuTemps';
 
 function App() {
   useScripts([
@@ -76,6 +76,7 @@ function App() {
           {/* <Route index element={<AdminDashboard />} /> */}
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="info" element={<Info />} />
+          <Route path="edt" element={<EmploiDuTemps />} />
         </Route>
 
         <Route path="/prof" element={<ProfLayout />}>

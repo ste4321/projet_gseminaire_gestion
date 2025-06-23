@@ -1,6 +1,6 @@
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
-import Footer from '../components/Footer';
+// import Footer from '../components/Footer';
 import { Outlet } from 'react-router-dom';
 import useScripts from '../hooks/useScripts';
 
@@ -22,7 +22,7 @@ function ProfLayout() {
           <div className="layout-page">
             <Header />
             <Outlet />
-            <Footer />
+            {/* <Footer /> */}
         <div className="layout-overlay layout-menu-toggle"></div>
 
       </div>

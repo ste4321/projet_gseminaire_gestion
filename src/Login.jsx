@@ -14,7 +14,7 @@ const Login = () => {
     const password = e.target.password.value;
 
     try {
-      const res = await axios.post('http://10.3.232.66:8000/api/login', {
+      const res = await axios.post('http://127.0.0.1:8000/api/login', {
         email,
         password,
       });
@@ -26,13 +26,13 @@ const Login = () => {
       // Redirection par rôle
       if (role === 'admin') {
         setTimeout(() => {
-          window.location.href = '/admin/dashboard';}, 1500);
+          window.location.href = '/admin/dashboard';}, 1000);
       } else if (role === 'prof') {
         setTimeout(() => {
-          window.location.href = '/prof/dashboard';}, 1500);      
+          window.location.href = '/prof/dashboard';}, 1000);      
       } else if (role === 'etudiant') {
         setTimeout(() => {
-          window.location.href = '/etudiant/dashboard';}, 1500);
+          window.location.href = '/etudiant/dashboard';}, 1000);
       } else {
         alert('Rôle inconnu');
         setLoading(false);
@@ -121,9 +121,9 @@ const Login = () => {
               </form>
 
               <p className="text-center">
-                <span>New on our platform? </span>
-                <a href="#">
-                  <span>Create an account</span>
+                <span>Voir notre site </span>
+                <a href="https://www.gstf-faliarivo.ovh/">
+                  <span>web</span>
                 </a>
               </p>
             </div>

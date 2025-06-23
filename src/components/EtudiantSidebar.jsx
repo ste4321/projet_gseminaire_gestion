@@ -7,7 +7,7 @@ const EtudiantSidebar = () => {
       <div className="app-brand demo">
         <a className="app-brand-link">
           <span className="app-brand-logo demo">
-            <img src="/images/Sainte.jpg" alt="Logo de G.S.T.F" width="40" />
+            <img src="/images/sainte.jpg" alt="Logo de G.S.T.F" width="40" />
           </span>
           <span className="app-brand-text demo menu-text fw-bolder ms-2">G.S.T.F</span>
         </a>

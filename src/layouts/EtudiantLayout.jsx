@@ -1,8 +1,9 @@
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
-import Footer from '../components/Footer';
+// import Footer from '../components/Footer';
 import { Outlet } from 'react-router-dom';
 import useScripts from '../hooks/useScripts';
+import { EmploiProvider } from '../contexts/EmploiContext';
 
 function EtudiantLayout() {
     useScripts([
@@ -16,18 +17,18 @@ function EtudiantLayout() {
         "/assets/js/dashboards-analytics.js",
       ]);
   return (
+    <EmploiProvider>
     <div className="layout-wrapper layout-content-navbar">
       <div className="layout-container">
-        <Sidebar role="caca" />
-          <div className="layout-page">
-            <Header />
-            <Outlet />
-            <Footer />
-        <div className="layout-overlay layout-menu-toggle"></div>
-
-      </div>
+        <Sidebar />
+        <div className="layout-page">
+          <Header />
+          <Outlet />
+          <div className="layout-overlay layout-menu-toggle"></div>
+        </div>
       </div>
     </div>
+  </EmploiProvider>
   );
 }
 

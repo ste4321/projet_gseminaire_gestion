@@ -1,11 +1,11 @@
 const Info = () => {
     return(
         <>
-        <div class="content-wrapper">
+        <div className="content-wrapper">
 
-            <div class="container-xxl flex-grow-1 container-p-y">
-              <h4 class="fw-bold py-3 mb-4"><span class="text-muted fw-light">Admin / </span>Info</h4>
-              <div class="row">
+            <div className="container-xxl flex-grow-1 container-p-y">
+              <h4 className="fw-bold py-3 mb-4"><span className="text-muted fw-light">Admin / </span>Info</h4>
+              <div className="row">
                 <div className="col-xxl">
                   <div className="card mb-4">
                     <div className="card-header d-flex align-items-center justify-content-between">
@@ -15,13 +15,13 @@ const Info = () => {
                     <div className="card-body">
                       <form>
                         <div className="row mb-3">
-                          <label className="col-sm-2 col-form-label" for="basic-default-name">Name</label>
+                          <label className="col-sm-2 col-form-label" htmlFor="basic-default-name">Name</label>
                           <div className="col-sm-10">
                             <input type="text" className="form-control" id="basic-default-name" placeholder="John Doe" />
                           </div>
                         </div>
                         <div className="row mb-3">
-                          <label className="col-sm-2 col-form-label" for="basic-default-company">Company</label>
+                          <label className="col-sm-2 col-form-label" htmlFor="basic-default-company">Company</label>
                           <div className="col-sm-10">
                             <input
                               type="text"
@@ -32,7 +32,7 @@ const Info = () => {
                           </div>
                         </div>
                         <div className="row mb-3">
-                          <label className="col-sm-2 col-form-label" for="basic-default-email">Email</label>
+                          <label className="col-sm-2 col-form-label" htmlFor="basic-default-email">Email</label>
                           <div className="col-sm-10">
                             <div className="input-group input-group-merge">
                               <input
@@ -49,7 +49,7 @@ const Info = () => {
                           </div>
                         </div>
                         <div className="row mb-3">
-                          <label className="col-sm-2 col-form-label" for="basic-default-phone">Phone No</label>
+                          <label className="col-sm-2 col-form-label" htmlFor="basic-default-phone">Phone No</label>
                           <div className="col-sm-10">
                             <input
                               type="text"
@@ -62,7 +62,7 @@ const Info = () => {
                           </div>
                         </div>
                         <div className="row mb-3">
-                          <label className="col-sm-2 col-form-label" for="basic-default-message">Message</label>
+                          <label className="col-sm-2 col-form-label" htmlFor="basic-default-message">Message</label>
                           <div className="col-sm-10">
                             <textarea
                               id="basic-default-message"

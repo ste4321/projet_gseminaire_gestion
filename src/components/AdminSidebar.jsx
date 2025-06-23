@@ -26,6 +26,12 @@ const AdminSidebar = () => {
             <div>Info</div>
           </NavLink>
         </li>
+        <li className="menu-item">
+          <NavLink to="/admin/edt" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
+            <i className="menu-icon tf-icons bx bx-calendar"></i>
+            <div>Emploi du temps</div>
+          </NavLink>
+        </li>
         {/* Ajoute d'autres items ici */}
       </ul>
     </aside>
