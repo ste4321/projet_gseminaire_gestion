@@ -58,6 +58,7 @@ import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import useScripts from './hooks/useScripts';
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
+import ListeEtudiant from './components/ListeEtudiant';
 
 function App() {
   useScripts([
@@ -78,7 +79,8 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="info" element={<Info />} />
           <Route path="edt" element={<EmploiDuTemps />} />
-          <Route path="prof" element={<ListeProf />} />
+          <Route path="listeProf" element={<ListeProf />} />
+          <Route path="listeEtudiant" element={<ListeEtudiant />} />
 
         </Route>
 
@@ -91,7 +93,7 @@ function App() {
         <Route path="/etudiant" element={<EtudiantLayout />}>
           <Route path="dashboard" element={<EtudiantDashboard />} />
           <Route path="edt" element={<EmploiDuTemps />} />
-          <Route path="prof" element={<ListeProf />} />
+          <Route path="listeProf" element={<ListeProf />} />
 
           {/* autres routes */}
         </Route>

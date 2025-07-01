@@ -61,22 +61,22 @@ const Login = () => {
 
               <form id="formAuthentication" className="mb-3" onSubmit={handleLogin}>
                 <div className="mb-3">
-                  <label htmlFor="email" className="form-label">Email or Username</label>
+                  <label htmlFor="email" className="form-label">Email</label>
                   <input
                     type="text"
                     className="form-control"
                     id="email"
                     name="email"
-                    placeholder="Enter your email or username"
+                    placeholder="Entrer votre email"
                     autoFocus
                     required
                   />
                 </div>
                 <div className="mb-3 form-password-toggle">
                   <div className="d-flex justify-content-between">
-                    <label className="form-label" htmlFor="password">Password</label>
+                    <label className="form-label" htmlFor="password">Mot de passe</label>
                     <Link to="/">
-                      <small>Forgot Password?</small>
+                      <small>Mot de passe oublier ?</small>
                     </Link>
                   </div>
                   <div className="input-group input-group-merge">
@@ -97,7 +97,7 @@ const Login = () => {
                 <div className="mb-3">
                   <div className="form-check">
                     <input className="form-check-input" type="checkbox" id="remember-me" />
-                    <label className="form-check-label" htmlFor="remember-me"> Remember Me </label>
+                    <label className="form-check-label" htmlFor="remember-me">Se souvenir de moi </label>
                   </div>
                 </div>
 
@@ -107,7 +107,7 @@ const Login = () => {
                     type="submit"
                     disabled={loading}
                   >
-                    Sign in
+                    Se connecter
                     {loading && (
                       <span
                         className="spinner-border spinner-border-sm ms-2"
