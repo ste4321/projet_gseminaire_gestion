@@ -5,6 +5,7 @@ import useScripts from '../hooks/useScripts';
 import { EmploiProvider } from '../contexts/EmploiContext';
 import { ProfProvider } from '../contexts/ProfContext';
 import { EtudiantProvider } from '../contexts/EtudiantContext';
+import { AnnonceProvider } from '../contexts/AnnonceContext';
 
 function AdminLayout() {
   useScripts([
@@ -19,22 +20,24 @@ function AdminLayout() {
   ]);
 
   return (
-    <ProfProvider>
-      <EmploiProvider>
-        <EtudiantProvider>
-          <div className="layout-wrapper layout-content-navbar">
-            <div className="layout-container">
-              <Sidebar />
-              <div className="layout-page">
-                <Header />
-                <Outlet />
-                <div className="layout-overlay layout-menu-toggle"></div>
+    <AnnonceProvider>
+      <ProfProvider>
+        <EmploiProvider>
+          <EtudiantProvider>
+            <div className="layout-wrapper layout-content-navbar">
+              <div className="layout-container">
+                <Sidebar />
+                <div className="layout-page">
+                  <Header />
+                  <Outlet />
+                  <div className="layout-overlay layout-menu-toggle"></div>
+                </div>
               </div>
             </div>
-          </div>
-        </EtudiantProvider>
-      </EmploiProvider>
-    </ProfProvider>
+          </EtudiantProvider>
+        </EmploiProvider>
+      </ProfProvider>
+    </AnnonceProvider>
   );
 }
 

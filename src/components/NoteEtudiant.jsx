@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
 
-const ListeEtudiant = () => {
+const NoteEtudiant = () => {
   const [role] = useState(localStorage.getItem('role'));
   const [selectedAca, setSelectedAca] = useState(null);
   const [niveau, setNiveau] = useState(1); // 1 = L1, 2 = L2, 3 = L3
@@ -16,14 +16,14 @@ const ListeEtudiant = () => {
     if (annees.length && !selectedAca) {
       setSelectedAca(annees[0].id);
     }
-  }, [annees]);
+  }, [annees, selectedAca]);
 
   // Récupération des étudiants selon le filtre (année et niveau)
   useEffect(() => {
     if (selectedAca) {
       getEtudiants(selectedAca, niveau).then(setEtudiants);
     }
-  }, [selectedAca, niveau]);
+  }, [selectedAca, niveau, getEtudiants]);
 
   // Afficher les détails de l'étudiant dans une modale
   const openDetailModal = (etudiant) => {
@@ -34,7 +34,7 @@ const ListeEtudiant = () => {
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light text-capitalize">{role} /</span> Étudiants
+        <span className="text-muted fw-light text-capitalize">{role} /</span> Notes
       </h4>
 
       {/* 🔹 Filtre année académique */}
@@ -111,7 +111,7 @@ const ListeEtudiant = () => {
               ))}
               {etudiants.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="text-center py-3">Aucun étudiant trouvé</td>
+                  <td colSpan="4" className="text-center py-3">Chargement en cours ...</td>
                 </tr>
               )}
             </tbody>
@@ -223,4 +223,4 @@ const ListeEtudiant = () => {
   );
 };
 
-export default ListeEtudiant;
+export default NoteEtudiant;

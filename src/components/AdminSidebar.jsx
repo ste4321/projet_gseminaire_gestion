@@ -39,12 +39,24 @@ const AdminSidebar = () => {
           </NavLink>
         </li>
         <li className="menu-item">
-          <NavLink to="/admin/listeEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
-            <i className="menu-icon tf-icons bx bx-group"></i>
-            <div>Etudiants</div>
+          <NavLink to="/admin/noteEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
+            <i className="menu-icon tf-icons bx bxs-edit-alt"></i>
+            <div>Notes</div>
           </NavLink>
         </li>
+        {/* <li className="menu-item">
+          <NavLink to="/admin/inscriptionEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
+            <i className="menu-icon tf-icons bx bx-group"></i>
+            <div>Inscription</div>
+          </NavLink>
+        </li> */}
         {/* Ajoute d'autres items ici */}
+        <li className="menu-item">
+          <NavLink to="/admin/annonce" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
+            <i className="menu-icon tf-icons bx bxs-message-detail"></i>
+            <div>Annonce</div>
+          </NavLink>
+        </li>
       </ul>
     </aside>
   );

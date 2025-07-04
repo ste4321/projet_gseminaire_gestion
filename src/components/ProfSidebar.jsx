@@ -26,6 +26,12 @@ const ProfSidebar = () => {
             <div>Mes Cours</div>
           </NavLink>
         </li>
+        <li className="menu-item">
+          <NavLink to="/prof/annonce" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
+            <i className="menu-icon tf-icons bx bx-group"></i>
+            <div>Annonce</div>
+          </NavLink>
+        </li>
         {/* Ajoute d'autres items ici */}
       </ul>
     </aside>

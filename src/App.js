@@ -58,7 +58,9 @@ import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import useScripts from './hooks/useScripts';
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
-import ListeEtudiant from './components/ListeEtudiant';
+import NoteEtudiant from './components/NoteEtudiant';
+import InscriptionEtudiant from './pages/admin/InscriptionEtudiant';
+import AnnonceAdminProf from './components/AnnonceAdminProf';
 
 function App() {
   useScripts([
@@ -80,13 +82,16 @@ function App() {
           <Route path="info" element={<Info />} />
           <Route path="edt" element={<EmploiDuTemps />} />
           <Route path="listeProf" element={<ListeProf />} />
-          <Route path="listeEtudiant" element={<ListeEtudiant />} />
+          <Route path="noteEtudiant" element={<NoteEtudiant />} />
+          <Route path="inscriptionEtudiant" element={<InscriptionEtudiant />} />
+          <Route path="annonce" element={<AnnonceAdminProf />} />
 
         </Route>
 
         <Route path="/prof" element={<ProfLayout />}>
           <Route path="dashboard" element={<ProfDashboard />} />
           <Route path="cours" element={<ProfDashboard />} />
+          <Route path="annonce" element={<AnnonceAdminProf />} />
           {/* autres routes */}
         </Route>
 

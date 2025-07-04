@@ -3,6 +3,8 @@ import Sidebar from '../components/Sidebar';
 // import Footer from '../components/Footer';
 import { Outlet } from 'react-router-dom';
 import useScripts from '../hooks/useScripts';
+import { ProfProvider } from '../contexts/ProfContext';
+import { AnnonceProvider } from '../contexts/AnnonceContext';
 
 function ProfLayout() {
     useScripts([
@@ -16,18 +18,22 @@ function ProfLayout() {
         "/assets/js/dashboards-analytics.js",
       ]);
   return (
-    <div className="layout-wrapper layout-content-navbar">
-      <div className="layout-container">
-        <Sidebar />
-          <div className="layout-page">
-            <Header />
-            <Outlet />
-            {/* <Footer /> */}
-        <div className="layout-overlay layout-menu-toggle"></div>
+    <AnnonceProvider>
+    <ProfProvider>
+      <div className="layout-wrapper layout-content-navbar">
+        <div className="layout-container">
+          <Sidebar />
+            <div className="layout-page">
+              <Header />
+              <Outlet />
+              {/* <Footer /> */}
+          <div className="layout-overlay layout-menu-toggle"></div>
 
+        </div>
+        </div>
       </div>
-      </div>
-    </div>
+    </ProfProvider>
+    </AnnonceProvider>
   );
 }
 
