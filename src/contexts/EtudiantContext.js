@@ -1,37 +1,33 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 
 const EtudiantContext = createContext();
 
-export const EtudiantProvider = ({ children }) => {
-  const [annees, setAnnees] = useState([]);
-  const [etudiantsParFiltre, setEtudiantsParFiltre] = useState({});
+export const useEtudiant = () => useContext(EtudiantContext);
 
-  // Charger les années une seule fois
-  useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/annee_aca')
-      .then(res => setAnnees(res.data))
-      .catch(console.error);
+export const EtudiantProvider = ({ children }) => {
+  const [etudiants, setEtudiants] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchEtudiants = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get('http://127.0.0.1:8000/api/etudiants');
+      setEtudiants(res.data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des étudiants', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const getEtudiants = async (idannee_aca, annee) => {
-    const key = `${idannee_aca}_${annee}`;
-    if (etudiantsParFiltre[key]) {
-      return etudiantsParFiltre[key]; // déjà en cache
-    } else {
-      const res = await axios.get(`http://127.0.0.1:8000/api/etudiants`, {
-        params: { idannee_aca, annee }
-      });
-      setEtudiantsParFiltre(prev => ({ ...prev, [key]: res.data }));
-      return res.data;
-    }
-  };
+  useEffect(() => {
+    fetchEtudiants();
+  }, [fetchEtudiants]);
 
   return (
-    <EtudiantContext.Provider value={{ annees, getEtudiants }}>
+    <EtudiantContext.Provider value={{ etudiants, setEtudiants, fetchEtudiants, loading }}>
       {children}
     </EtudiantContext.Provider>
   );
 };
-
-export const useEtudiant = () => useContext(EtudiantContext);

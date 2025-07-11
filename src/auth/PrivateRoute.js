@@ -1,9 +1,10 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+// auth/PrivateRoute.js
+import { Navigate, Outlet } from 'react-router-dom';
 
-const PrivateRoute = ({ children }) => {
-  const isAuth = localStorage.getItem('isAuthenticated') === 'true';
-  return isAuth ? children : <Navigate to="/" />;
+const PrivateRoute = () => {
+  const token = localStorage.getItem('token'); // ou n'importe quel mécanisme de session
+
+  return token ? <Outlet /> : <Navigate to="/" />;
 };
 
 export default PrivateRoute;

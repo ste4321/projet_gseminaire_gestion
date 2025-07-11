@@ -1,46 +1,121 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+
 const Login = () => {
   const [loading, setLoading] = useState(false);
-  // const navigate = useNavigate();
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+
+  // Validation des champs
+  const validateForm = (email, password) => {
+    const newErrors = {};
+    
+    if (!email) {
+      newErrors.email = 'L\'email est requis';
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Format d\'email invalide';
+    }
+    
+    if (!password) {
+      newErrors.password = 'Le mot de passe est requis';
+    } else if (password.length < 6) {
+      newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
+    }
+    
+    return newErrors;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true); // 🔹 Déclenche le spinner dès le clic
+    setLoading(true);
+    setErrors({});
 
-    const email = e.target.email.value;
+    const email = e.target.email.value.trim();
     const password = e.target.password.value;
+
+    // Validation côté client
+    const validationErrors = validateForm(email, password);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await axios.post('http://127.0.0.1:8000/api/login', {
         email,
         password,
+      }, {
+        timeout: 10000, // Timeout de 10 secondes
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
       });
 
-      const { role } = res.data;
-      localStorage.setItem('role', role);
-      localStorage.setItem('email', email);
+      const { access_token, user } = res.data;
 
-      // Redirection par rôle
-      if (role === 'admin') {
+      // Stockage sécurisé dans localStorage
+      localStorage.setItem('token', access_token);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('role', user.role);
+      localStorage.setItem('nom_prenom', user.nom_prenom);
+      localStorage.setItem('loginTime', new Date().toISOString());
+
+      // Redirection par rôle avec React Router
+      const routes = {
+        admin: '/admin/dashboard',
+        prof: '/prof/dashboard',
+        etudiant: '/etudiant/dashboard'
+      };
+
+      const route = routes[user.role];
+      if (route) {
+        // Petit délai pour l'UX
         setTimeout(() => {
-          window.location.href = '/admin/dashboard';}, 1000);
-      } else if (role === 'prof') {
-        setTimeout(() => {
-          window.location.href = '/prof/dashboard';}, 1000);      
-      } else if (role === 'etudiant') {
-        setTimeout(() => {
-          window.location.href = '/etudiant/dashboard';}, 1000);
+          navigate(route, { replace: true });
+        }, 500);
       } else {
-        alert('Rôle inconnu');
+        setErrors({ general: 'Rôle utilisateur non reconnu' });
         setLoading(false);
       }
+
     } catch (err) {
-      alert('Erreur de connexion : identifiants incorrects');
-      setLoading(false); // 🔹 Réactive le bouton en cas d'erreur
+      let errorMessage = 'Une erreur est survenue';
+      
+      if (err.response) {
+        // Erreur de réponse du serveur
+        switch (err.response.status) {
+          case 401:
+            errorMessage = 'Identifiants incorrects';
+            break;
+          case 422:
+            errorMessage = 'Données invalides';
+            break;
+          case 429:
+            errorMessage = 'Trop de tentatives. Veuillez réessayer plus tard';
+            break;
+          case 500:
+            errorMessage = 'Erreur serveur. Veuillez réessayer';
+            break;
+          default:
+            errorMessage = err.response.data?.message || 'Erreur de connexion';
+        }
+      } else if (err.request) {
+        // Erreur de réseau
+        errorMessage = 'Problème de connexion. Vérifiez votre réseau';
+      }
+
+      setErrors({ general: errorMessage });
+      setLoading(false);
     }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
   };
 
   return (
@@ -59,45 +134,75 @@ const Login = () => {
               <h4 className="mb-2">G . S . T . F </h4>
               <p className="mb-4">Grand Séminaire de Théologie Faliarivo</p>
 
+              {/* Affichage des erreurs générales */}
+              {errors.general && (
+                <div className="alert alert-danger" role="alert">
+                  {errors.general}
+                </div>
+              )}
+
               <form id="formAuthentication" className="mb-3" onSubmit={handleLogin}>
                 <div className="mb-3">
                   <label htmlFor="email" className="form-label">Email</label>
                   <input
-                    type="text"
-                    className="form-control"
+                    type="email"
+                    className={`form-control ${errors.email ? 'is-invalid' : ''}`}
                     id="email"
                     name="email"
                     placeholder="Entrer votre email"
                     autoFocus
-                    required
+                    autoComplete="email"
+                    disabled={loading}
                   />
+                  {errors.email && (
+                    <div className="invalid-feedback">
+                      {errors.email}
+                    </div>
+                  )}
                 </div>
+
                 <div className="mb-3 form-password-toggle">
                   <div className="d-flex justify-content-between">
                     <label className="form-label" htmlFor="password">Mot de passe</label>
-                    <Link to="/">
-                      <small>Mot de passe oublier ?</small>
+                    <Link to="/forgot-password">
+                      <small>Mot de passe oublié ?</small>
                     </Link>
                   </div>
                   <div className="input-group input-group-merge">
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       id="password"
-                      className="form-control"
+                      className={`form-control ${errors.password ? 'is-invalid' : ''}`}
                       name="password"
                       placeholder="••••••••••••"
-                      required
+                      autoComplete="current-password"
+                      disabled={loading}
                     />
-                    <span className="input-group-text cursor-pointer">
-                      <i className="bx bx-hide"></i>
+                    <span 
+                      className="input-group-text cursor-pointer" 
+                      onClick={togglePasswordVisibility}
+                    >
+                      <i className={`bx ${showPassword ? 'bx-show' : 'bx-hide'}`}></i>
                     </span>
                   </div>
+                  {errors.password && (
+                    <div className="invalid-feedback d-block">
+                      {errors.password}
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-3">
                   <div className="form-check">
-                    <input className="form-check-input" type="checkbox" id="remember-me" />
-                    <label className="form-check-label" htmlFor="remember-me">Se souvenir de moi </label>
+                    <input 
+                      className="form-check-input" 
+                      type="checkbox" 
+                      id="remember-me" 
+                      disabled={loading}
+                    />
+                    <label className="form-check-label" htmlFor="remember-me">
+                      Se souvenir de moi
+                    </label>
                   </div>
                 </div>
 
@@ -107,7 +212,7 @@ const Login = () => {
                     type="submit"
                     disabled={loading}
                   >
-                    Se connecter
+                    {loading ? 'Connexion' : 'Se connecter'}
                     {loading && (
                       <span
                         className="spinner-border spinner-border-sm ms-2"
@@ -117,12 +222,11 @@ const Login = () => {
                     )}
                   </button>
                 </div>
-
               </form>
 
               <p className="text-center">
                 <span>Voir notre site </span>
-                <a href="https://www.gstf-faliarivo.ovh/">
+                <a href="https://www.gstf-faliarivo.ovh/" target="_blank" rel="noopener noreferrer">
                   <span>web</span>
                 </a>
               </p>

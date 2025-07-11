@@ -95,8 +95,8 @@ const NoteEtudiant = () => {
                     e.nom_prenom.toLowerCase().includes(searchTerm.toLowerCase())
                 )
                 .map(e => (
-                <tr key={e.numero}>
-                  <td>{e.numero}</td>
+                <tr key={e.id}>
+                  <td>{e.id}</td>
                   <td>
                     <button
                       className="btn p-0 text-primary"
@@ -130,7 +130,7 @@ const NoteEtudiant = () => {
             <div className="modal-body">
   {selectedEtudiant ? (
     <>
-      <p><strong>Immatricule :</strong> {selectedEtudiant.numero}</p>
+      <p><strong>Immatricule :</strong> {selectedEtudiant.id}</p>
       <p><strong>Diocèse :</strong> {selectedEtudiant.diocese}</p>
       <p><strong>Niveau :</strong> L{selectedEtudiant.annee}</p>
       <p><u><strong>Note :</strong></u></p>

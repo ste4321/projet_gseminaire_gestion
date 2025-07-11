@@ -8,10 +8,12 @@ const ListeProf = () => {
   const [editProf, setEditProf] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [role, setRole] = useState(localStorage.getItem('role'));
+  const [detailProf, setDetailProf] = useState(null);
+
   const [newProf, setNewProf] = useState({
     nom_prenom: '',
     adresse: '',
-    mail: '',
+    email: '',
     telephone: '',
   });
   const [loadingCreate, setLoadingCreate] = useState(false);
@@ -37,7 +39,7 @@ const ListeProf = () => {
     try {
       const response = await axios.post(`http://127.0.0.1:8000/api/enseignants`, newProf);
       setProfs([...profs, response.data]);
-      setNewProf({ nom_prenom: '', adresse: '', mail: '', telephone: '' });
+      setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal.hide();
     } catch (error) {
@@ -103,7 +105,12 @@ const ListeProf = () => {
     const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
     modal.show();
   };
-
+  const openDetailModal = (prof) => {
+    setDetailProf(prof);
+    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
+    modal.show();
+  };
+  
   if (loading) {
     return (
       <div className="text-center py-5">
@@ -132,7 +139,7 @@ const ListeProf = () => {
             <button
               className="btn btn-primary"
               onClick={() => {
-                setNewProf({ nom_prenom: '', adresse: '', mail: '', telephone: '' });
+                setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
                 const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
                 modal.show();
               }}
@@ -149,31 +156,31 @@ const ListeProf = () => {
             <thead>
               <tr>
                 <th>Nom</th>
-                <th>Adresse</th>
+                {/* <th>Adresse</th> */}
                 <th>Email</th>
-                <th>Téléphone</th>
+                {/* <th>Téléphone</th> */}
                 {role === 'admin' && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {currentProfs.map(prof => (
-                <tr key={prof.id}>
+                <tr key={prof.id} onClick={() => openDetailModal(prof)} style={{ cursor: 'pointer' }}>
                   <td>{prof.nom_prenom}</td>
-                  <td>{prof.adresse}</td>
-                  <td>{prof.mail}</td>
-                  <td>{prof.telephone}</td>
+                  {/* <td>{prof.adresse}</td> */}
+                  <td>{prof.email}</td>
+                  {/* <td>{prof.telephone}</td> */}
                   {role === 'admin' && (
                     <td>
                       <button
                         className="btn btn-sm btn-outline-primary me-2"
-                        onClick={() => openEditModal(prof)}
+                        onClick={(e) => { e.stopPropagation(); openEditModal(prof); }}
                         title="Modifier"
                       >
                         <i className="bx bx-edit"></i>
                       </button>
                       <button
                         className="btn btn-sm btn-outline-primary"
-                        onClick={() => openDeleteModal(prof.id)}
+                        onClick={(e) => { e.stopPropagation();openDeleteModal(prof.id)}}
                         title="Supprimer"
                       >
                         <i className="bx bx-trash"></i>
@@ -216,7 +223,7 @@ const ListeProf = () => {
               <label htmlFor="nameBasic" className="form-label">Adresse</label>
               <input type="text" className="form-control mb-2" value={editProf?.adresse || ''} onChange={e => setEditProf({ ...editProf, adresse: e.target.value })} />
               <label htmlFor="nameBasic" className="form-label">Email</label>
-              <input type="email" className="form-control mb-2" value={editProf?.mail || ''} onChange={e => setEditProf({ ...editProf, mail: e.target.value })} />
+              <input type="email" className="form-control mb-2" value={editProf?.email || ''} onChange={e => setEditProf({ ...editProf, email: e.target.value })} />
               <label htmlFor="nameBasic" className="form-label">Téléphone</label>
               <input type="text" className="form-control mb-2" value={editProf?.telephone || ''} onChange={e => setEditProf({ ...editProf, telephone: e.target.value })} />
             </div>
@@ -243,7 +250,7 @@ const ListeProf = () => {
               <label htmlFor="nameBasic" className="form-label">Adresse</label>
               <input type="text" className="form-control mb-2" placeholder="Entrer votre adresse" value={newProf.adresse} onChange={e => setNewProf({ ...newProf, adresse: e.target.value })} required/>
               <label htmlFor="nameBasic" className="form-label">Mail</label>
-              <input type="email" className="form-control mb-2" placeholder="Entrer votre email" value={newProf.mail} onChange={e => setNewProf({ ...newProf, mail: e.target.value })} required/>
+              <input type="email" className="form-control mb-2" placeholder="Entrer votre email" value={newProf.email} onChange={e => setNewProf({ ...newProf, email: e.target.value })} required/>
               <label htmlFor="nameBasic" className="form-label">Téléphone</label>
               <input type="text" className="form-control mb-2" placeholder="Entrer votre numéro de téléphone" value={newProf.telephone} onChange={e => setNewProf({ ...newProf, telephone: e.target.value })} required/>
             </div>
@@ -257,6 +264,33 @@ const ListeProf = () => {
           </div>
         </div>
       </div>
+      {/* Modal Détail */}
+      <div className="modal fade" id="detailModal" tabIndex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content p-3">
+            <div className="modal-header">
+              <h5 className="modal-title" id="detailModalLabel">Détail du professeur</h5>
+              {/* <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> */}
+            </div>
+            <div className="modal-body">
+              {detailProf ? (
+                <>
+                  <p><strong>Nom Prénom:</strong> {detailProf.nom_prenom}</p>
+                  <p><strong>Adresse:</strong> {detailProf.adresse}</p>
+                  <p><strong>Email:</strong> {detailProf.email}</p>
+                  <p><strong>Téléphone:</strong> {detailProf.telephone}</p>
+                </>
+              ) : (
+                <p>Aucune information disponible.</p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Modal Suppression */}
       <div className="modal fade" id="deleteModal" tabIndex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">

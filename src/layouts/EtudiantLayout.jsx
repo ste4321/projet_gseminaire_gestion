@@ -5,6 +5,7 @@ import { Outlet } from 'react-router-dom';
 import useScripts from '../hooks/useScripts';
 import { EmploiProvider } from '../contexts/EmploiContext';
 import { ProfProvider } from '../contexts/ProfContext';
+import { AnnonceProvider } from '../contexts/AnnonceContext';
 
 function EtudiantLayout() {
     useScripts([
@@ -18,20 +19,22 @@ function EtudiantLayout() {
         "/assets/js/dashboards-analytics.js",
       ]);
   return (
-    <ProfProvider>
-      <EmploiProvider>
-        <div className="layout-wrapper layout-content-navbar">
-          <div className="layout-container">
-            <Sidebar />
-            <div className="layout-page">
-              <Header />
-              <Outlet />
-              <div className="layout-overlay layout-menu-toggle"></div>
+    <AnnonceProvider>
+      <ProfProvider>
+        <EmploiProvider>
+          <div className="layout-wrapper layout-content-navbar">
+            <div className="layout-container">
+              <Sidebar />
+              <div className="layout-page">
+                <Header />
+                <Outlet />
+                <div className="layout-overlay layout-menu-toggle"></div>
+              </div>
             </div>
           </div>
-        </div>
-      </EmploiProvider>
-    </ProfProvider>
+        </EmploiProvider>
+      </ProfProvider>
+    </AnnonceProvider>
   );
 }
 

@@ -30,7 +30,7 @@ const EtudiantSidebar = () => {
           </NavLink>
         </li>
         <li className="menu-item">
-          <NavLink to="/etudiant/prof" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
+          <NavLink to="/etudiant/listeProf" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`}>
             <i className="menu-icon tf-icons bx bx-info-circle"></i>
             <div>Enseignant</div>
           </NavLink>

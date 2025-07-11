@@ -61,6 +61,12 @@ import ListeProf from './components/ListeProf';
 import NoteEtudiant from './components/NoteEtudiant';
 import InscriptionEtudiant from './pages/admin/InscriptionEtudiant';
 import AnnonceAdminProf from './components/AnnonceAdminProf';
+import PrivateRoute from './auth/PrivateRoute';
+import RoleRoute from './auth/RoleRoute';
+import Niveau from './pages/admin/Niveau';
+import Matiere from './components/Matiere';
+import Semestre from './components/Semestre';
+import ListeEtudiants from './components/ListeEtudiants';
 
 function App() {
   useScripts([
@@ -73,11 +79,12 @@ function App() {
       ]);
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
+  <Routes>
+    <Route path="/" element={<Login />} />
 
+    <Route element={<PrivateRoute />}>
+      <Route element={<RoleRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
-          {/* <Route index element={<AdminDashboard />} /> */}
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="info" element={<Info />} />
           <Route path="edt" element={<EmploiDuTemps />} />
@@ -85,25 +92,34 @@ function App() {
           <Route path="noteEtudiant" element={<NoteEtudiant />} />
           <Route path="inscriptionEtudiant" element={<InscriptionEtudiant />} />
           <Route path="annonce" element={<AnnonceAdminProf />} />
+          <Route path="niveau" element={<Niveau />} />
+          <Route path="matiere" element={<Matiere />} />
+          <Route path="semestre" element={<Semestre />} />
+          <Route path="listeEtudiant" element={<ListeEtudiants />} />
 
         </Route>
+      </Route>
 
+      <Route element={<RoleRoute allowedRoles={['prof']} />}>
         <Route path="/prof" element={<ProfLayout />}>
           <Route path="dashboard" element={<ProfDashboard />} />
           <Route path="cours" element={<ProfDashboard />} />
           <Route path="annonce" element={<AnnonceAdminProf />} />
-          {/* autres routes */}
         </Route>
+      </Route>
 
+      <Route element={<RoleRoute allowedRoles={['etudiant']} />}>
         <Route path="/etudiant" element={<EtudiantLayout />}>
           <Route path="dashboard" element={<EtudiantDashboard />} />
           <Route path="edt" element={<EmploiDuTemps />} />
           <Route path="listeProf" element={<ListeProf />} />
-
-          {/* autres routes */}
+          <Route path="annonce" element={<AnnonceAdminProf />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+      </Route>
+    </Route>
+  </Routes>
+</BrowserRouter>
+
   );
 }
 
