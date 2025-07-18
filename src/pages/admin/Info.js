@@ -2,37 +2,83 @@ import React, { useState } from 'react';
 import { useInfo } from '../../contexts/InfoContext';
 import axios from 'axios';
 
+// Import des composants modulaires
+import SearchBar from '../../components/SearchBar';
+import AddModal from '../../components/AddModal';
+import EditModal from '../../components/EditModal';
+import DeleteModal from '../../components/DeleteModal';
+import DataTable from '../../components/DataTable';
+import DetailModal from '../../components/DetailModal';
+
 const Info = () => {
   const { infos, fetchInfos } = useInfo();
   const [newInfo, setNewInfo] = useState({ auteur: '', titre: '', description: '' });
   const [editInfo, setEditInfo] = useState({ id: null, auteur: '', titre: '', description: '' });
   const [selectedInfo, setSelectedInfo] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDelete, setLoadingDelete] = useState(false);
 
-  const openModal = (id) => {
-    const modalEl = document.getElementById(id);
-    if (modalEl) {
-      const modal = new window.bootstrap.Modal(modalEl);
-      modal.show();
+  // Configuration des champs pour les modales
+  const infoFields = [
+    { name: 'titre', label: 'Titre', type: 'text', required: true },
+    { name: 'auteur', label: 'Auteur', type: 'text', required: true },
+    { name: 'description', label: 'Description', type: 'textarea', rows: 5, required: true }
+  ];
+
+  // Configuration des en-têtes du tableau
+  const tableHeaders = [
+    { label: 'Titre', field: 'titre' },
+    { label: 'Auteur', field: 'auteur' },
+    { label: 'Description', field: 'description' },
+    { label: 'Date', field: 'created_at' }
+  ];
+
+  // Fonction pour tronquer le texte
+  const truncate = (text, length = 60) =>
+    text?.length > length ? text.slice(0, length) + '…' : text;
+
+  // Fonction pour formater la date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date inconnue';
+    return new Date(dateString).toLocaleString('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  };
+
+  // Filtrage des infos selon le terme de recherche
+  const filteredInfos = infos.filter(info =>
+    Object.values(info).some(val =>
+      typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  // Fonction personnalisée pour le rendu des cellules
+  const renderCell = (item, field) => {
+    switch (field) {
+      case 'description':
+        return truncate(item[field]);
+      case 'created_at':
+        return formatDate(item[field]);
+      default:
+        return item[field];
     }
   };
 
-  const openDetailModal = (info) => {
-    setSelectedInfo(info);
-    openModal('detailModal');
+  // Handlers
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
   };
 
-  const openEditModal = (info) => {
-    setEditInfo({ ...info });
-    openModal('editModal');
-  };
-
-  const openDeleteModal = (id) => {
-    setConfirmDeleteId(id);
-    openModal('deleteModal');
+  const handleFormChange = (field, value, isEdit = false) => {
+    if (isEdit) {
+      setEditInfo(prev => ({ ...prev, [field]: value }));
+    } else {
+      setNewInfo(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleCreate = async () => {
@@ -76,169 +122,122 @@ const Info = () => {
     }
   };
 
-  const truncate = (text, length = 60) =>
-    text.length > length ? text.slice(0, length) + '…' : text;
+  const openAddModal = () => {
+    const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
+    modal.show();
+  };
+
+  const openEditModal = (info) => {
+    setEditInfo({ ...info });
+    const modal = new window.bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+  };
+
+  const openDeleteModal = (id) => {
+    setConfirmDeleteId(id);
+    const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+  };
+
+  const openDetailModal = (info) => {
+    setSelectedInfo(info);
+    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
+    modal.show();
+  };
+
+  // Rendu personnalisé pour les détails
+  const renderDetailContent = (info) => {
+    if (!info) return <p>Aucune information disponible.</p>;
+    
+    return (
+      <>
+        <p className="fst-italic text-muted mb-3">
+          <i className="bx bx-user" /> {info.auteur}
+        </p>
+        <div className="mb-4">
+          <h6 className="fw-semibold text-decoration-underline text-dark">Description</h6>
+          <p style={{ whiteSpace: 'pre-line' }}>{info.description}</p>
+        </div>
+        <div className="text-end">
+          <small className="text-muted fst-italic">
+            Publié le : {formatDate(info.created_at)}
+          </small>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="content-wrapper">
       <div className="container-xxl flex-grow-1 container-p-y">
-        <h4 className="fw-bold py-3 mb-4"><span className="text-muted fw-light">Admin / </span>Info</h4>
+        <h4 className="fw-bold py-3 mb-4">
+          <span className="text-muted fw-light">Admin / </span>Info
+        </h4>
 
         <div className="mb-3">
-          <button className="btn btn-primary" onClick={() => openModal('addModal')}>
+          <button className="btn btn-primary" onClick={openAddModal}>
             Nouveau
           </button>
         </div>
 
         <div className="card">
           <h5 className="card-header">Liste des infos publiées</h5>
-          <div className="table-responsive text-nowrap">
-            <table className="table table-hover">
-              <thead>
-                <tr>
-                  <th>Titre</th>
-                  <th>Auteur</th>
-                  <th>Description</th>
-                  <th>Date</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {infos.map((a) => (
-                  <tr key={a.id} onClick={() => openDetailModal(a)} style={{ cursor: 'pointer' }}>
-                    <td>{a.titre}</td>
-                    <td>{a.auteur}</td>
-                    <td>{truncate(a.description)}</td>
-                    <td>
-                      {a.created_at
-                        ? new Date(a.created_at).toLocaleString('fr-FR', {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          })
-                        : 'Date inconnue'}
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-sm btn-outline-primary me-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditModal(a);
-                        }}
-                      >
-                        <i className="bx bx-edit"></i>
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDeleteModal(a.id);
-                        }}
-                      >
-                        <i className="bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="card-body pb-0">
+            <SearchBar
+              searchTerm={searchTerm}
+              onSearchChange={handleSearchChange}
+              placeholder="Rechercher un professeur..."
+            />
           </div>
+          <DataTable
+            headers={tableHeaders}
+            data={filteredInfos}
+            onRowClick={openDetailModal}
+            onEdit={openEditModal}
+            onDelete={openDeleteModal}
+            showActions={true}
+            role="admin" // Assumé que l'admin peut tout faire
+            renderCell={renderCell}
+          />
         </div>
 
-        {/* Modal Ajouter */}
-        <div className="modal fade" id="addModal" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content p-3">
-              <h5>Nouvelle Info</h5>
-              <label className="form-label">Titre</label>
-              <input className="form-control mb-2" value={newInfo.titre}
-                onChange={e => setNewInfo({ ...newInfo, titre: e.target.value })} />
-              <label className="form-label">Auteur</label>
-              <input className="form-control mb-2" value={newInfo.auteur}
-                onChange={e => setNewInfo({ ...newInfo, auteur: e.target.value })} />
-              <label className="form-label">Description</label>
-              <textarea className="form-control mb-2 p-3" rows="5" value={newInfo.description}
-                onChange={e => setNewInfo({ ...newInfo, description: e.target.value })}></textarea>
-              <div className="text-end">
-                <button className="btn btn-secondary me-2" data-bs-dismiss="modal">Annuler</button>
-                <button className="btn btn-primary" onClick={handleCreate} disabled={loadingCreate}>
-                  Publier {loadingCreate && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Modales */}
+        <AddModal
+          modalId="addModal"
+          title="Nouvelle Info"
+          fields={infoFields}
+          formData={newInfo}
+          onFormChange={(field, value) => handleFormChange(field, value, false)}
+          onSubmit={handleCreate}
+          loading={loadingCreate}
+          buttonText="Publier"
+        />
 
-        {/* Modal Modifier */}
-        <div className="modal fade" id="editModal" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content p-3">
-              <h5>Modifier Info</h5>
-              <label className="form-label">Titre</label>
-              <input className="form-control mb-2" value={editInfo.titre}
-                onChange={e => setEditInfo({ ...editInfo, titre: e.target.value })} />
-              <label className="form-label">Auteur</label>
-              <input className="form-control mb-2" value={editInfo.auteur}
-                onChange={e => setEditInfo({ ...editInfo, auteur: e.target.value })} />
-              <label className="form-label">Description</label>
-              <textarea className="form-control mb-2 p-3" rows="5" value={editInfo.description}
-                onChange={e => setEditInfo({ ...editInfo, description: e.target.value })}></textarea>
-              <div className="text-end">
-                <button className="btn btn-secondary me-2" data-bs-dismiss="modal">Annuler</button>
-                <button className="btn btn-primary" onClick={handleUpdate} disabled={loadingUpdate}>
-                  Enregistrer {loadingUpdate && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <EditModal
+          modalId="editModal"
+          title="Modifier Info"
+          fields={infoFields}
+          formData={editInfo}
+          onFormChange={(field, value) => handleFormChange(field, value, true)}
+          onSubmit={handleUpdate}
+          loading={loadingUpdate}
+          buttonText="Enregistrer"
+        />
 
-        {/* Modal Supprimer */}
-        <div className="modal fade" id="deleteModal" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content p-3">
-              <h5>Confirmer la suppression</h5>
-              <p className="mb-4">Voulez-vous vraiment supprimer cette information ?</p>
-              <div className="text-end">
-                <button className="btn btn-secondary me-2" data-bs-dismiss="modal">Annuler</button>
-                <button className="btn btn-danger" onClick={handleDelete} disabled={loadingDelete}>
-                  Supprimer {loadingDelete && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DeleteModal
+          modalId="deleteModal"
+          title="Confirmer la suppression"
+          message="Voulez-vous vraiment supprimer cette information ?"
+          onConfirm={handleDelete}
+          loading={loadingDelete}
+        />
 
-        {/* Modal Détail */}
-        <div className="modal fade" id="detailModal" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content rounded-3 shadow-sm border-0">
-              <div className="modal-header border-bottom-0 pb-0">
-                <h4 className="modal-title w-100 text-center fw-semibold text-dark">
-                  {selectedInfo?.titre}
-                </h4>
-              </div>
-              <div className="modal-body px-4 py-3">
-                <p className="fst-italic text-muted mb-3">
-                  <i className="bx bx-user" /> {selectedInfo?.auteur}
-                </p>
-                <div className="mb-4">
-                  <h6 className="fw-semibold text-decoration-underline text-dark">Description</h6>
-                  <p style={{ whiteSpace: 'pre-line' }}>{selectedInfo?.description}</p>
-                </div>
-                <div className="text-end">
-                  <small className="text-muted fst-italic">
-                    Publié le : {selectedInfo?.created_at &&
-                      new Date(selectedInfo.created_at).toLocaleString('fr-FR', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
-                  </small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <DetailModal
+          modalId="detailModal"
+          title={selectedInfo?.titre || 'Détail de l\'information'}
+          data={selectedInfo}
+          customRender={renderDetailContent}
+        />
       </div>
     </div>
   );

@@ -1,28 +1,104 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
 import axios from 'axios';
+import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
+
+// Import des composants modulaires
+import SearchBar from './SearchBar';
+import AddModal from './AddModal';
+import EditModal from './EditModal';
+import DeleteModal from './DeleteModal';
+import DataTable from './DataTable';
+import Pagination from './Pagination';
+import DetailModal from './DetailModal';
+import ImportModal from './ImportModal';
 
 const ListeEtudiant = () => {
+  const { etudiantParcours } = useEtudiantParcours();
   const { etudiants, setEtudiants, loading } = useEtudiant();
+  
+  // États pour les filtres
+  const [selectedAnnee, setSelectedAnnee] = useState('');
+  const [niveau, setNiveau] = useState(1); // Par défaut L1
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // États pour les modales
   const [editEtudiant, setEditEtudiant] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [detailEtudiant, setDetailEtudiant] = useState(null);
-  const [newEtudiant, setNewEtudiant] = useState({ nom_prenom: '', diocese: '', email: '', telephone: '' });
+  const [newEtudiant, setNewEtudiant] = useState({
+    nom_prenom: '',
+    diocese: '',
+    email: '',
+    telephone: '',
+    matricule: '',
+    niveau: '',
+    filiere: ''
+  });
+
+  // États pour les loadings
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
+  const [loadingImport, setLoadingImport] = useState(false);
+  
+  // État pour la pagination
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
-  const role = localStorage.getItem('role');
+  
+  // État pour le rôle
+  const [role, setRole] = useState(localStorage.getItem('role'));
 
-  const [selectedEtudiant, setSelectedEtudiant] = useState(null); // Pour le modal notes
+  // Effet pour initialiser les valeurs par défaut
+  useEffect(() => {
+    if (etudiantParcours.length > 0) {
+      // Trouver l'année académique actuelle (la plus récente)
+      const anneeIds = etudiantParcours
+        .map(p => p.annee_academique?.id)
+        .filter(Boolean);
+      
+      if (anneeIds.length > 0) {
+        const maxAnneeId = Math.max(...anneeIds);
+        setSelectedAnnee(String(maxAnneeId));
+      }
+    }
+  }, [etudiantParcours]);
 
-  const filteredEtudiants = etudiants.filter(e =>
-    Object.values(e).some(val =>
-      typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
+  // Obtenir les années académiques uniques
+  const annees = etudiantParcours
+    .map(p => p.annee_academique)
+    .filter((annee, index, self) => 
+      annee && self.findIndex(a => a?.id === annee.id) === index
     )
-  );
+    .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
+
+  // Filtrage des étudiants basé sur l'année et le niveau
+  const filteredParcours = etudiantParcours.filter(p => {
+    const matchAnnee = !selectedAnnee || p.annee_academique?.id == selectedAnnee;
+    const matchNiveau = p.niveau?.niveau === `L${niveau}`;
+    return matchAnnee && matchNiveau;
+  });
+
+  const filteredEtudiants = filteredParcours
+    .map(parcours => {
+      const etu = parcours.etudiant;
+      return {
+        id: etu?.id,
+        nom_prenom: etu?.nom_prenom,
+        matricule: etu?.matricule,
+        email: etu?.email,
+        telephone: etu?.telephone,
+        diocese: etu?.diocese,
+        niveau: parcours?.niveau?.niveau,
+        filiere: '--',
+        original: parcours
+      };
+    })
+    .filter(etudiant =>
+      Object.values(etudiant).some(val =>
+        typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
 
   const totalPages = Math.ceil(filteredEtudiants.length / itemsPerPage);
   const currentEtudiants = filteredEtudiants.slice(
@@ -30,40 +106,74 @@ const ListeEtudiant = () => {
     (currentPage + 1) * itemsPerPage
   );
 
-  const openModal = (id) => {
-    const modal = new window.bootstrap.Modal(document.getElementById(id));
-    modal.show();
+  // Configuration des champs pour les modales
+  const etudiantFields = [
+    { name: 'nom_prenom', label: 'Nom Prénom', type: 'text', placeholder: 'Entrer le nom et prénom', required: true },
+    { name: 'matricule', label: 'Matricule', type: 'text', placeholder: 'Entrer le numéro d\'étudiant', required: true },
+    { name: 'email', label: 'Email', type: 'email', placeholder: 'Entrer l\'email', required: true },
+    { name: 'telephone', label: 'Téléphone', type: 'text', placeholder: 'Entrer le numéro de téléphone', required: true },
+    { name: 'diocese', label: 'Diocese', type: 'text', placeholder: 'Entrer le nom de la diocese ', required: true },
+    { name: 'niveau', label: 'Niveau', type: 'select', placeholder: 'Sélectionner le niveau', required: true, options: [
+      { value: 'L1', label: 'Licence 1' },
+      { value: 'L2', label: 'Licence 2' },
+      { value: 'L3', label: 'Licence 3' },
+      { value: 'M1', label: 'Master 1' },
+      { value: 'M2', label: 'Master 2' }
+    ]},
+    { name: 'filiere', label: 'Filière', type: 'text', placeholder: 'Entrer la filière', required: true }
+  ];
+
+  // Configuration des en-têtes du tableau
+  const tableHeaders = [
+    { label: 'Nom', field: 'nom_prenom' },
+    { label: 'Matricule', field: 'matricule' },
+    { label: 'Email', field: 'email' },
+    { label: 'Niveau', field: 'niveau' },
+    { label: 'Filière', field: 'filiere' }
+  ];
+
+  // Handlers
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setCurrentPage(0);
   };
 
-  const openEditModal = (etudiant) => {
-    setEditEtudiant({ ...etudiant });
-    openModal('editModal');
+  const handleNiveauChange = (newNiveau) => {
+    setNiveau(newNiveau);
+    setCurrentPage(0);
   };
 
-  const openDeleteModal = (id) => {
-    setConfirmDeleteId(id);
-    openModal('deleteModal');
+  const handleAnneeChange = (newAnnee) => {
+    setSelectedAnnee(newAnnee);
+    setCurrentPage(0);
   };
 
-  const openDetailModal = (etudiant) => {
-    setDetailEtudiant(etudiant);
-    openModal('detailModal');
+  const handleFormChange = (field, value, isEdit = false) => {
+    if (isEdit) {
+      setEditEtudiant(prev => ({ ...prev, [field]: value }));
+    } else {
+      setNewEtudiant(prev => ({ ...prev, [field]: value }));
+    }
   };
 
-  // Nouvelle fonction pour ouvrir le modal des notes
-  const openNotesModal = (etudiant) => {
-    setSelectedEtudiant(etudiant);
-    openModal('notesModal');
-  };
   const handleCreate = async () => {
     setLoadingCreate(true);
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/etudiants', newEtudiant);
-      setEtudiants([...etudiants, res.data]);
+      const response = await axios.post(`http://127.0.0.1:8000/api/etudiants`, newEtudiant);
+      setEtudiants([...etudiants, response.data]);
+      setNewEtudiant({ 
+        nom_prenom: '', 
+        diocese: '', 
+        email: '', 
+        telephone: '', 
+        matricule: '', 
+        niveau: '', 
+        filiere: '' 
+      });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal.hide();
     } catch (error) {
-      console.error('Erreur lors de la création', error);
+      console.error("Erreur lors de l'ajout :", error.response?.data);
     } finally {
       setLoadingCreate(false);
     }
@@ -72,12 +182,19 @@ const ListeEtudiant = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      await axios.put(`http://127.0.0.1:8000/api/etudiants/${editEtudiant.id}`, editEtudiant);
-      setEtudiants(etudiants.map(e => e.id === editEtudiant.id ? { ...e, ...editEtudiant } : e));
+      const response = await axios.put(
+        `http://127.0.0.1:8000/api/etudiants/${editEtudiant.id}`,
+        editEtudiant
+      );
+      const updatedList = etudiants.map((etudiant) =>
+        etudiant.id === editEtudiant.id ? { ...etudiant, ...editEtudiant } : etudiant
+      );
+      setEtudiants(updatedList);
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
-      modal.hide();
+      if (modal) modal.hide();
+      setEditEtudiant(null);
     } catch (error) {
-      console.error('Erreur lors de la mise à jour', error);
+      console.error("Erreur lors de la mise à jour :", error.response?.data || error.message);
     } finally {
       setLoadingUpdate(false);
     }
@@ -87,15 +204,102 @@ const ListeEtudiant = () => {
     setLoadingDeleteId(confirmDeleteId);
     try {
       await axios.delete(`http://127.0.0.1:8000/api/etudiants/${confirmDeleteId}`);
-      setEtudiants(etudiants.filter(e => e.id !== confirmDeleteId));
+      setEtudiants(etudiants.filter(etudiant => etudiant.id !== confirmDeleteId));
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-      modal.hide();
+      if (modal) modal.hide();
     } catch (error) {
-      console.error('Erreur lors de la suppression', error);
+      console.error("Erreur lors de la suppression :", error);
     } finally {
       setLoadingDeleteId(null);
     }
   };
+
+  // const handleImport = async (file) => {
+  //   setLoadingImport(true);
+  //   try {
+  //     const formData = new FormData();
+  //     formData.append('file', file);
+      
+  //     const response = await axios.post(`http://127.0.0.1:8000/api/etudiants/import`, formData, {
+  //       headers: {
+  //         'Content-Type': 'multipart/form-data'
+  //       }
+  //     });
+
+  //     setEtudiants([...etudiants, ...response.data.imported]);
+      
+  //     const modal = window.bootstrap.Modal.getInstance(document.getElementById('importModal'));
+  //     if (modal) modal.hide();
+      
+  //     alert(`${response.data.imported.length} étudiants importés avec succès!`);
+      
+  //   } catch (error) {
+  //     console.error("Erreur lors de l'import :", error.response?.data);
+  //     alert("Erreur lors de l'import du fichier");
+  //   } finally {
+  //     setLoadingImport(false);
+  //   }
+  // };
+  const handleImport = async (file) => {
+    setLoadingImport(true);
+    const formData = new FormData();
+    formData.append('file', file);
+  
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/api/etudiants/import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+  
+      console.log("Réponse de l'import :", response.data);
+      alert(response.data.message); // devrait afficher "Importation réussie."
+    } catch (error) {
+      console.error("Erreur lors de l'import :", error.response?.data, error);
+      alert("Erreur lors de l'import du fichier");
+    }finally {
+      setLoadingImport(false);
+    }
+  };
+  
+  // Fonctions pour les modales
+  const openAddModal = () => {
+    setNewEtudiant({ 
+      nom_prenom: '', 
+      diocese: '', 
+      email: '', 
+      telephone: '', 
+      matricule: '', 
+      niveau: '', 
+      filiere: '' 
+    });
+    const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
+    modal.show();
+  };
+
+  const openEditModal = (etudiant) => {
+    setEditEtudiant({ ...etudiant });
+    const modal = new window.bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+  };
+
+  const openDeleteModal = (id) => {
+    setConfirmDeleteId(id);
+    const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+  };
+
+  const openDetailModal = (etudiant) => {
+    setDetailEtudiant(etudiant);
+    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
+    modal.show();
+  };
+
+  const openImportModal = () => {
+    const modal = new window.bootstrap.Modal(document.getElementById('importModal'));
+    modal.show();
+  };
+
   if (loading) {
     return (
       <div className="text-center py-5">
@@ -111,255 +315,163 @@ const ListeEtudiant = () => {
         <span className="text-muted fw-light text-capitalize">{role} /</span> Étudiants
       </h4>
 
-      <input
-        type="text"
-        placeholder="Rechercher un étudiant..."
-        className="form-control mb-3"
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setCurrentPage(0);
-        }}
-      />
+      {/* 🔹 Filtre année académique */}
+      <div className="mb-3">
+        <label className="form-label">Année académique:</label>
+        <select
+          className="form-select w-auto d-inline ms-2"
+          value={selectedAnnee || ''}
+          onChange={e => handleAnneeChange(e.target.value)}
+        >
+          {annees.map(a => (
+            <option key={a.id} value={a.id}>{a.annee_aca}</option>
+          ))}
+        </select>
+      </div>
 
-      {role === 'admin' && (
-        <div className="mb-3 d-flex gap-2">
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              setNewEtudiant({ nom_prenom: '', diocese: '', email: '', telephone: '' });
-              openModal('addModal');
-            }}
-          >
-            Nouveau
-          </button>
-          <button className="btn btn-outline-secondary">Import fichier</button>
-        </div>
-      )}
+      {/* 🔹 Sélecteur de niveau (L1–L3) */}
+      <ul className="nav nav-pills mb-3">
+        {[1, 2, 3].map(i => (
+          <li className="nav-item" key={i}>
+            <button
+              className={`nav-link ${niveau === i ? 'active' : ''}`}
+              onClick={() => handleNiveauChange(i)}
+            >
+              Liste des étudiants en L{i}
+            </button>
+          </li>
+        ))}
+      </ul>
 
       <div className="card">
-        <h5 className="card-header">Liste des étudiants</h5>
-        <div className="table-responsive text-nowrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Email</th>
-                {role === 'admin' && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {currentEtudiants.map((e) => (
-                <tr key={e.id} style={{ cursor: 'pointer' }}>
-                  <td onClick={() => openNotesModal(e)}>{e.nom_prenom}</td>
-                  <td onClick={() => openNotesModal(e)}>{e.email}</td>
-                  {role === 'admin' && (
-                    <td>
-                      <button
-                        className="btn btn-sm btn-outline-primary me-2"
-                        onClick={(ev) => { ev.stopPropagation(); openEditModal(e); }}
-                        title="Modifier"
-                      >
-                        <i className="bx bx-edit"></i>
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={(ev) => { ev.stopPropagation(); openDeleteModal(e.id); }}
-                        title="Supprimer"
-                      >
-                        <i className="bx bx-trash"></i>
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          <nav className="mt-3" aria-label="Pagination">
-            <ul className="pagination justify-content-center">
-              <li className={`page-item ${currentPage === 0 ? 'disabled' : ''}`}>
-                <button className="page-link" onClick={() => setCurrentPage(0)}>&laquo;</button>
-              </li>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <li key={i} className={`page-item ${i === currentPage ? 'active' : ''}`}>
-                  <button className="page-link" onClick={() => setCurrentPage(i)}>{i + 1}</button>
-                </li>
-              ))}
-              <li className={`page-item ${currentPage === totalPages - 1 ? 'disabled' : ''}`}>
-                <button className="page-link" onClick={() => setCurrentPage(totalPages - 1)}>&raquo;</button>
-              </li>
-            </ul>
-          </nav>
+        <h5 className="card-header">
+          Liste des étudiants en L{niveau}
+          {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
+            <span className="text-muted ms-2">
+              - {annees.find(a => a.id == selectedAnnee)?.annee_aca}
+            </span>
+          )}
+        </h5>
+        {role === 'admin' && (
+        <div className="mb-3 ms-4">
+          <button className="btn btn-primary me-2" onClick={openAddModal}>
+            Nouveau
+          </button>
+          <button className="btn btn-success" onClick={openImportModal}>
+            <i className="bx bx-import me-1"></i>
+            Importer Fichier
+          </button>
         </div>
+      )}
+        {/* Barre de recherche dans la carte */}
+        <div className="card-body pb-0">
+          <SearchBar
+            searchTerm={searchTerm}
+            onSearchChange={handleSearchChange}
+            placeholder="Rechercher un étudiant..."
+          />
+        </div>
+
+        <DataTable
+          headers={tableHeaders}
+          data={currentEtudiants}
+          onRowClick={openDetailModal}
+          onEdit={openEditModal}
+          onDelete={openDeleteModal}
+          role={role}
+          renderCell={(etudiant, field) => {
+            const value = etudiant[field];
+            return value ? value : '--';
+          }}
+        />
+
+        {currentEtudiants.length === 0 && (
+          <div className="text-center py-4 text-warning">
+            Aucun étudiant trouvé pour L{niveau} 
+            {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
+              <span> en {annees.find(a => a.id == selectedAnnee)?.annee_aca}</span>
+            )}
+          </div>
+        )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
-      {/* Modal des notes */}
-      <div
-        className="modal fade"
-        id="notesModal"
-        tabIndex="-1"
-        aria-labelledby="notesModalLabel"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog modal-lg">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">{selectedEtudiant?.nom_prenom}</h5>
-              {/* <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Fermer"
-              ></button> */}
+      {/* Modales */}
+      <AddModal
+        modalId="addModal"
+        title="Ajouter un étudiant"
+        fields={etudiantFields}
+        formData={newEtudiant}
+        onFormChange={(field, value) => handleFormChange(field, value, false)}
+        onSubmit={handleCreate}
+        loading={loadingCreate}
+        buttonText="Ajouter"
+      />
+
+      <EditModal
+        modalId="editModal"
+        title="Modifier un étudiant"
+        fields={etudiantFields}
+        formData={editEtudiant || {}}
+        onFormChange={(field, value) => handleFormChange(field, value, true)}
+        onSubmit={handleUpdate}
+        loading={loadingUpdate}
+        buttonText="Enregistrer"
+      />
+
+      <DeleteModal
+        modalId="deleteModal"
+        title="Confirmer la suppression"
+        message="Voulez-vous vraiment supprimer cet étudiant ?"
+        onConfirm={handleDelete}
+        loading={loadingDeleteId === confirmDeleteId}
+      />
+
+      <DetailModal
+        modalId="detailModal"
+        title={detailEtudiant?.nom_prenom || 'Détail de l\'étudiant'}
+        data={detailEtudiant}
+        fields={etudiantFields}
+        customRender={(data) => (
+          <div className="row">
+            {/* <div className="mb-3">
+              <strong>Nom Prénom:</strong> {data?.nom_prenom || '--'}
+            </div> */}
+            <div className="mb-3">
+              <strong>Matricule:</strong> {data?.matricule || '--'}
             </div>
-            <div className="modal-body">
-              {selectedEtudiant ? (
-                <>
-                  <p><strong>Immatricule :</strong> {selectedEtudiant.id}</p>
-                  <p><strong>Diocèse :</strong> {selectedEtudiant.diocese}</p>
-                  {/* Niveau non dispo dans ton modèle, donc tu peux ajuster ou retirer */}
-                  {/* <p><strong>Niveau :</strong> L{selectedEtudiant.annee}</p> */}
-
-                  <p><u><strong>Note :</strong></u></p>
-
-                  <div className="table-responsive">
-                    <table className="table table-bordered">
-                      <thead>
-                        <tr>
-                          <th>Matière</th>
-                          <th>Note /20</th>
-                          <th>Coefficient</th>
-                          <th>Mention</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[ // données statiques
-                          { matiere: "Français", note: 12, coef: 2 },
-                          { matiere: "Mathématiques", note: 16, coef: 3 },
-                          { matiere: "Histoire", note: 10, coef: 2 },
-                          { matiere: "Anglais", note: 14, coef: 1 },
-                        ].map((m, i) => {
-                          const mention =
-                            m.note >= 16 ? "Très bien" :
-                            m.note >= 14 ? "Bien" :
-                            m.note >= 12 ? "Assez bien" :
-                            m.note >= 10 ? "Passable" : "Insuffisant";
-
-                          return (
-                            <tr key={i}>
-                              <td>{m.matiere}</td>
-                              <td>{m.note}</td>
-                              <td>{m.coef}</td>
-                              <td>{mention}</td>
-                            </tr>
-                          );
-                        })}
-
-                        {/* Calcul moyenne */}
-                        {
-                          (() => {
-                            const notes = [
-                              { note: 12, coef: 2 },
-                              { note: 16, coef: 3 },
-                              { note: 10, coef: 2 },
-                              { note: 14, coef: 1 },
-                            ];
-                            const totalCoef = notes.reduce((sum, n) => sum + n.coef, 0);
-                            const totalNote = notes.reduce((sum, n) => sum + n.note * n.coef, 0);
-                            const moyenne = (totalNote / totalCoef).toFixed(2);
-
-                            const mentionGlobale =
-                              moyenne >= 16 ? "Très bien" :
-                              moyenne >= 14 ? "Bien" :
-                              moyenne >= 12 ? "Assez bien" :
-                              moyenne >= 10 ? "Passable" : "Insuffisant";
-
-                            return (
-                              <>
-                                <tr className="table-active">
-                                  <td colSpan="2"><strong>Total coefficients :</strong> {totalCoef}</td>
-                                  <td colSpan="2"><strong>Total pondéré :</strong> {totalNote}</td>
-                                </tr>
-                                <tr>
-                                  <td colSpan="4" className="text-end">
-                                    <strong>Moyenne Générale : {moyenne}/20</strong>
-                                    <span className="ms-3 badge bg-primary">{mentionGlobale}</span>
-                                  </td>
-                                </tr>
-                              </>
-                            );
-                          })()
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <p>Chargement…</p>
-              )}
+            <div className="mb-3">
+              <strong>Email:</strong> {data?.email || '--'}
             </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            <div className="mb-3">
+              <strong>Téléphone:</strong> {data?.telephone || '--'}
+            </div>
+            <div className="mb-3">
+              <strong>Diocese:</strong> {data?.diocese || '--'}
+            </div>
+            <div className="mb-3">
+              <strong>Niveau:</strong> {data?.niveau || '--'}
+            </div>
+            <div className="mb-3">
+              <strong>Filière:</strong> {data?.filiere || '--'}
             </div>
           </div>
-        </div>
-      </div>
+        )}
+      />
 
-{/* Modal Modifier */}
-<div className="modal fade" id="editModal" tabIndex="-1">
-<div className="modal-dialog modal-dialog-centered">
-  <div className="modal-content p-3">
-    <h5 className="modal-title">Modifier un étudiant</h5>
-    <input className="form-control mb-2" value={editEtudiant?.nom_prenom || ''} onChange={e => setEditEtudiant({ ...editEtudiant, nom_prenom: e.target.value })} />
-    <input className="form-control mb-2" value={editEtudiant?.diocese || ''} onChange={e => setEditEtudiant({ ...editEtudiant, diocese: e.target.value })} />
-    <input className="form-control mb-2" value={editEtudiant?.email || ''} onChange={e => setEditEtudiant({ ...editEtudiant, email: e.target.value })} />
-    <input className="form-control mb-2" value={editEtudiant?.telephone || ''} onChange={e => setEditEtudiant({ ...editEtudiant, telephone: e.target.value })} />
-    <div className="modal-footer">
-      <button className="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-      <button className="btn btn-primary" onClick={handleUpdate} disabled={loadingUpdate}>
-        {loadingUpdate ? 'Modification...' : 'Modifier'}
-      </button>
-    </div>
-  </div>
-</div>
-</div>
-
-{/* Modal Détail */}
-<div className="modal fade" id="detailModal" tabIndex="-1">
-<div className="modal-dialog modal-dialog-centered">
-  <div className="modal-content p-3">
-    <h5 className="modal-title">Détail Étudiant</h5>
-    {detailEtudiant && (
-      <>
-        <p><strong>Nom :</strong> {detailEtudiant.nom_prenom}</p>
-        <p><strong>Diocèse :</strong> {detailEtudiant.diocese}</p>
-        <p><strong>Email :</strong> {detailEtudiant.email || '--'}</p>
-        <p><strong>Téléphone :</strong> {detailEtudiant.telephone || '--'}</p>
-      </>
-    )}
-    <div className="modal-footer">
-      <button className="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-    </div>
-  </div>
-</div>
-</div>
-
-{/* Modal Supprimer */}
-<div className="modal fade" id="deleteModal" tabIndex="-1">
-<div className="modal-dialog modal-dialog-centered">
-  <div className="modal-content p-3">
-    <h5 className="modal-title">Confirmation</h5>
-    <p>Voulez-vous vraiment supprimer cet étudiant ?</p>
-    <div className="modal-footer">
-      <button className="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-      <button className="btn btn-danger" onClick={() => handleDelete(confirmDeleteId)} disabled={loadingDeleteId === confirmDeleteId}>
-        {loadingDeleteId === confirmDeleteId ? 'Suppression...' : 'Supprimer'}
-      </button>
-    </div>
-  </div>
-</div>
-</div>
+      <ImportModal
+        modalId="importModal"
+        title="Importer des étudiants"
+        onImport={handleImport}
+        loading={loadingImport}
+        acceptedFormats=".csv,.xlsx,.xls"
+        // description="Sélectionnez un fichier CSV ou Excel contenant les données des étudiants"
+      />
     </div>
   );
 };
