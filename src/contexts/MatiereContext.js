@@ -11,9 +11,14 @@ export const MatiereProvider = ({ children }) => {
 
   const fetchMatieres = async () => {
     setLoading(true);
-    const res = await axios.get('http://127.0.0.1:8000/api/matieres');
-    setMatieres(res.data);
-    setLoading(false);
+    try {
+      const response = await axios.get('http://127.0.0.1:8000/api/matieres');
+      setMatieres(response.data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des matières :", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import { useMatiere } from '../contexts/MatiereContext';
 import { useNiveau } from '../contexts/NiveauContext';
 import { useSemestre } from '../contexts/SemestreContext';
 import axios from 'axios';
+import SearchBar from './SearchBar';
+import DataTable from './DataTable';
+import AddModal from './AddModal';
+import EditModal from './EditModal';
+import DeleteModal from './DeleteModal';
+import DetailModal from './DetailModal';
+import Pagination from './Pagination';
 
 const Matiere = () => {
   const { matieres, fetchMatieres } = useMatiere();
@@ -26,11 +33,16 @@ const Matiere = () => {
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   const [alert, setAlert] = useState({ message: '', type: '' });
-
-  const openModal = (id) => {
-    const modal = new window.bootstrap.Modal(document.getElementById(id));
-    modal.show();
-  };
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
+  
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [search, niveauFilter, semestreFilter]);
+    const openModal = (id) => {
+      const modal = new window.bootstrap.Modal(document.getElementById(id));
+      modal.show();
+    };
 
   const handleEdit = (matiere) => {
     setSelected(matiere);
@@ -88,8 +100,40 @@ const Matiere = () => {
     .filter(m => m.matiere.toLowerCase().includes(search.toLowerCase()))
     .filter(m => !niveauFilter || m.id_niveau === parseInt(niveauFilter))
     .filter(m => !semestreFilter || m.id_semestre === parseInt(semestreFilter));
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = filtered.slice(
+      currentPage * itemsPerPage,
+      (currentPage + 1) * itemsPerPage
+  );
+  const matiereFields = [
+    { name: 'matiere', label: 'Matière', required: true },
+    { name: 'heures', label: 'Heures', type: 'number', required: true },
+    {
+      name: 'id_niveau',
+      label: 'Niveau',
+      type: 'select',
+      options: niveaux.map(n => ({ value: n.id, label: n.niveau })),
+      required: true
+    },
+    {
+      name: 'id_semestre',
+      label: 'Semestre',
+      type: 'select',
+      options: semestres.map(s => ({ value: s.id, label: s.code_semestre })),
+      required: true
+    },
+    { name: 'code_matiere', label: 'Code matière' },
+    { name: 'coefficient', label: 'Coefficient', type: 'number' },
+  ];
 
-
+  const tableHeaders = [
+    { label: 'Matière', field: 'matiere' },
+    { label: 'Code', field: 'code_matiere' },
+    { label: 'Coeff', field: 'coefficient' },
+    { label: 'Niveau', field: 'niveau.niveau' },
+    { label: 'Semestre', field: 'semestre.code_semestre' }
+  ]
+  
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">Gestion des matières</h4>
@@ -100,14 +144,6 @@ const Matiere = () => {
           <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
         </div>
       )}
-
-      <input
-        type="text"
-        placeholder="Rechercher une matière..."
-        className="form-control mb-3"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
 
       <div className="mb-3">
         <button
@@ -124,8 +160,15 @@ const Matiere = () => {
 
       <div className="card">
         <h5 className="card-header">Liste des matières</h5>
+        <div className="card-body pb-0">
+          <SearchBar 
+          searchTerm={search} 
+          onSearchChange={setSearch} 
+          placeholder="Rechercher une matière..."
+        />
+        </div>
         <div className="row px-3 py-2">
-          <div className="col-md-6 mb-2">
+          <div className="col-md-6 mb-2"> 
             <select
               className="form-control"
               value={niveauFilter}
@@ -150,158 +193,93 @@ const Matiere = () => {
             </select>
           </div>
         </div>
-
-        <div className="table-responsive text-nowrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Matière</th>
-                {/* <th>Heures</th> */}
-                <th>Code</th>
-                <th>Coeff</th>
-                <th>Niveau</th>
-                <th>Semestre</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(m => (
-                <tr key={m.id} onClick={() => { setDetail(m); openModal('detailModal'); }} style={{ cursor: 'pointer' }}>
-                  <td>{m.matiere}</td>
-                  {/* <td>{m.heures}</td> */}
-                  <td>{m.code_matiere || '--'}</td>
-                  <td>{m.coefficient || '--'}</td>
-                  <td>{m.niveau?.niveau}</td>
-                  <td>{m.semestre?.code_semestre || '--'}</td>
-                  <td>
-                    <button className="btn btn-sm btn-outline-primary me-2" onClick={(e) => { e.stopPropagation(); handleEdit(m); }}>
-                      <i className="bx bx-edit"></i>
-                    </button>
-                    <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); setDeleteId(m.id); openModal('deleteModal'); }}>
-                      <i className="bx bx-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          headers={tableHeaders}
+          data={paginated}
+          role="admin"
+          onRowClick={(matiere) => {
+            setDetail(matiere);
+            openModal('detailModal');
+          }}
+          onEdit={(matiere) => {
+            setSelected(matiere);
+            setForm({
+              matiere: matiere.matiere,
+              heures: matiere.heures,
+              id_niveau: matiere.id_niveau,
+              id_semestre: matiere.id_semestre,
+              code_matiere: matiere.code_matiere,
+              coefficient: matiere.coefficient
+            });
+            openModal('editModal');
+          }}
+          onDelete={(id) => {
+            setDeleteId(id);
+            openModal('deleteModal');
+          }}
+          renderCell={(item, field) => {
+            const value = field.split('.').reduce((acc, part) => acc?.[part], item);
+            return value || '--';
+          }}
+        />
+      <Pagination 
+        currentPage={currentPage} 
+        totalPages={totalPages} 
+        onPageChange={setCurrentPage} 
+      />
       </div>
-{/* Modals */}
-      {/* Add/Edit */}
-      <div className="modal fade" id="addModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content p-3">
-            <div className="modal-header">
-              <h5 className="modal-title">Ajouter une matière</h5>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <input className="form-control mb-2" value={form.matiere} onChange={e => setForm({ ...form, matiere: e.target.value })} placeholder="Matière" required />
-                <input className="form-control mb-2" type="number" value={form.heures} onChange={e => setForm({ ...form, heures: e.target.value })} placeholder="Heures" required />
-                <select className="form-control mb-2" value={form.id_niveau} onChange={e => setForm({ ...form, id_niveau: e.target.value })} required>
-                  <option value="">Sélectionner un niveau</option>
-                  {niveaux.map(n => <option key={n.id} value={n.id}>{n.niveau}</option>)}
-                </select>
-                <select className="form-control mb-2" value={form.id_semestre} onChange={e => setForm({ ...form, id_semestre: e.target.value })} required>
-                  <option value="">Sélectionner une semeste</option>
-                  {semestres.map(s => <option key={s.id} value={s.id}>{s.code_semestre}</option>)}
-                </select>
-                <input className="form-control mb-2" value={form.code_matiere} onChange={e => setForm({ ...form, code_matiere: e.target.value })} placeholder="Code matière (facultatif)" />
-                <input className="form-control mb-2" type="number" value={form.coefficient} onChange={e => setForm({ ...form, coefficient: e.target.value })} placeholder="Coefficient (facultatif)" />
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="submit" className="btn btn-primary" disabled={loadingSubmit}>
-                  Enregistrer
-                  {loadingSubmit && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <AddModal
+        modalId="addModal"
+        title="Ajouter une matière"
+        fields={matiereFields}
+        formData={form}
+        onFormChange={(name, value) => setForm({ ...form, [name]: value })}
+        onSubmit={handleSubmit}
+        loading={loadingSubmit}
+      />
 
-      {/* Edit modal reuse same ID */}
-      <div className="modal fade" id="editModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content p-3">
-            <div className="modal-header">
-              <h5 className="modal-title">Modifier la matière</h5>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <input className="form-control mb-2" value={form.matiere} onChange={e => setForm({ ...form, matiere: e.target.value })} placeholder="Matière" required />
-                <input className="form-control mb-2" type="number" value={form.heures} onChange={e => setForm({ ...form, heures: e.target.value })} placeholder="Heures" required />
-                <select className="form-control mb-2" value={form.id_niveau} onChange={e => setForm({ ...form, id_niveau: e.target.value })} required>
-                  <option value="">Sélectionner un niveau</option>
-                  {niveaux.map(n => <option key={n.id} value={n.id}>{n.niveau}</option>)}
-                </select>
-                <select className="form-control mb-2" value={form.id_semestre} onChange={e => setForm({ ...form, id_semestre: e.target.value })} required>
-                  <option value="">Sélectionner un niveau</option>
-                  {semestres.map(s => <option key={s.id} value={s.id}>{s.code_semestre}</option>)}
-                </select>
-                <input className="form-control mb-2" value={form.code_matiere} onChange={e => setForm({ ...form, code_matiere: e.target.value })} placeholder="Code matière" />
-                <input className="form-control mb-2" type="number" value={form.coefficient} onChange={e => setForm({ ...form, coefficient: e.target.value })} placeholder="Coefficient" />
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="submit" className="btn btn-primary" disabled={loadingSubmit}>
-                  Modifier
-                  {loadingSubmit && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <EditModal
+        modalId="editModal"
+        title="Modifier la matière"
+        fields={matiereFields}
+        formData={form}
+        onFormChange={(name, value) => setForm({ ...form, [name]: value })}
+        onSubmit={handleSubmit}
+        loading={loadingSubmit}
+      />
 
-      {/* Detail modal */}
-      <div className="modal fade" id="detailModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content p-3">
-            <div className="modal-header">
-              <h5 className="modal-title">Détail de la matière</h5>
-            </div>
-            <div className="modal-body">
-              {detail ? (
-                <>
-                  <p><strong>Matière :</strong> {detail.matiere}</p>
-                  <p><strong>Heures :</strong> {detail.heures}</p>
-                  <p><strong>Niveau :</strong> {detail.niveau?.niveau}</p>
-                  <p><strong>Code :</strong> {detail.code_matiere || '--'}</p>
-                  <p><strong>Coefficient :</strong> {detail.coefficient || '--'}</p>
-                </>
-              ) : <p>Aucune information</p>}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <DetailModal
+        modalId="detailModal"
+        title="Détail de la matière"
+        data={detail}
+        fields={[
+          { name: 'matiere', label: 'Matière' },
+          { name: 'heures', label: 'Heures' },
+          { name: 'code_matiere', label: 'Code' },
+          { name: 'coefficient', label: 'Coefficient' },
+          { name: 'niveau.niveau', label: 'Niveau' },
+          { name: 'semestre.code_semestre', label: 'Semestre' }
+        ]}
+        customRender={(data) => (
+          <>
+            <p><strong>Matière :</strong> {data?.matiere}</p>
+            <p><strong>Heures :</strong> {data?.heures}</p>
+            <p><strong>Code :</strong> {data?.code_matiere || '--'}</p>
+            <p><strong>Coefficient :</strong> {data?.coefficient || '--'}</p>
+            <p><strong>Niveau :</strong> {data?.niveau?.niveau}</p>
+            <p><strong>Semestre :</strong> {data?.semestre?.code_semestre}</p>
+          </>
+        )}
+      />
 
-      {/* Delete confirmation */}
-      <div className="modal fade" id="deleteModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">Confirmer la suppression</h5>
-            </div>
-            <div className="modal-body">
-              <p>Voulez-vous vraiment supprimer cette matière ?</p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-              <button className="btn btn-danger" onClick={handleDelete} disabled={loadingDeleteId}>
-                Supprimer
-                {loadingDeleteId && <span className="spinner-border spinner-border-sm ms-2" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>    
-    </div>
+      <DeleteModal
+        modalId="deleteModal"
+        message="Voulez-vous vraiment supprimer cette matière ?"
+        onConfirm={handleDelete}
+        loading={loadingDeleteId}
+      />
+
+  </div>
   );
 };
 

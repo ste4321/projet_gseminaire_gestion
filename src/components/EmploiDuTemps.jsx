@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
 import axios from 'axios';
@@ -28,17 +28,22 @@ const EmploiDuTemps = () => {
     image: null,
     semestre: 1
   });
-  const [imageLoading, setImageLoading] = useState(true);
+  const [imageLoading, setImageLoading] = useState({});
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const emploiActuel = semestre === 1 ? emploiSemestre1 : emploiSemestre2;
+  const emploiActuel = useMemo(() => 
+    semestre === 1 ? emploiSemestre1 : emploiSemestre2, 
+    [semestre, emploiSemestre1, emploiSemestre2]
+  );
+  
   const totalPages = emploiActuel.length;
+  const currentEmploi = emploiActuel[page];
 
   // Configuration des champs pour les modales
-  const emploiFields = [
+  const emploiFields = useMemo(() => [
     { 
       name: 'image', 
       label: 'Fichier image', 
@@ -56,9 +61,9 @@ const EmploiDuTemps = () => {
       ],
       required: true 
     }
-  ];
+  ], []);
   
-  const editFields = [
+  const editFields = useMemo(() => [
     { 
       name: 'image', 
       label: 'Nouvelle image', 
@@ -66,14 +71,42 @@ const EmploiDuTemps = () => {
       accept: 'image/*', 
       required: true 
     }
-  ];
+  ], []);
+
   useEffect(() => {
     setRole(localStorage.getItem('role'));
   }, []);
 
+  // Gérer le chargement des images de manière plus fine
+  const handleImageLoadStart = useCallback((imageId) => {
+    setImageLoading(prev => ({ ...prev, [imageId]: true }));
+  }, []);
+
+  const handleImageLoadEnd = useCallback((imageId) => {
+    setImageLoading(prev => ({ ...prev, [imageId]: false }));
+  }, []);
+
+  // Précharger les images adjacentes pour une navigation plus fluide
   useEffect(() => {
-    setImageLoading(true);
-  }, [page, emploiActuel]);
+    if (currentEmploi) {
+      const currentImageId = currentEmploi.id;
+      handleImageLoadStart(currentImageId);
+
+      // Précharger l'image précédente et suivante
+      const preloadImages = [];
+      if (page > 0 && emploiActuel[page - 1]) {
+        preloadImages.push(emploiActuel[page - 1]);
+      }
+      if (page < emploiActuel.length - 1 && emploiActuel[page + 1]) {
+        preloadImages.push(emploiActuel[page + 1]);
+      }
+
+      preloadImages.forEach(emploi => {
+        const img = new Image();
+        img.src = `http://127.0.0.1:8000${emploi.image_url}`;
+      });
+    }
+  }, [currentEmploi, page, emploiActuel, handleImageLoadStart]);
 
   // Réinitialiser la page si elle dépasse la nouvelle longueur
   useEffect(() => {
@@ -82,29 +115,29 @@ const EmploiDuTemps = () => {
     }
   }, [emploiActuel.length, page]);
 
-  const handleChangeSemestre = (s) => {
+  const handleChangeSemestre = useCallback((s) => {
     setSemestre(s);
     setPage(0);
-  };
+    // Réinitialiser les états de chargement d'images
+    setImageLoading({});
+  }, []);
 
-  const handleFormChange = (field, value, isEdit = false) => {
+  const handleFormChange = useCallback((field, value, isEdit = false) => {
     let processedValue = value;
     
     // Pour le champ semestre, convertir en entier
     if (field === 'semestre') {
       processedValue = parseInt(value);
     }
-    // Pour les fichiers, la valeur est déjà un objet File
-    // Pas besoin de traitement supplémentaire
     
     if (isEdit) {
       setEditEmploi(prev => ({ ...prev, [field]: processedValue }));
     } else {
       setNewEmploi(prev => ({ ...prev, [field]: processedValue }));
     }
-  };
+  }, []);
 
-  const handleCreate = async () => {
+  const handleCreate = useCallback(async () => {
     if (!newEmploi.image) return;
 
     setLoadingCreate(true);
@@ -127,7 +160,7 @@ const EmploiDuTemps = () => {
       // Réinitialiser et fermer
       setNewEmploi({ image: null, semestre: 1 });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
-      modal.hide();
+      modal?.hide();
       
       // Si on a ajouté dans le semestre actuel, aller à la nouvelle page
       if (newEmploi.semestre === semestre) {
@@ -135,15 +168,16 @@ const EmploiDuTemps = () => {
       }
       
       setSuccessMessage("L'emploi du temps a été ajouté avec succès !");
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
       console.error("Erreur lors de l'ajout :", error);
     } finally {
       setLoadingCreate(false);
     }
-  };
+  }, [newEmploi, semestre, emploiActuel.length, setEmploiSemestre1, setEmploiSemestre2]);
 
-  const handleUpdate = async () => {
-    if (!editEmploi.image || !emploiActuel[page]) return;
+  const handleUpdate = useCallback(async () => {
+    if (!editEmploi?.image || !currentEmploi) return;
 
     setLoadingUpdate(true);
     const formData = new FormData();
@@ -152,7 +186,7 @@ const EmploiDuTemps = () => {
     formData.append('email', localStorage.getItem('email'));
 
     try {
-      const res = await axios.post(`http://127.0.0.1:8000/api/emplois/${emploiActuel[page].id}/upload`, formData, {
+      const res = await axios.post(`http://127.0.0.1:8000/api/emplois/${currentEmploi.id}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -161,20 +195,21 @@ const EmploiDuTemps = () => {
       (semestre === 1 ? setEmploiSemestre1 : setEmploiSemestre2)(updatedList);
 
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
-      if (modal) modal.hide();
+      modal?.hide();
       setEditEmploi(null);
       
-      // Forcer le rechargement de l'image
-      setImageLoading(true);
+      // Réinitialiser le state de chargement pour forcer le rechargement
+      setImageLoading(prev => ({ ...prev, [currentEmploi.id]: false }));
       setSuccessMessage("L'image a été mise à jour avec succès !");
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
       console.error("Erreur lors de la mise à jour :", error.response?.data || error.message);
     } finally {
       setLoadingUpdate(false);
     }
-  };
+  }, [editEmploi, currentEmploi, semestre, emploiActuel, page, setEmploiSemestre1, setEmploiSemestre2]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!confirmDeleteId) return;
 
     setLoadingDeleteId(confirmDeleteId);
@@ -191,34 +226,41 @@ const EmploiDuTemps = () => {
       }
       
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-      if (modal) modal.hide();
+      modal?.hide();
       setSuccessMessage("L'emploi du temps a été supprimé avec succès !");
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
       console.error('Erreur lors de la suppression :', error);
     } finally {
       setLoadingDeleteId(null);
     }
-  };
+  }, [confirmDeleteId, emploiActuel, semestre, page, setEmploiSemestre1, setEmploiSemestre2]);
 
-  const openAddModal = () => {
-    setNewEmploi({ image: null, semestre: semestre }); // Prendre le semestre actuel
+  const openAddModal = useCallback(() => {
+    setNewEmploi({ image: null, semestre: semestre });
     const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
     modal.show();
-  };
+  }, [semestre]);
 
-  const openEditModal = () => {
+  const openEditModal = useCallback(() => {
     setEditEmploi({ image: null });
     const modal = new window.bootstrap.Modal(document.getElementById('editModal'));
     modal.show();
-  };
+  }, []);
 
-  const openDeleteModal = () => {
-    setConfirmDeleteId(emploiActuel[page].id);
-    const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-  };
+  const openDeleteModal = useCallback(() => {
+    if (currentEmploi) {
+      setConfirmDeleteId(currentEmploi.id);
+      const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
+      modal.show();
+    }
+  }, [currentEmploi]);
 
-  const renderPagination = () => {
+  const handlePageChange = useCallback((newPage) => {
+    setPage(newPage);
+  }, []);
+
+  const renderPagination = useCallback(() => {
     if (totalPages <= 1) return null;
 
     const maxVisiblePages = 5;
@@ -235,30 +277,77 @@ const EmploiDuTemps = () => {
       <nav className="mt-4" aria-label="Pagination">
         <ul className="pagination justify-content-center">
           <li className={`page-item ${page === 0 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(0)}>
+            <button className="page-link" onClick={() => handlePageChange(0)} disabled={page === 0}>
               <FaAngleDoubleLeft />
             </button>
           </li>
           {pages.map(pg => (
             <li key={pg} className={`page-item ${pg === page ? 'active' : ''}`}>
-              <button className="page-link" onClick={() => setPage(pg)}>{pg + 1}</button>
+              <button className="page-link" onClick={() => handlePageChange(pg)}>{pg + 1}</button>
             </li>
           ))}
           <li className={`page-item ${page === totalPages - 1 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => setPage(totalPages - 1)}>
+            <button className="page-link" onClick={() => handlePageChange(totalPages - 1)} disabled={page === totalPages - 1}>
               <FaAngleDoubleRight />
             </button>
           </li>
         </ul>
       </nav>
     );
-  };
+  }, [totalPages, page, handlePageChange]);
+
+  // Composant ImageViewer optimisé
+  const ImageViewer = useMemo(() => {
+    if (!currentEmploi) return null;
+
+    const imageId = currentEmploi.id;
+    const imageUrl = `http://127.0.0.1:8000${currentEmploi.image_url}`;
+    const isLoading = imageLoading[imageId];
+
+    return (
+      <div className="position-relative">
+        {isLoading && (
+          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-light rounded border" style={{ zIndex: 1 }}>
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Chargement...</span>
+            </div>
+          </div>
+        )}
+        
+        <div className="d-flex justify-content-center align-items-center bg-light rounded border overflow-hidden" style={{ height: '60vh' }}>
+          <PhotoProvider>
+            <PhotoView src={imageUrl}>
+              <img
+                src={imageUrl}
+                alt={`Emploi du temps ${semestre === 1 ? 'premier' : 'deuxième'} semestre`}
+                className="w-100 h-100"
+                style={{
+                  objectFit: 'contain',
+                  cursor: 'zoom-in',
+                  opacity: isLoading ? 0 : 1,
+                  transition: 'opacity 0.3s ease'
+                }}
+                onLoadStart={() => handleImageLoadStart(imageId)}
+                onLoad={() => handleImageLoadEnd(imageId)}
+                onError={() => handleImageLoadEnd(imageId)}
+                loading="lazy"
+              />
+            </PhotoView>
+          </PhotoProvider>
+        </div>
+      </div>
+    );
+  }, [currentEmploi, imageLoading, semestre, handleImageLoadStart, handleImageLoadEnd]);
 
   if (loading) {
     return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement de l'emploi du temps...</p>
+      <div className="container-xxl flex-grow-1 container-p-y">
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Chargement...</span>
+          </div>
+          <p className="mt-3">Chargement de l'emploi du temps...</p>
+        </div>
       </div>
     );
   }
@@ -272,7 +361,12 @@ const EmploiDuTemps = () => {
       {successMessage && (
         <div className="alert alert-success alert-dismissible fade show" role="alert">
           {successMessage}
-          <button type="button" className="btn-close" onClick={() => setSuccessMessage('')} aria-label="Close"></button>
+          <button 
+            type="button" 
+            className="btn-close" 
+            onClick={() => setSuccessMessage('')} 
+            aria-label="Close"
+          ></button>
         </div>
       )}
 
@@ -280,26 +374,36 @@ const EmploiDuTemps = () => {
         <div className="col-md-12">
           <ul className="nav nav-pills flex-column flex-md-row mb-3">
             <li className="nav-item">
-              <button className={`nav-link ${semestre === 1 ? 'active' : ''}`} onClick={() => handleChangeSemestre(1)}>Premier semestre</button>
+              <button 
+                className={`nav-link ${semestre === 1 ? 'active' : ''}`} 
+                onClick={() => handleChangeSemestre(1)}
+              >
+                Premier semestre
+              </button>
             </li>
             <li className="nav-item">
-              <button className={`nav-link ${semestre === 2 ? 'active' : ''}`} onClick={() => handleChangeSemestre(2)}>Deuxième semestre</button>
+              <button 
+                className={`nav-link ${semestre === 2 ? 'active' : ''}`} 
+                onClick={() => handleChangeSemestre(2)}
+              >
+                Deuxième semestre
+              </button>
             </li>
           </ul>
 
           <div className="card mb-4 text-center p-4 pt-5 position-relative">
-            {/* Boutons d'action - Afficher "nouveau" toujours pour admin, autres boutons seulement s'il y a des images */}
+            {/* Boutons d'action */}
             {role === 'admin' && (
               <div className="position-absolute top-0 end-0 m-3 d-flex gap-2">
+                <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} title="Nouveau">
+                  <i className="bx bx-plus"></i>
+                </button>
                 {emploiActuel.length > 0 && (
                   <>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} title="nouveau">
-                      <i className="bx bx-plus"></i>
-                    </button>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="modifier">
+                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="Modifier">
                       <i className="bx bx-edit"></i>
                     </button>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="supprimer">
+                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="Supprimer">
                       <i className="bx bx-trash"></i>
                     </button>
                   </>
@@ -307,49 +411,23 @@ const EmploiDuTemps = () => {
               </div>
             )}
             <br />
-          {emploiActuel.length > 0 ? (
-            <>
-              <div className="position-relative">
-                {imageLoading && (
-                  <div className="d-flex justify-content-center align-items-center bg-light rounded border" style={{ height: '60vh' }}>
-                    <div className="spinner-border text-primary" role="status"></div>
-                  </div>
+            {emploiActuel.length > 0 ? (
+              <>
+                {ImageViewer}
+                {renderPagination()}
+              </>
+            ) : (
+              <div className="d-flex flex-column align-items-center justify-content-center bg-light rounded border" style={{ minHeight: '60vh' }}>
+                <i className="bx bx-calendar-x display-1 text-muted mb-3"></i>
+                <p className="text-muted fs-5">Aucun emploi du temps disponible pour ce semestre.</p>
+                {role === 'admin' && (
+                  <button className="btn btn-primary mt-3" onClick={openAddModal}>
+                    <i className="bx bx-plus me-2"></i>
+                    Ajouter un emploi du temps
+                  </button>
                 )}
-                
-                {/* Conteneur avec classes Bootstrap */}
-                <div className="d-flex justify-content-center align-items-center bg-light rounded border overflow-hidden" style={{ height: '60vh' }}>
-                  <PhotoProvider>
-                    <PhotoView src={`http://127.0.0.1:8000${emploiActuel[page].image_url}`}>
-                      <img
-                        src={`http://127.0.0.1:8000${emploiActuel[page].image_url}`}
-                        alt="emploi"
-                        className="w-100 h-100"
-                        style={{
-                          objectFit: 'contain',
-                          cursor: 'zoom-in',
-                          display: imageLoading ? 'none' : 'block'
-                        }}
-                        onLoad={() => setImageLoading(false)}
-                        onError={() => setImageLoading(false)}
-                      />
-                    </PhotoView>
-                  </PhotoProvider>
-                </div>
               </div>
-              {renderPagination()}
-            </>
-          ) : (
-            <div className="d-flex flex-column align-items-center justify-content-center bg-light rounded border" style={{ minHeight: '60vh' }}>
-              <i className="bx bx-calendar-x display-1 text-muted mb-3"></i>
-              <p className="text-muted fs-5">Aucun emploi du temps disponible pour ce semestre.</p>
-              {role === 'admin' && (
-                <button className="btn btn-primary mt-3" onClick={openAddModal}>
-                  <i className="bx bx-plus me-2"></i>
-                  Ajouter un emploi du temps
-                </button>
-              )}
-            </div>
-          )}
+            )}
           </div>
         </div>
       </div>
@@ -360,7 +438,7 @@ const EmploiDuTemps = () => {
         title="Ajouter un emploi du temps"
         fields={emploiFields}
         formData={newEmploi}
-        onFormChange={(field, value) => handleFormChange(field, value, false)}
+        onFormChange={handleFormChange}
         onSubmit={handleCreate}
         loading={loadingCreate}
         buttonText="Ajouter"

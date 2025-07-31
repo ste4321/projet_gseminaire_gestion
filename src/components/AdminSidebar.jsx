@@ -66,18 +66,18 @@ const AdminSidebar = () => {
             <div>Enseignant</div>
           </NavLink>
         </li>
-        {/* <li className="menu-item">
+        <li className="menu-item">
           <NavLink to="/admin/noteEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <i className="menu-icon tf-icons bx bx-edit-alt"></i>
             <div>Notes</div>
           </NavLink>
-        </li> */}
-        <li className="menu-item">
+        </li>
+        {/* <li className="menu-item">
           <NavLink to="/admin/niveau" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <i className="menu-icon tf-icons bx bx-layer"></i>
             <div>Niveau</div>
           </NavLink>
-        </li>
+        </li> */}
         <li className="menu-item">
           <NavLink to="/admin/annonce" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <i className="menu-icon tf-icons bx bx-message-square-dots"></i>
@@ -90,12 +90,12 @@ const AdminSidebar = () => {
             <div>Matière</div>
           </NavLink>
         </li>
-        <li className="menu-item">
+        {/* <li className="menu-item">
           <NavLink to="/admin/semestre" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <i className="menu-icon tf-icons bx bx-calendar-check"></i>
             <div>Semestre</div>
           </NavLink>
-        </li>
+        </li> */}
         <li className="menu-item">
           <NavLink to="/admin/listeEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <i className="menu-icon tf-icons bx bx-group"></i>

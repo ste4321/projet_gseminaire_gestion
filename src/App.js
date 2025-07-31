@@ -58,7 +58,6 @@ import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import useScripts from './hooks/useScripts';
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
-import NoteEtudiant from './components/NoteEtudiant';
 import InscriptionEtudiant from './pages/admin/InscriptionEtudiant';
 import AnnonceAdminProf from './components/AnnonceAdminProf';
 import PrivateRoute from './auth/PrivateRoute';
@@ -67,6 +66,8 @@ import Niveau from './pages/admin/Niveau';
 import Matiere from './components/Matiere';
 import Semestre from './components/Semestre';
 import ListeEtudiants from './components/ListeEtudiants';
+import NoteEtudiant from './components/NoteEtudiant';
+
 
 function App() {
   useScripts([
@@ -96,6 +97,7 @@ function App() {
           <Route path="matiere" element={<Matiere />} />
           <Route path="semestre" element={<Semestre />} />
           <Route path="listeEtudiant" element={<ListeEtudiants />} />
+          <Route path="noteEtudiant" element={<NoteEtudiant />} />
 
         </Route>
       </Route>

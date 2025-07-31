@@ -92,6 +92,10 @@ const Login = () => {
           case 401:
             errorMessage = 'Identifiants incorrects';
             break;
+          case 403:
+            // Nouveau cas pour compte non vérifié
+            errorMessage = err.response.data?.message || 'Votre compte n\'est pas encore vérifié. Veuillez contacter l\'administrateur.';
+            break;
           case 422:
             errorMessage = 'Données invalides';
             break;
@@ -141,7 +145,12 @@ const Login = () => {
                 </div>
               )}
 
-              <form id="formAuthentication" className="mb-3" onSubmit={handleLogin}>
+              <form 
+                id="formAuthentication" 
+                className="mb-3" 
+                onSubmit={handleLogin}
+                autoComplete="off"
+              >
                 <div className="mb-3">
                   <label htmlFor="email" className="form-label">Email</label>
                   <input
@@ -151,7 +160,10 @@ const Login = () => {
                     name="email"
                     placeholder="Entrer votre email"
                     autoFocus
-                    autoComplete="email"
+                    autoComplete="new-email"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
                     disabled={loading}
                   />
                   {errors.email && (
@@ -175,7 +187,10 @@ const Login = () => {
                       className={`form-control ${errors.password ? 'is-invalid' : ''}`}
                       name="password"
                       placeholder="••••••••••••"
-                      autoComplete="current-password"
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
                       disabled={loading}
                     />
                     <span 

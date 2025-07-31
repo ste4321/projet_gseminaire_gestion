@@ -10,6 +10,7 @@ export const EtudiantParcoursProvider = ({ children }) => {
 
   const fetchParcours = async () => {
     try {
+      setLoading(true); // Ajout pour indiquer le rechargement
       const res = await axios.get('http://127.0.0.1:8000/api/etudiant_parcours');
       setEtudiantParcours(res.data);
     } catch (error) {
@@ -19,12 +20,22 @@ export const EtudiantParcoursProvider = ({ children }) => {
     }
   };
 
+  // Fonction pour recharger les données (exposée au composant)
+  const refetchParcours = () => {
+    return fetchParcours();
+  };
+
   useEffect(() => {
     fetchParcours();
   }, []);
 
   return (
-    <EtudiantParcoursContext.Provider value={{ etudiantParcours, setEtudiantParcours, loading }}>
+    <EtudiantParcoursContext.Provider value={{ 
+      etudiantParcours, 
+      setEtudiantParcours, 
+      loading,
+      refetchParcours // 🔹 Nouvelle fonction exposée
+    }}>
       {children}
     </EtudiantParcoursContext.Provider>
   );

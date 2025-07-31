@@ -14,7 +14,7 @@ import DetailModal from './DetailModal';
 import ImportModal from './ImportModal';
 
 const ListeEtudiant = () => {
-  const { etudiantParcours } = useEtudiantParcours();
+  const { etudiantParcours, refetchParcours } = useEtudiantParcours();
   const { etudiants, setEtudiants, loading } = useEtudiant();
   
   // États pour les filtres
@@ -160,7 +160,12 @@ const ListeEtudiant = () => {
     setLoadingCreate(true);
     try {
       const response = await axios.post(`http://127.0.0.1:8000/api/etudiants`, newEtudiant);
-      setEtudiants([...etudiants, response.data]);
+      
+      // Fermer la modal
+      const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
+      modal.hide();
+      
+      // Réinitialiser le formulaire
       setNewEtudiant({ 
         nom_prenom: '', 
         diocese: '', 
@@ -170,14 +175,19 @@ const ListeEtudiant = () => {
         niveau: '', 
         filiere: '' 
       });
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
-      modal.hide();
+      
+      // 🔹 Recharger les données du contexte
+      await refetchParcours();
+      
+      console.log("Étudiant ajouté avec succès et données rechargées");
+      
     } catch (error) {
       console.error("Erreur lors de l'ajout :", error.response?.data);
     } finally {
       setLoadingCreate(false);
     }
   };
+  
 
   const handleUpdate = async () => {
     setLoadingUpdate(true);
@@ -186,13 +196,17 @@ const ListeEtudiant = () => {
         `http://127.0.0.1:8000/api/etudiants/${editEtudiant.id}`,
         editEtudiant
       );
-      const updatedList = etudiants.map((etudiant) =>
-        etudiant.id === editEtudiant.id ? { ...etudiant, ...editEtudiant } : etudiant
-      );
-      setEtudiants(updatedList);
+      
+      // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
       if (modal) modal.hide();
       setEditEtudiant(null);
+      
+      // 🔹 Recharger les données du contexte
+      await refetchParcours();
+      
+      console.log("Étudiant modifié avec succès et données rechargées");
+      
     } catch (error) {
       console.error("Erreur lors de la mise à jour :", error.response?.data || error.message);
     } finally {
@@ -204,60 +218,88 @@ const ListeEtudiant = () => {
     setLoadingDeleteId(confirmDeleteId);
     try {
       await axios.delete(`http://127.0.0.1:8000/api/etudiants/${confirmDeleteId}`);
-      setEtudiants(etudiants.filter(etudiant => etudiant.id !== confirmDeleteId));
+      
+      // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       if (modal) modal.hide();
+      
+      // 🔹 Recharger les données du contexte
+      await refetchParcours();
+      
+      console.log("Étudiant supprimé avec succès et données rechargées");
+      
     } catch (error) {
       console.error("Erreur lors de la suppression :", error);
     } finally {
       setLoadingDeleteId(null);
     }
   };
-
-  // const handleImport = async (file) => {
-  //   setLoadingImport(true);
-  //   try {
-  //     const formData = new FormData();
-  //     formData.append('file', file);
-      
-  //     const response = await axios.post(`http://127.0.0.1:8000/api/etudiants/import`, formData, {
-  //       headers: {
-  //         'Content-Type': 'multipart/form-data'
-  //       }
-  //     });
-
-  //     setEtudiants([...etudiants, ...response.data.imported]);
-      
-  //     const modal = window.bootstrap.Modal.getInstance(document.getElementById('importModal'));
-  //     if (modal) modal.hide();
-      
-  //     alert(`${response.data.imported.length} étudiants importés avec succès!`);
-      
-  //   } catch (error) {
-  //     console.error("Erreur lors de l'import :", error.response?.data);
-  //     alert("Erreur lors de l'import du fichier");
-  //   } finally {
-  //     setLoadingImport(false);
-  //   }
-  // };
+  
+  // Fonction handleImport améliorée pour ListeEtudiant.jsx
   const handleImport = async (file) => {
     setLoadingImport(true);
     const formData = new FormData();
     formData.append('file', file);
   
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/etudiants/import', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/etudiants/import', 
+        formData, 
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          },
+          timeout: 300000,
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            console.log(`Upload: ${percentCompleted}%`);
+          }
         }
-      });
+      );
   
       console.log("Réponse de l'import :", response.data);
-      alert(response.data.message); // devrait afficher "Importation réussie."
+      
+      // Affichage des résultats détaillés
+      let message = `✅ ${response.data.message}\n`;
+      message += `📊 ${response.data.processed_rows}/${response.data.total_rows} étudiants traités`;
+      message += ` (${response.data.success_rate})`;
+      
+      if (response.data.errors && response.data.errors.length > 0) {
+        message += `\n\n⚠️ ${response.data.error_count} erreurs détectées:\n`;
+        message += response.data.errors.slice(0, 5).join('\n');
+        if (response.data.errors.length > 5) {
+          message += `\n... et ${response.data.errors.length - 5} autres erreurs`;
+        }
+      }
+      
+      alert(message);
+      
+      // Fermer la modal
+      const modal = window.bootstrap.Modal.getInstance(document.getElementById('importModal'));
+      if (modal) modal.hide();
+      
+      // 🔹 Recharger les données du contexte
+      await refetchParcours();
+      
+      console.log("Import terminé et données rechargées");
+      
     } catch (error) {
       console.error("Erreur lors de l'import :", error.response?.data, error);
-      alert("Erreur lors de l'import du fichier");
-    }finally {
+      
+      let errorMessage = "Erreur lors de l'import du fichier";
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = "⏱️ Timeout: L'import prend trop de temps. Essayez avec un fichier plus petit ou contactez l'administrateur.";
+      } else if (error.message === 'Network Error') {
+        errorMessage = "🌐 Erreur réseau: Vérifiez votre connexion ou contactez l'administrateur.";
+      }
+      
+      alert(errorMessage);
+    } finally {
       setLoadingImport(false);
     }
   };

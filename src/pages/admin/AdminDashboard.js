@@ -48,12 +48,12 @@ const AdminDashboard = () => {
       {/* Statistiques principales */}
       <div className="row mb-4">
         <div className="col-lg-3 col-md-6 mb-4">
-          <div className="card text-white bg-primary">
+          <div className="card">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h5 className="card-title text-white mb-1">Total Étudiants</h5>
-                  <p className="card-text display-6 mb-0">
+                  <h5 className="card-title text-black mb-1">Total Étudiants</h5>
+                  <p className="text-primary display-6 mb-0">
                     {!loading && stats ? (
                       <CountUp
                         end={stats.total_etudiants}
@@ -74,11 +74,11 @@ const AdminDashboard = () => {
         </div>
 
         <div className="col-lg-3 col-md-6 mb-4">
-          <div className="card text-white bg-success">
+          <div className="card text-success">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h5 className="card-title text-white mb-1">Séminaristes</h5>
+                  <h5 className="card-title text-black mb-1">Séminaristes</h5>
                   <p className="card-text display-6 mb-0">
                     {!loading && stats ? (
                       <CountUp
@@ -103,11 +103,11 @@ const AdminDashboard = () => {
         </div>
 
         <div className="col-lg-3 col-md-6 mb-4">
-          <div className="card text-white bg-info">
+          <div className="card text-info">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h5 className="card-title text-white mb-1">Scolastiques</h5>
+                  <h5 className="card-title text-black mb-1">Scolastiques</h5>
                   <p className="card-text display-6 mb-0">
                     {!loading && stats ? (
                       <CountUp
@@ -132,11 +132,11 @@ const AdminDashboard = () => {
         </div>
 
         <div className="col-lg-3 col-md-6 mb-4">
-          <div className="card text-white bg-warning">
+          <div className="card text-warning">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <h5 className="card-title text-white mb-1">Enseignants</h5>
+                  <h5 className="card-title text-black">Enseignants</h5>
                   <p className="card-text display-6 mb-0">
                     {!loading && stats ? (
                       <CountUp

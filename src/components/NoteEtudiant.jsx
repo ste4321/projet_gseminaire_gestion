@@ -1,49 +1,230 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
+import axios from 'axios';
+import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
+
+// Import des composants modulaires
+import SearchBar from './SearchBar';
+import DataTable from './DataTable';
+import Pagination from './Pagination';
 
 const NoteEtudiant = () => {
-  const [role] = useState(localStorage.getItem('role'));
-  const [selectedAca, setSelectedAca] = useState(null);
-  const [niveau, setNiveau] = useState(1); // 1 = L1, 2 = L2, 3 = L3
-  const [etudiants, setEtudiants] = useState([]);
-  const [selectedEtudiant, setSelectedEtudiant] = useState(null);
+  const { etudiantParcours, refetchParcours } = useEtudiantParcours();
+  const { etudiants, setEtudiants, loading } = useEtudiant();
+  
+  // États pour les filtres
+  const [selectedAnnee, setSelectedAnnee] = useState('');
+  const [niveau, setNiveau] = useState(1); // Par défaut L1
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // États pour les notes
+  const [selectedEtudiant, setSelectedEtudiant] = useState(null);
+  const [matieres, setMatieres] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [savingNotes, setSavingNotes] = useState(false);
+  
+  // État pour la pagination
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
+  
+  // État pour le rôle
+  const [role, setRole] = useState(localStorage.getItem('role'));
 
-  const { annees, getEtudiants } = useEtudiant();
-
-  // Initialiser l'année académique si ce n’est pas encore sélectionné
+  // Effet pour initialiser les valeurs par défaut
   useEffect(() => {
-    if (annees.length && !selectedAca) {
-      setSelectedAca(annees[0].id);
+    if (etudiantParcours.length > 0) {
+      // Trouver l'année académique actuelle (la plus récente)
+      const anneeIds = etudiantParcours
+        .map(p => p.annee_academique?.id)
+        .filter(Boolean);
+      
+      if (anneeIds.length > 0) {
+        const maxAnneeId = Math.max(...anneeIds);
+        setSelectedAnnee(String(maxAnneeId));
+      }
     }
-  }, [annees, selectedAca]);
+  }, [etudiantParcours]);
 
-  // Récupération des étudiants selon le filtre (année et niveau)
-  useEffect(() => {
-    if (selectedAca) {
-      getEtudiants(selectedAca, niveau).then(setEtudiants);
-    }
-  }, [selectedAca, niveau, getEtudiants]);
+  // Obtenir les années académiques uniques
+  const annees = etudiantParcours
+    .map(p => p.annee_academique)
+    .filter((annee, index, self) => 
+      annee && self.findIndex(a => a?.id === annee.id) === index
+    )
+    .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
 
-  // Afficher les détails de l'étudiant dans une modale
-  const openDetailModal = (etudiant) => {
-    setSelectedEtudiant(etudiant);
-    new window.bootstrap.Modal(document.getElementById('detailModal')).show();
+  // Filtrage des étudiants basé sur l'année et le niveau
+  const filteredParcours = etudiantParcours.filter(p => {
+    const matchAnnee = !selectedAnnee || p.annee_academique?.id == selectedAnnee;
+    const matchNiveau = p.niveau?.niveau === `L${niveau}`;
+    return matchAnnee && matchNiveau;
+  });
+
+  const filteredEtudiants = filteredParcours
+    .map(parcours => {
+      const etu = parcours.etudiant;
+      return {
+        id: etu?.id,
+        nom_prenom: etu?.nom_prenom,
+        matricule: etu?.matricule,
+        email: etu?.email,
+        telephone: etu?.telephone,
+        diocese: etu?.diocese,
+        niveau: parcours?.niveau?.niveau,
+        filiere: '--',
+        parcours_id: parcours?.id,
+        original: parcours
+      };
+    })
+    .filter(etudiant =>
+      Object.values(etudiant).some(val =>
+        typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
+
+  const totalPages = Math.ceil(filteredEtudiants.length / itemsPerPage);
+  const currentEtudiants = filteredEtudiants.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
+
+  // Configuration des en-têtes du tableau
+  const tableHeaders = [
+    { label: 'Nom', field: 'nom_prenom' },
+    { label: 'Matricule', field: 'matricule' },
+    { label: 'Email', field: 'email' },
+    { label: 'Niveau', field: 'niveau' },
+    { label: 'Filière', field: 'filiere' }
+  ];
+
+  // Handlers
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    setCurrentPage(0);
   };
+
+  const handleNiveauChange = (newNiveau) => {
+    setNiveau(newNiveau);
+    setCurrentPage(0);
+  };
+
+  const handleAnneeChange = (newAnnee) => {
+    setSelectedAnnee(newAnnee);
+    setCurrentPage(0);
+  };
+
+  // Fonction pour ouvrir le modal des notes
+  const openNotesModal = async (etudiant) => {
+    setSelectedEtudiant(etudiant);
+    setLoadingNotes(true);
+    
+    try {
+      // Récupérer les matières pour le niveau
+      const matieresResponse = await axios.get(`http://127.0.0.1:8000/api/matieres/niveau/${niveau}`);
+      setMatieres(matieresResponse.data);
+      
+      // Récupérer les notes de l'étudiant
+      const notesResponse = await axios.get(`http://127.0.0.1:8000/api/notes/etudiant-parcours/${etudiant.parcours_id}`);
+      setNotes(notesResponse.data);
+      
+      // Ouvrir le modal
+      const modal = new window.bootstrap.Modal(document.getElementById('notesModal'));
+      modal.show();
+      
+    } catch (error) {
+      console.error("Erreur lors du chargement des notes :", error);
+      alert("Erreur lors du chargement des notes");
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  // Fonction pour mettre à jour une note
+  const handleNoteChange = (matiereId, noteValue) => {
+    setNotes(prevNotes => {
+      const existingNote = prevNotes.find(n => n.id_matiere === matiereId);
+      
+      if (existingNote) {
+        // Mettre à jour la note existante
+        return prevNotes.map(n => 
+          n.id_matiere === matiereId 
+            ? { ...n, note: noteValue }
+            : n
+        );
+      } else {
+        // Ajouter une nouvelle note
+        return [...prevNotes, {
+          id_etudiant_parcours: selectedEtudiant.parcours_id,
+          id_matiere: matiereId,
+          note: noteValue,
+          statut: ''
+        }];
+      }
+    });
+  };
+
+  // Fonction pour sauvegarder les notes
+  const handleSaveNotes = async () => {
+    setSavingNotes(true);
+    
+    try {
+      await axios.post(`http://127.0.0.1:8000/api/notes/update-bulk`, {
+        etudiant_parcours_id: selectedEtudiant.parcours_id,
+        notes: notes
+      });
+      
+      alert("Notes sauvegardées avec succès !");
+      
+      // Fermer le modal
+      const modal = window.bootstrap.Modal.getInstance(document.getElementById('notesModal'));
+      if (modal) modal.hide();
+      
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde :", error);
+      alert("Erreur lors de la sauvegarde des notes");
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  // Fonction pour annuler et fermer le modal
+  const handleCancelNotes = () => {
+    const modal = window.bootstrap.Modal.getInstance(document.getElementById('notesModal'));
+    if (modal) modal.hide();
+    setSelectedEtudiant(null);
+    setNotes([]);
+    setMatieres([]);
+  };
+
+  // Fonction pour obtenir la note d'une matière
+  const getNoteForMatiere = (matiereId) => {
+    const note = notes.find(n => n.id_matiere === matiereId);
+    return note ? note.note : '';
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="spinner-border text-primary" role="status"></div>
+        <p className="mt-3">Chargement des étudiants...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light text-capitalize">{role} /</span> Notes
+        <span className="text-muted fw-light text-capitalize">{role} /</span> Gestion des Notes
       </h4>
 
       {/* 🔹 Filtre année académique */}
       <div className="mb-3">
-        <label>Année académique:</label>
+        <label className="form-label">Année académique:</label>
         <select
-          className="form-control w-auto d-inline ms-2"
-          value={selectedAca || ''}
-          onChange={e => setSelectedAca(Number(e.target.value))}
+          className="form-select w-auto d-inline ms-2"
+          value={selectedAnnee || ''}
+          onChange={e => handleAnneeChange(e.target.value)}
         >
           {annees.map(a => (
             <option key={a.id} value={a.id}>{a.annee_aca}</option>
@@ -57,164 +238,167 @@ const NoteEtudiant = () => {
           <li className="nav-item" key={i}>
             <button
               className={`nav-link ${niveau === i ? 'active' : ''}`}
-              onClick={() => setNiveau(i)}
+              onClick={() => handleNiveauChange(i)}
             >
-              Liste des étudiants en L{i}
+              Notes des étudiants en L{i}
             </button>
           </li>
         ))}
       </ul>
 
-      {/* 🔹 Tableau des étudiants */}
       <div className="card">
         <h5 className="card-header">
-          Liste des étudiants en L{niveau} — {annees.find(a => a.id === selectedAca)?.annee_aca || ''}
+          Gestion des notes - L{niveau}
+          {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
+            <span className="text-muted ms-2">
+              - {annees.find(a => a.id == selectedAnnee)?.annee_aca}
+            </span>
+          )}
         </h5>
-        <div className="px-4 py-3">
-            <input 
-                type="text"
-                className="form-control"
-                placeholder="Rechercher par nom ou prénom..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-            />
+
+        {/* Barre de recherche dans la carte */}
+        <div className="card-body pb-0">
+          <SearchBar
+            searchTerm={searchTerm}
+            onSearchChange={handleSearchChange}
+            placeholder="Rechercher un étudiant..."
+          />
         </div>
-        <div className="table-responsive text-nowrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Numéro</th>
-                <th>Nom & Prénom</th>
-                <th>Diocèse</th>
-                <th>Niveau</th>
-              </tr>
-            </thead>
-            <tbody>
-            {etudiants
-                .filter(e =>
-                    e.nom_prenom.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map(e => (
-                <tr key={e.id}>
-                  <td>{e.id}</td>
-                  <td>
-                    <button
-                      className="btn p-0 text-primary"
-                      onClick={() => openDetailModal(e)}
-                    >
-                      {e.nom_prenom}
-                    </button>
-                  </td>
-                  <td>{e.diocese}</td>
-                  <td>L{e.annee}</td>
-                </tr>
-              ))}
-              {etudiants.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="text-center py-3">Chargement en cours ...</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+
+        <DataTable
+          headers={tableHeaders}
+          data={currentEtudiants}
+          onRowClick={openNotesModal}
+          role={role}
+          renderCell={(etudiant, field) => {
+            const value = etudiant[field];
+            return value ? value : '--';
+          }}
+          actionLabel="Voir/Modifier Notes"
+        />
+
+        {currentEtudiants.length === 0 && (
+          <div className="text-center py-4 text-warning">
+            Aucun étudiant trouvé pour L{niveau} 
+            {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
+              <span> en {annees.find(a => a.id == selectedAnnee)?.annee_aca}</span>
+            )}
+          </div>
+        )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
-      {/* 🔹 Modal détails étudiant */}
-      <div className="modal fade" id="detailModal" tabIndex="-1" aria-hidden="true">
-        <div className="modal-dialog modal-lg">
+      {/* Modal des Notes */}
+      <div className="modal fade" id="notesModal" tabIndex="-1" aria-hidden="true">
+        <div className="modal-dialog modal-xl">
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title">{selectedEtudiant?.nom_prenom}</h5>
-              {/* <button type="button" className="btn-close" data-bs-dismiss="modal"></button> */}
+              <h5 className="modal-title">
+                Notes de {selectedEtudiant?.nom_prenom}
+              </h5>
+              {/* <button type="button" className="btn-close" onClick={handleCancelNotes}></button> */}
             </div>
             <div className="modal-body">
-  {selectedEtudiant ? (
-    <>
-      <p><strong>Immatricule :</strong> {selectedEtudiant.id}</p>
-      <p><strong>Diocèse :</strong> {selectedEtudiant.diocese}</p>
-      <p><strong>Niveau :</strong> L{selectedEtudiant.annee}</p>
-      <p><u><strong>Note :</strong></u></p>
+              {loadingNotes ? (
+                <div className="text-center py-4">
+                  <div className="spinner-border text-primary" role="status"></div>
+                  <p className="mt-2">Chargement des notes...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Informations de l'étudiant */}
+                  <div className="card mb-4">
+                    <div className="card-body">
+                      <h6 className="card-title">Informations de l'étudiant</h6>
+                      <div className="row">
+                        <div className="col-md-6">
+                          <p><strong>Nom Prénom:</strong> {selectedEtudiant?.nom_prenom}</p>
+                          <p><strong>Matricule:</strong> {selectedEtudiant?.matricule}</p>
+                          <p><strong>Email:</strong> {selectedEtudiant?.email}</p>
+                        </div>
+                        <div className="col-md-6">
+                          <p><strong>Téléphone:</strong> {selectedEtudiant?.telephone}</p>
+                          <p><strong>Diocese:</strong> {selectedEtudiant?.diocese}</p>
+                          <p><strong>Niveau:</strong> {selectedEtudiant?.niveau}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-      <div className="table-responsive">
-        <table className="table table-bordered">
-          <thead>
-            <tr>
-              <th>Matière</th>
-              <th>Note /20</th>
-              <th>Coefficient</th>
-              <th>Mention</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* ✅ Données statiques temporaires */}
-            {[
-              { matiere: "Français", note: 12, coef: 2 },
-              { matiere: "Mathématiques", note: 16, coef: 3 },
-              { matiere: "Histoire", note: 10, coef: 2 },
-              { matiere: "Anglais", note: 14, coef: 1 },
-            ].map((m, i) => {
-              const mention =
-                m.note >= 16 ? "Très bien" :
-                m.note >= 14 ? "Bien" :
-                m.note >= 12 ? "Assez bien" :
-                m.note >= 10 ? "Passable" : "Insuffisant";
-
-              return (
-                <tr key={i}>
-                  <td>{m.matiere}</td>
-                  <td>{m.note}</td>
-                  <td>{m.coef}</td>
-                  <td>{mention}</td>
-                </tr>
-              );
-            })}
-
-            {/* ✅ Moyenne calculée */}
-            {
-              (() => {
-                const notes = [
-                  { note: 12, coef: 2 },
-                  { note: 16, coef: 3 },
-                  { note: 10, coef: 2 },
-                  { note: 14, coef: 1 },
-                ];
-                const totalCoef = notes.reduce((sum, n) => sum + n.coef, 0);
-                const totalNote = notes.reduce((sum, n) => sum + n.note * n.coef, 0);
-                const moyenne = (totalNote / totalCoef).toFixed(2);
-
-                const mentionGlobale =
-                  moyenne >= 16 ? "Très bien" :
-                  moyenne >= 14 ? "Bien" :
-                  moyenne >= 12 ? "Assez bien" :
-                  moyenne >= 10 ? "Passable" : "Insuffisant";
-
-                return (
-                  <>
-                    <tr className="table-active">
-                      <td colSpan="2"><strong>Total coefficients :</strong> {totalCoef}</td>
-                      <td colSpan="2"><strong>Total pondéré :</strong> {totalNote}</td>
-                    </tr>
-                    <tr>
-                      <td colSpan="4" className="text-end">
-                        <strong>Moyenne Générale : {moyenne}/20</strong>
-                        <span className="ms-3 badge bg-primary">{mentionGlobale}</span>
-                      </td>
-                    </tr>
-                  </>
-                );
-              })()
-            }
-          </tbody>
-        </table>
-      </div>
-    </>
-  ) : (
-    <p>Chargement…</p>
-  )}
-</div>
-
+                  {/* Tableau des notes */}
+                  <div className="card">
+                    <div className="card-body">
+                      <h6 className="card-title">Notes par matière</h6>
+                      <div className="table-responsive">
+                        <table className="table table-striped">
+                          <thead>
+                            <tr>
+                              <th>Code Matière</th>
+                              <th>Matière</th>
+                              <th>Heures</th>
+                              <th>Coefficient</th>
+                              <th>Note (/20)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {matieres.map(matiere => (
+                              <tr key={matiere.id}>
+                                <td>{matiere.code_matiere}</td>
+                                <td>{matiere.matiere}</td>
+                                <td>{matiere.heures}</td>
+                                <td>{matiere.coefficient || '--'}</td>
+                                <td>
+                                  <input
+                                    type="number"
+                                    className="form-control"
+                                    min="0"
+                                    max="20"
+                                    step="0.25"
+                                    value={getNoteForMatiere(matiere.id)}
+                                    onChange={(e) => handleNoteChange(matiere.id, e.target.value)}
+                                    placeholder="--"
+                                    style={{ width: '100px' }}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={handleCancelNotes}
+                disabled={savingNotes}
+              >
+                Annuler
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={handleSaveNotes}
+                disabled={savingNotes || loadingNotes}
+              >
+                {savingNotes ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Sauvegarde...
+                  </>
+                ) : (
+                  'Valider'
+                )}
+              </button>
             </div>
           </div>
         </div>

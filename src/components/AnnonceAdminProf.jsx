@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useProf } from '../contexts/ProfContext';
@@ -9,6 +7,7 @@ import { useAnnee } from '../contexts/AnneeContext';
 
 const AnnonceAdminProf = () => {
   const [role, setRole] = useState(localStorage.getItem('role'));
+  const [nomPrenom, setNomPrenom] = useState(localStorage.getItem('nom_prenom'));
   const { annonces, fetchAnnonces } = useAnnonce();
   const { profs: enseignants } = useProf();
   const { niveaux } = useNiveau ();
@@ -55,10 +54,15 @@ const AnnonceAdminProf = () => {
   const handleCreate = async () => {
     setLoadingCreate(true);
     const formData = new FormData();
+    
+    // Ajouter tous les champs sauf expediteur
     Object.entries(newAnnonce).forEach(([key, value]) => {
       if (value) formData.append(key, value);
     });
-    if (role === 'admin') formData.append('expediteur', 'admin');
+    
+    // Déterminer l'expéditeur selon le rôle
+    const expediteur = role === 'admin' ? 'admin' : nomPrenom;
+    formData.append('expediteur', expediteur);
 
     try {
       await axios.post('http://127.0.0.1:8000/api/annonces', formData, {
@@ -78,10 +82,15 @@ const AnnonceAdminProf = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     const formData = new FormData();
+    
+    // Ajouter tous les champs sauf expediteur
     Object.entries(editAnnonce).forEach(([key, value]) => {
       if (value) formData.append(key, value);
     });
-    if (role === 'admin') formData.append('expediteur', 'admin');
+    
+    // Déterminer l'expéditeur selon le rôle
+    const expediteur = role === 'admin' ? 'admin' : nomPrenom;
+    formData.append('expediteur', expediteur);
 
     try {
       await axios.post(`http://127.0.0.1:8000/api/annonces/${editAnnonce.id}?_method=PUT`, formData, {
@@ -144,7 +153,7 @@ const AnnonceAdminProf = () => {
                   <td>{a.expediteur}</td>
                   <td>{new Date(a.created_at).toLocaleDateString('fr-FR')}</td>
                   <td>{a.niveau?.niveau || '—'}</td>
-                  <td>{a.annee_aca?.annee || '—'}</td>
+                  <td>{a.annee_aca?.annee_aca || '--'}</td>
                   {role === 'admin' && (
                     <td>
                       <button className="btn btn-sm btn-outline-primary me-2" onClick={(e) => { e.stopPropagation(); openEditModal(a); }}>
@@ -220,7 +229,7 @@ const AnnonceAdminProf = () => {
                 <label className="form-label">Année académique</label>
                 <select className="form-control mb-2" value={editAnnonce?.id_annee_aca || ''} onChange={e => setEditAnnonce({ ...editAnnonce, id_annee_aca: e.target.value })}>
                   <option value="">-- Choisir une année --</option>
-                  {annees.map(a => <option key={a.id} value={a.id}>{a.annee}</option>)}
+                  {annees.map(a => <option key={a.id} value={a.id}>{a.annee_aca}</option>)}
                 </select>
 
                 <label className="form-label">Fichier</label>

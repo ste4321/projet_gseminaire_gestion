@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".csv,.xlsx,.xls", description }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     setSelectedFile(file);
+    setUploadProgress(0);
   };
 
   const handleDrag = (e) => {
@@ -27,19 +29,26 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setSelectedFile(file);
+      setUploadProgress(0);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedFile && onImport) {
-      onImport(selectedFile);
+      setUploadProgress(0);
+      try {
+        await onImport(selectedFile, setUploadProgress);
+      } catch (error) {
+        console.error('Erreur durant l\'import:', error);
+      }
     }
   };
 
   const handleClose = () => {
     setSelectedFile(null);
     setDragActive(false);
+    setUploadProgress(0);
   };
 
   const getFileIcon = (filename) => {
@@ -71,13 +80,6 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">{title}</h5>
-            {/* <button 
-              type="button" 
-              className="btn-close" 
-              data-bs-dismiss="modal" 
-              aria-label="Close"
-              onClick={handleClose}
-            ></button> */}
           </div>
           
           <form onSubmit={handleSubmit}>
@@ -146,6 +148,26 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
                 </div>
               )}
 
+              {/* Barre de progression */}
+              {loading && uploadProgress > 0 && (
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <small className="text-muted">Progression de l'import</small>
+                    <small className="text-muted">{uploadProgress}%</small>
+                  </div>
+                  <div className="progress" style={{ height: '8px' }}>
+                    <div 
+                      className="progress-bar progress-bar-striped progress-bar-animated" 
+                      role="progressbar" 
+                      style={{ width: `${uploadProgress}%` }}
+                      aria-valuenow={uploadProgress} 
+                      aria-valuemin="0" 
+                      aria-valuemax="100"
+                    ></div>
+                  </div>
+                </div>
+              )}
+
               {/* Instructions d'utilisation */}
               <div className="mt-3">
                 <h6>Instructions :</h6>
@@ -154,8 +176,18 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
                   <li>La première ligne doit contenir les en-têtes suivants : 
                     <strong> nom_prenom, matricule, diocese, email, telephone</strong></li>
                   <li>Taille maximale : <strong>10MB</strong></li>
+                  <li>⏱️ Les gros fichiers (100+ lignes) peuvent prendre plusieurs minutes à traiter</li>
                 </ul>
               </div>
+
+              {/* Avertissement pour les gros fichiers */}
+              {selectedFile && selectedFile.size > 1024 * 1024 && (
+                <div className="alert alert-warning" role="alert">
+                  <i className="bx bx-time me-2"></i>
+                  <strong>Fichier volumineux détecté</strong><br/>
+                  L'import peut prendre plusieurs minutes. Veuillez patienter et ne pas fermer cette fenêtre.
+                </div>
+              )}
             </div>
             
             <div className="modal-footer">
@@ -176,7 +208,7 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
                 {loading ? (
                   <>
                     <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    Importation...
+                    Importation en cours...
                   </>
                 ) : (
                   <>
