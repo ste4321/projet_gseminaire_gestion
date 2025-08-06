@@ -9,9 +9,12 @@ import DataTable from './DataTable';
 import Pagination from './Pagination';
 
 const NoteEtudiant = () => {
-  const { etudiantParcours, refetchParcours } = useEtudiantParcours();
+  const { etudiantParcours } = useEtudiantParcours();
   const { etudiants, setEtudiants, loading } = useEtudiant();
-  
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [importLoading, setImportLoading] = useState(false);
   // États pour les filtres
   const [selectedAnnee, setSelectedAnnee] = useState('');
   const [niveau, setNiveau] = useState(1); // Par défaut L1
@@ -117,28 +120,33 @@ const NoteEtudiant = () => {
   // Fonction pour ouvrir le modal des notes
   const openNotesModal = async (etudiant) => {
     setSelectedEtudiant(etudiant);
-    setLoadingNotes(true);
-    
+  
+    // Afficher modal de chargement
+    const loading = new window.bootstrap.Modal(document.getElementById('loadingModal'));
+    loading.show();
+  
     try {
-      // Récupérer les matières pour le niveau
+      // Récupérer les matières
       const matieresResponse = await axios.get(`http://127.0.0.1:8000/api/matieres/niveau/${niveau}`);
       setMatieres(matieresResponse.data);
-      
-      // Récupérer les notes de l'étudiant
+  
+      // Récupérer les notes
       const notesResponse = await axios.get(`http://127.0.0.1:8000/api/notes/etudiant-parcours/${etudiant.parcours_id}`);
       setNotes(notesResponse.data);
-      
-      // Ouvrir le modal
+  
+      // Fermer le modal de chargement
+      loading.hide();
+  
+      // Afficher modal des notes
       const modal = new window.bootstrap.Modal(document.getElementById('notesModal'));
       modal.show();
-      
     } catch (error) {
       console.error("Erreur lors du chargement des notes :", error);
       alert("Erreur lors du chargement des notes");
-    } finally {
-      setLoadingNotes(false);
+      loading.hide();
     }
   };
+  
 
   // Fonction pour mettre à jour une note
   const handleNoteChange = (matiereId, noteValue) => {
@@ -202,12 +210,105 @@ const NoteEtudiant = () => {
     const note = notes.find(n => n.id_matiere === matiereId);
     return note ? note.note : '';
   };
+  const handleFileSelect = (e) => {
+    setSelectedFile(e.target.files[0]);
+    setUploadProgress(0);
+  };
+  
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    if (e.type === "dragleave") setDragActive(false);
+  };
+  
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setSelectedFile(e.dataTransfer.files[0]);
+      setUploadProgress(0);
+    }
+  };
+  
+  const handleModalClose = () => {
+    setSelectedFile(null);
+    setDragActive(false);
+    setUploadProgress(0);
+  };
+  
+  const getFileIcon = (filename) => {
+    const ext = filename?.split('.').pop().toLowerCase();
+    if (ext === 'csv') return 'bx-file-blank';
+    if (ext === 'xlsx' || ext === 'xls') return 'bx-spreadsheet';
+    return 'bx-file';
+  };
+  
+  const formatFileSize = (bytes) => {
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+  
+  const handleImportSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+  
+    // Vérifier le format du nom de fichier
+    const match = selectedFile.name.match(/^NOTES_([A-Z0-9]+)_L([1-3])_([0-9]{4}-[0-9]{4})\.xlsx$/i);
+    if (!match) {
+      alert("Nom de fichier invalide. Format attendu : NOTES_CODEMATIERE_LNIVEAU_ANNEE.xlsx (ex: NOTES_FRS_L1_2022-2023.xlsx)");
+      return;
+    }
 
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    // Ne pas ajouter les paramètres supplémentaires car le contrôleur les extrait du nom du fichier
+  
+    setImportLoading(true);
+    setUploadProgress(0);
+  
+    try {
+      const response = await axios.post("http://127.0.0.1:8000/api/notes/import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percent);
+        },
+      });
+  
+      alert(`Importation réussie ! ${response.data.message}`);
+      
+      // Afficher les erreurs s'il y en a
+      if (response.data.errors && response.data.errors.length > 0) {
+        console.log("Erreurs lors de l'importation :", response.data.errors);
+        alert(`Importation terminée avec ${response.data.errors.length} erreur(s). Consultez la console pour plus de détails.`);
+      }
+      
+      // Fermer le modal et rafraîchir
+      const modal = window.bootstrap.Modal.getInstance(document.getElementById('importNotesModal'));
+      if (modal) modal.hide();
+      } catch (err) {
+      console.error("Erreur lors de l'importation :", err);
+      
+      // Afficher un message d'erreur plus détaillé
+      if (err.response && err.response.data && err.response.data.message) {
+        alert(`Erreur lors de l'importation : ${err.response.data.message}`);
+      } else {
+        alert("Erreur lors de l'importation. Vérifiez le format du fichier et réessayez.");
+      }
+    } finally {
+      setImportLoading(false);
+    }
+  };
+  
   if (loading) {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement des étudiants...</p>
+        <p className="mt-3">Chargement des notes...</p>
       </div>
     );
   }
@@ -255,6 +356,154 @@ const NoteEtudiant = () => {
             </span>
           )}
         </h5>
+        {role === 'admin' && (
+        <div className="mb-3 ms-4">
+          <button className="btn btn-success ms-3" onClick={() => {
+            const modal = new window.bootstrap.Modal(document.getElementById('importNotesModal'));
+            modal.show();
+          }}>
+            <i className="bx bx-import me-1"></i>
+            Importer fichier
+          </button>
+          </div>
+      )}
+      <div className="modal fade" id="importNotesModal" tabIndex="-1" aria-hidden="true">
+        <div className="modal-dialog modal-md">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Importer un fichier de notes</h5>
+            </div>
+
+            <form onSubmit={handleImportSubmit}>
+              <div className="modal-body">
+                {/* <div className="alert alert-info">
+                  Le fichier doit être nommé <strong>NOTES_FRS_L1_2025-2026.xlsx</strong><br />
+                  Doit contenir les colonnes : <strong>matricule</strong> et <strong>note</strong>
+                </div> */}
+
+                {/* Zone Drag and Drop */}
+                <div
+                  className={`border-2 border-dashed rounded p-4 text-center mb-3 ${
+                    dragActive ? 'border-primary bg-light' : 'border-muted'
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                >
+                  <div className="mb-3">
+                    <i className="bx bx-cloud-upload display-4 text-muted"></i>
+                  </div>
+
+                  <h6 className="mb-2">Glissez-déposez votre fichier ici</h6>
+                  <p className="text-muted small mb-3">ou</p>
+
+                  <div className="mb-3">
+                    <input
+                      type="file"
+                      className="form-control"
+                      accept=".csv,.xlsx,.xls"
+                      onChange={handleFileSelect}
+                      disabled={importLoading}
+                    />
+                  </div>
+
+                  <small className="text-muted">
+                    Formats acceptés : CSV, XLSX, XLS
+                  </small>
+                </div>
+
+                {/* Fichier sélectionné */}
+                {selectedFile && (
+                  <div className="card">
+                    <div className="card-body d-flex align-items-center">
+                      <i className={`bx ${getFileIcon(selectedFile.name)} text-primary me-3`} style={{ fontSize: '2rem' }}></i>
+                      <div className="flex-grow-1">
+                        <h6 className="mb-1">{selectedFile.name}</h6>
+                        <small className="text-muted">
+                          {formatFileSize(selectedFile.size)} • {selectedFile.type || 'Type inconnu'}
+                        </small>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => setSelectedFile(null)}
+                        disabled={importLoading}
+                      >
+                        <i className="bx bx-x"></i>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Barre de progression */}
+                {importLoading && uploadProgress > 0 && (
+                  <div className="mb-3 mt-3">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <small className="text-muted">Progression</small>
+                      <small className="text-muted">{uploadProgress}%</small>
+                    </div>
+                    <div className="progress" style={{ height: '8px' }}>
+                      <div
+                        className="progress-bar progress-bar-striped progress-bar-animated"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Instructions */}
+                <div className="mt-4">
+                  <h6>Instructions :</h6>
+                  <ul className="small text-muted">
+                    <li>Le nom du fichier doit être comme par exemple : <strong>NOTES_FRS_L1_2022-2023.xlsx</strong></li>
+                    <li>Colonnes obligatoires : <strong>matricule</strong>, <strong>note</strong></li>
+                    <li>Taille maximale : 10 MB</li>
+                    <li>Un fichier lourd peut nécessiter plusieurs minutes de traitement</li>
+                  </ul>
+                </div>
+
+                {selectedFile && selectedFile.size > 1024 * 1024 && (
+                  <div className="alert alert-warning mt-3">
+                    <i className="bx bx-time me-2"></i>
+                    <strong>Fichier volumineux</strong><br />
+                    L'import peut prendre du temps. Ne fermez pas cette fenêtre.
+                  </div>
+                )}
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  data-bs-dismiss="modal"
+                  onClick={handleModalClose}
+                  disabled={importLoading}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!selectedFile || importLoading}
+                >
+                  {importLoading ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Importation...
+                    </>
+                  ) : (
+                    <>
+                      <i className="bx bx-upload me-1"></i>
+                      Importer
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
         {/* Barre de recherche dans la carte */}
         <div className="card-body pb-0">
@@ -292,6 +541,17 @@ const NoteEtudiant = () => {
           onPageChange={setCurrentPage}
         />
       </div>
+      {/* Modal de chargement pendant récupération des notes */}
+      <div className="modal fade" id="loadingModal" tabIndex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div className="modal-dialog modal-sm modal-dialog-centered">
+          <div className="modal-content text-center p-4">
+            <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '80px' }}>
+              <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}></div>
+            </div>
+            <p className="mt-3 mb-0">Chargement des données...</p>
+          </div>
+        </div>
+      </div>
 
       {/* Modal des Notes */}
       <div className="modal fade" id="notesModal" tabIndex="-1" aria-hidden="true">
@@ -299,7 +559,7 @@ const NoteEtudiant = () => {
           <div className="modal-content">
             <div className="modal-header">
               <h5 className="modal-title">
-                Notes de {selectedEtudiant?.nom_prenom}
+                Notes de : {selectedEtudiant?.nom_prenom}
               </h5>
               {/* <button type="button" className="btn-close" onClick={handleCancelNotes}></button> */}
             </div>
@@ -314,17 +574,14 @@ const NoteEtudiant = () => {
                   {/* Informations de l'étudiant */}
                   <div className="card mb-4">
                     <div className="card-body">
-                      <h6 className="card-title">Informations de l'étudiant</h6>
                       <div className="row">
                         <div className="col-md-6">
-                          <p><strong>Nom Prénom:</strong> {selectedEtudiant?.nom_prenom}</p>
                           <p><strong>Matricule:</strong> {selectedEtudiant?.matricule}</p>
-                          <p><strong>Email:</strong> {selectedEtudiant?.email}</p>
-                        </div>
-                        <div className="col-md-6">
-                          <p><strong>Téléphone:</strong> {selectedEtudiant?.telephone}</p>
-                          <p><strong>Diocese:</strong> {selectedEtudiant?.diocese}</p>
                           <p><strong>Niveau:</strong> {selectedEtudiant?.niveau}</p>
+                          <p><strong>Année académique:</strong> {
+                            annees.find(a => a.id == selectedAnnee)?.annee_aca || '--'
+                          }</p>
+                          <p><strong>Diocese :</strong> {selectedEtudiant?.diocese}</p>
                         </div>
                       </div>
                     </div>
@@ -340,8 +597,8 @@ const NoteEtudiant = () => {
                             <tr>
                               <th>Code Matière</th>
                               <th>Matière</th>
-                              <th>Heures</th>
-                              <th>Coefficient</th>
+                              {/* <th>Heures</th> */}
+                              {/* <th>Coefficient</th> */}
                               <th>Note (/20)</th>
                             </tr>
                           </thead>
@@ -350,8 +607,8 @@ const NoteEtudiant = () => {
                               <tr key={matiere.id}>
                                 <td>{matiere.code_matiere}</td>
                                 <td>{matiere.matiere}</td>
-                                <td>{matiere.heures}</td>
-                                <td>{matiere.coefficient || '--'}</td>
+                                {/* <td>{matiere.heures}</td> */}
+                                {/* <td>{matiere.coefficient || '--'}</td> */}
                                 <td>
                                   <input
                                     type="number"

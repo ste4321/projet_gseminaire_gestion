@@ -174,7 +174,7 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
                 <ul className="small text-muted">
                   <li>Le nom du fichier doit être comme par exemple : <strong>Etudiant_L1_2025-2026.xlsx</strong></li>
                   <li>La première ligne doit contenir les en-têtes suivants : 
-                    <strong> nom_prenom, matricule, diocese, email, telephone</strong></li>
+                    <strong> nom_prenom, matricule, diocese, email, telephone</strong> (dans cette order)</li>
                   <li>Taille maximale : <strong>10MB</strong></li>
                   <li>⏱️ Les gros fichiers (100+ lignes) peuvent prendre plusieurs minutes à traiter</li>
                 </ul>
