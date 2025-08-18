@@ -68,7 +68,7 @@ const AdminSidebar = () => {
         </li>
         <li className="menu-item">
           <NavLink to="/admin/noteEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
-            <i className="menu-icon tf-icons bx bx-edit-alt"></i>
+            <i className="menu-icon tf-icons bx bx-spreadsheet"></i>
             <div>Notes</div>
           </NavLink>
         </li>
@@ -100,6 +100,12 @@ const AdminSidebar = () => {
           <NavLink to="/admin/listeEtudiant" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
             <i className="menu-icon tf-icons bx bx-group"></i>
             <div>Etudiant</div>
+          </NavLink>
+        </li>
+        <li className="menu-item">
+          <NavLink to="/admin/portal" className={({ isActive }) => `menu-link ${isActive ? 'active' : ''}`} onClick={closeSidebar}>
+            <i className="menu-icon tf-icons bx bx-door-open"></i>
+            <div>Portal</div>
           </NavLink>
         </li>
       </ul>

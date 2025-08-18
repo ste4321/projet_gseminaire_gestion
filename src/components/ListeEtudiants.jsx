@@ -182,8 +182,13 @@ const ListeEtudiant = () => {
       console.log("Étudiant ajouté avec succès et données rechargées");
       
     } catch (error) {
-      console.error("Erreur lors de l'ajout :", error.response?.data);
-    } finally {
+      if (error.response?.status === 409) {
+        alert(error.response.data.message); // 🔴 Matricule déjà existant
+      } else {
+        console.error("Erreur lors de l'ajout :", error.response?.data);
+      }
+    }
+     finally {
       setLoadingCreate(false);
     }
   };

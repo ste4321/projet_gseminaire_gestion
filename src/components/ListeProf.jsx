@@ -76,7 +76,7 @@ const ListeProf = () => {
     setLoadingCreate(true);
     try {
       const response = await axios.post(`http://127.0.0.1:8000/api/enseignants`, newProf);
-      setProfs([...profs, response.data]);
+      setProfs([...profs, response.data.enseignant]);
       setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal.hide();

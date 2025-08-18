@@ -67,6 +67,7 @@ import Matiere from './components/Matiere';
 import Semestre from './components/Semestre';
 import ListeEtudiants from './components/ListeEtudiants';
 import NoteEtudiant from './components/NoteEtudiant';
+import Portal from './components/Portal';
 
 
 function App() {
@@ -98,6 +99,7 @@ function App() {
           <Route path="semestre" element={<Semestre />} />
           <Route path="listeEtudiant" element={<ListeEtudiants />} />
           <Route path="noteEtudiant" element={<NoteEtudiant />} />
+          <Route path="portal" element={<Portal />} />
 
         </Route>
       </Route>

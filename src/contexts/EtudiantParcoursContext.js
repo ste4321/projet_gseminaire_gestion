@@ -21,7 +21,7 @@ export const EtudiantParcoursProvider = ({ children }) => {
   // };
   try {
     setLoading(true);
-    const response = await axios.get('http://127.0.0.1:8000/api/etudiant-parcours'); // Ajustez l'URL selon votre API
+    const response = await axios.get('http://127.0.0.1:8000/api/etudiant_parcours'); // Ajustez l'URL selon votre API
     setEtudiantParcours(response.data);
   } catch (error) {
     console.error('Erreur lors du rafraîchissement:', error);
