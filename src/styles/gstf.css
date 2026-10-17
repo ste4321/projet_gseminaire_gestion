@@ -335,3 +335,24 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ─── Code de confirmation des publications ────────────────────────── */
+.gstf-code-confirmation__code {
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.6rem 1rem;
+  border: 1px dashed rgba(140, 47, 57, 0.45);
+  border-radius: 0.5rem;
+  background: #fbf3f4;
+  color: #8c2f39;
+  font: 700 1.6rem/1.2 'Courier New', monospace;
+  letter-spacing: 0.45em;
+  text-align: center;
+  /* à recopier, pas à copier-coller */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gstf-code-confirmation__saisie {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
