@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useInfo } from '../../contexts/InfoContext';
-import axios from 'axios';
+import api from '../../api/client';
 
 // Import des composants modulaires
 import SearchBar from '../../components/SearchBar';
@@ -84,7 +84,7 @@ const Info = () => {
   const handleCreate = async () => {
     setLoadingCreate(true);
     try {
-      await axios.post('http://127.0.0.1:8000/api/infos', newInfo);
+      await api.post('/infos', newInfo);
       setNewInfo({ auteur: '', titre: '', description: '' });
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('addModal'))?.hide();
@@ -98,7 +98,7 @@ const Info = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      await axios.put(`http://127.0.0.1:8000/api/infos/${editInfo.id}`, editInfo);
+      await api.put(`/infos/${editInfo.id}`, editInfo);
       setEditInfo({ id: null, auteur: '', titre: '', description: '' });
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('editModal'))?.hide();
@@ -112,7 +112,7 @@ const Info = () => {
   const handleDelete = async () => {
     setLoadingDelete(true);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/infos/${confirmDeleteId}`);
+      await api.delete(`/infos/${confirmDeleteId}`);
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'))?.hide();
     } catch (err) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
-import axios from 'axios';
+import api from '../api/client';
 import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
 
 // Import des composants modulaires
@@ -159,7 +159,7 @@ const ListeEtudiant = () => {
   const handleCreate = async () => {
     setLoadingCreate(true);
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/api/etudiants`, newEtudiant);
+      const response = await api.post(`/etudiants`, newEtudiant);
       
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
@@ -197,8 +197,8 @@ const ListeEtudiant = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      const response = await axios.put(
-        `http://127.0.0.1:8000/api/etudiants/${editEtudiant.id}`,
+      const response = await api.put(
+        `/etudiants/${editEtudiant.id}`,
         editEtudiant
       );
       
@@ -222,7 +222,7 @@ const ListeEtudiant = () => {
   const handleDelete = async () => {
     setLoadingDeleteId(confirmDeleteId);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/etudiants/${confirmDeleteId}`);
+      await api.delete(`/etudiants/${confirmDeleteId}`);
       
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
@@ -247,8 +247,8 @@ const ListeEtudiant = () => {
     formData.append('file', file);
   
     try {
-      const response = await axios.post(
-        'http://127.0.0.1:8000/api/etudiants/import', 
+      const response = await api.post(
+        '/etudiants/import', 
         formData, 
         {
           headers: {

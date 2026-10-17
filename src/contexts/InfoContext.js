@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const InfoContext = createContext();
 
@@ -12,7 +12,7 @@ export const InfoProvider = ({ children }) => {
   const fetchInfos = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/infos');
+      const response = await api.get('/infos');
       setInfos(response.data);
     } catch (error) {
       console.error("Erreur lors du chargement des infos :", error);

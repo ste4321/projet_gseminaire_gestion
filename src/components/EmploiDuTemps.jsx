@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
-import axios from 'axios';
+import api from '../api/client';
+import { storageUrl } from '../config';
 import { FaAngleDoubleLeft, FaAngleDoubleRight } from 'react-icons/fa';
 import { useEmploi } from '../contexts/EmploiContext';
 
@@ -103,7 +104,7 @@ const EmploiDuTemps = () => {
 
       preloadImages.forEach(emploi => {
         const img = new Image();
-        img.src = `http://127.0.0.1:8000${emploi.image_url}`;
+        img.src = storageUrl(emploi.image_url);
       });
     }
   }, [currentEmploi, page, emploiActuel, handleImageLoadStart]);
@@ -146,7 +147,7 @@ const EmploiDuTemps = () => {
     formData.append('semestre', newEmploi.semestre);
 
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/api/emplois`, formData, {
+      const response = await api.post(`/emplois`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -186,7 +187,7 @@ const EmploiDuTemps = () => {
     formData.append('email', localStorage.getItem('email'));
 
     try {
-      const res = await axios.post(`http://127.0.0.1:8000/api/emplois/${currentEmploi.id}/upload`, formData, {
+      const res = await api.post(`/emplois/${currentEmploi.id}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -214,7 +215,7 @@ const EmploiDuTemps = () => {
 
     setLoadingDeleteId(confirmDeleteId);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/emplois/${confirmDeleteId}`);
+      await api.delete(`/emplois/${confirmDeleteId}`);
       const updatedList = emploiActuel.filter(item => item.id !== confirmDeleteId);
       (semestre === 1 ? setEmploiSemestre1 : setEmploiSemestre2)(updatedList);
       
@@ -301,7 +302,7 @@ const EmploiDuTemps = () => {
     if (!currentEmploi) return null;
 
     const imageId = currentEmploi.id;
-    const imageUrl = `http://127.0.0.1:8000${currentEmploi.image_url}`;
+    const imageUrl = storageUrl(currentEmploi.image_url);
     const isLoading = imageLoading[imageId];
 
     return (

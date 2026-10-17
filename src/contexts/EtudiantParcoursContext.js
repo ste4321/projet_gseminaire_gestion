@@ -1,6 +1,6 @@
 // src/contexts/EtudiantParcoursContext.jsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const EtudiantParcoursContext = createContext();
 
@@ -11,7 +11,7 @@ export const EtudiantParcoursProvider = ({ children }) => {
   const fetchParcours = async () => {
   //   try {
   //     setLoading(true); // Ajout pour indiquer le rechargement
-  //     const res = await axios.get('http://127.0.0.1:8000/api/etudiant_parcours');
+  //     const res = await api.get('/etudiant_parcours');
   //     setEtudiantParcours(res.data);
   //   } catch (error) {
   //     console.error("Erreur chargement parcours:", error);
@@ -21,7 +21,7 @@ export const EtudiantParcoursProvider = ({ children }) => {
   // };
   try {
     setLoading(true);
-    const response = await axios.get('http://127.0.0.1:8000/api/etudiant_parcours'); // Ajustez l'URL selon votre API
+    const response = await api.get('/etudiant_parcours'); // Ajustez l'URL selon votre API
     setEtudiantParcours(response.data);
   } catch (error) {
     console.error('Erreur lors du rafraîchissement:', error);

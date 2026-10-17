@@ -1,6 +1,6 @@
 // src/contexts/StatsContext.js
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const StatsContext = createContext();
 export const useStats = () => useContext(StatsContext);
@@ -10,7 +10,7 @@ export const StatsProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:8000/api/dashboard/stats')
+    api.get('/dashboard/stats')
       .then(response => {
         setStats(response.data);
       })

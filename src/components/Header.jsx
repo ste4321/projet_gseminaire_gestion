@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import api from '../api/client';
+import { clearSession } from '../auth/session';
 
 const Header = () => {
   const [role, setRole] = useState('');
@@ -11,9 +13,16 @@ const Header = () => {
     if (storedNomPrenom) setNom_prenom(storedNomPrenom);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = '/';
+  const handleLogout = async () => {
+    try {
+      // Révoque le jeton côté serveur
+      await api.post('/logout');
+    } catch (e) {
+      // Jeton déjà expiré ou serveur injoignable : on déconnecte quand même
+    } finally {
+      clearSession();
+      window.location.href = '/';
+    }
   };
 
   const toggleSidebar = () => {

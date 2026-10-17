@@ -1,12 +1,11 @@
 // src/contexts/UserCessionContext.jsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const UserCessionContext = createContext();
 
 export const useUserCession = () => useContext(UserCessionContext);
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
 
 export const UserCessionProvider = ({ children }) => {
   const [usersByRole, setUsersByRole] = useState({});
@@ -21,7 +20,7 @@ export const UserCessionProvider = ({ children }) => {
 
     setLoadingByRole(prev => ({ ...prev, [role]: true }));
     try {
-      const res = await axios.get(`${API_BASE_URL}/user-cessions`, { params: { role } });
+      const res = await api.get('/user-cessions', { params: { role } });
       setUsersByRole(prev => ({ ...prev, [role]: res.data }));
       return res.data;
     } catch (err) {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const EmploiContext = createContext();
 
@@ -12,7 +12,7 @@ export const EmploiProvider = ({ children }) => {
 
   const fetchEmplois = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/emplois');
+      const res = await api.get('/emplois');
       const data = res.data;
       setEmploiSemestre1(data.filter(item => item.semestre === 1));
       setEmploiSemestre2(data.filter(item => item.semestre === 2));

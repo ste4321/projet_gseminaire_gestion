@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useProf } from '../contexts/ProfContext';
-import axios from 'axios';
+import api from '../api/client';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -75,7 +75,7 @@ const ListeProf = () => {
   const handleCreate = async () => {
     setLoadingCreate(true);
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/api/enseignants`, newProf);
+      const response = await api.post(`/enseignants`, newProf);
       setProfs([...profs, response.data.enseignant]);
       setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
@@ -90,8 +90,8 @@ const ListeProf = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      const response = await axios.put(
-        `http://127.0.0.1:8000/api/enseignants/${editProf.id}`,
+      const response = await api.put(
+        `/enseignants/${editProf.id}`,
         editProf
       );
       const updatedList = profs.map((prof) =>
@@ -111,7 +111,7 @@ const ListeProf = () => {
   const handleDelete = async () => {
     setLoadingDeleteId(confirmDeleteId);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/enseignants/${confirmDeleteId}`);
+      await api.delete(`/enseignants/${confirmDeleteId}`);
       setProfs(profs.filter(prof => prof.id !== confirmDeleteId));
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       if (modal) modal.hide();

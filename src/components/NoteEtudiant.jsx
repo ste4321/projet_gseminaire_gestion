@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
-import axios from 'axios';
+import api from '../api/client';
 import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
 
 // Import des composants modulaires
@@ -143,11 +143,11 @@ const NoteEtudiant = () => {
   
     try {
       // Récupérer les matières
-      const matieresResponse = await axios.get(`http://127.0.0.1:8000/api/matieres/niveau/${niveau}`);
+      const matieresResponse = await api.get(`/matieres/niveau/${niveau}`);
       setMatieres(matieresResponse.data);
   
       // Récupérer les notes
-      const notesResponse = await axios.get(`http://127.0.0.1:8000/api/notes/etudiant-parcours/${etudiant.parcours_id}`);
+      const notesResponse = await api.get(`/notes/etudiant-parcours/${etudiant.parcours_id}`);
       setNotes(notesResponse.data);
   
       // Fermer le modal de chargement
@@ -193,7 +193,7 @@ const NoteEtudiant = () => {
     setSavingNotes(true);
     
     try {
-      await axios.post(`http://127.0.0.1:8000/api/notes/update-bulk`, {
+      await api.post(`/notes/update-bulk`, {
         etudiant_parcours_id: selectedEtudiant.parcours_id,
         notes: notes
       });
@@ -287,7 +287,7 @@ const NoteEtudiant = () => {
     setUploadProgress(0);
   
     try {
-      const response = await axios.post("http://127.0.0.1:8000/api/notes/import", formData, {
+      const response = await api.post("/notes/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);

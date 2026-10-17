@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const NiveauContext = createContext();
 
@@ -11,7 +11,7 @@ export const NiveauProvider = ({ children }) => {
 
   const fetchNiveaux = async () => {
     setLoading(true);
-    const res = await axios.get('http://127.0.0.1:8000/api/niveaux');
+    const res = await api.get('/niveaux');
     setNiveaux(res.data);
     setLoading(false);
   };

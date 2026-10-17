@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const EtudiantContext = createContext();
 
@@ -12,7 +12,7 @@ export const EtudiantProvider = ({ children }) => {
   const fetchEtudiants = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/etudiants');
+      const res = await api.get('/etudiants');
       setEtudiants(res.data);
     } catch (error) {
       console.error('Erreur lors du chargement des étudiants', error);

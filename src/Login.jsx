@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import api from './api/client';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { saveSession, isSessionValid, getRole, HOME_BY_ROLE } from './auth/session';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionExpiree = searchParams.get('session') === 'expiree';
 
   // Validation des champs
   const validateForm = (email, password) => {
@@ -45,39 +47,12 @@ const Login = () => {
     }
 
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/login', {
-        email,
-        password,
-      }, {
-        timeout: 10000, // Timeout de 10 secondes
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      });
+      const res = await api.post('/login', { email, password }, { timeout: 10000 });
 
-      const { access_token, user } = res.data;
-
-      // Stockage sécurisé dans localStorage
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('role', user.role);
-      localStorage.setItem('nom_prenom', user.nom_prenom);
-      localStorage.setItem('loginTime', new Date().toISOString());
-
-      // Redirection par rôle avec React Router
-      const routes = {
-        admin: '/admin/dashboard',
-        prof: '/prof/dashboard',
-        etudiant: '/etudiant/dashboard'
-      };
-
-      const route = routes[user.role];
+      const route = HOME_BY_ROLE[res.data.user?.role];
       if (route) {
-        // Petit délai pour l'UX
-        setTimeout(() => {
-          navigate(route, { replace: true });
-        }, 500);
+        saveSession(res.data);
+        navigate(route, { replace: true });
       } else {
         setErrors({ general: 'Rôle utilisateur non reconnu' });
         setLoading(false);
@@ -122,6 +97,11 @@ const Login = () => {
     setShowPassword(!showPassword);
   };
 
+  // Déjà connecté : on renvoie directement vers son espace
+  if (isSessionValid() && HOME_BY_ROLE[getRole()]) {
+    return <Navigate to={HOME_BY_ROLE[getRole()]} replace />;
+  }
+
   return (
     <div className="container-xxl">
       <div className="authentication-wrapper authentication-basic container-p-y">
@@ -139,6 +119,12 @@ const Login = () => {
               <p className="mb-4">Grand Séminaire de Théologie Faliarivo</p>
 
               {/* Affichage des erreurs générales */}
+              {sessionExpiree && !errors.general && (
+                <div className="alert alert-warning" role="alert">
+                  Votre session a expiré. Veuillez vous reconnecter.
+                </div>
+              )}
+
               {errors.general && (
                 <div className="alert alert-danger" role="alert">
                   {errors.general}
