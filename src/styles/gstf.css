@@ -414,3 +414,50 @@
     width: 100%;
   }
 }
+
+/* ─── Tableau de bord admin : bloc « À faire » ─────────────────────── */
+.gstf-taches {
+  display: grid;
+  gap: 0.75rem;
+}
+.gstf-tache {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(67, 89, 113, 0.1);
+}
+.gstf-tache:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.gstf-tache__icone {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 0.5rem;
+  font-size: 1.25rem;
+}
+.gstf-extrait-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Chiffres clés : deux par ligne sur téléphone, icône au-dessus du chiffre */
+@media (max-width: 575.98px) {
+  .row > .col-6 > .card > .gstf-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 1rem;
+  }
+  .row > .col-6 > .card > .gstf-stat .gstf-stat__icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.1rem;
+  }
+}

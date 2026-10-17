@@ -4,8 +4,21 @@ import api, { errorMessage } from '../../api/client';
 
 const nombre = (n) => new Intl.NumberFormat('fr-FR').format(n ?? 0);
 const pourcent = (part, total) => (total > 0 ? Math.round((part / total) * 100) : 0);
-const dateCourte = (iso) =>
-  iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const majuscule = (texte) => texte.charAt(0).toUpperCase() + texte.slice(1);
+const salutation = () => {
+  const heure = new Date().getHours();
+  return heure < 12 ? 'Bonjour' : heure < 18 ? 'Bon après-midi' : 'Bonsoir';
+};
+
+const ACCES_RAPIDES = [
+  { to: '/admin/listeEtudiant', icon: 'bx-user-plus', label: 'Inscrire ou importer des étudiants' },
+  { to: '/admin/noteEtudiant', icon: 'bx-edit', label: 'Saisir, importer ou publier des notes' },
+  { to: '/admin/annonce', icon: 'bx-send', label: 'Publier une annonce' },
+  { to: '/admin/info', icon: 'bx-globe', label: 'Publier une actualité sur le site' },
+  { to: '/admin/edt', icon: 'bx-calendar', label: 'Emploi du temps' },
+  { to: '/admin/portal', icon: 'bx-key', label: 'Activer un compte, réinitialiser un mot de passe' },
+  { to: '/changer-mot-de-passe', icon: 'bx-lock-alt', label: 'Changer mon mot de passe' },
+];
 
 const StatCard = ({ icon, label, value, detail, to, gold }) => {
   const contenu = (
@@ -21,7 +34,7 @@ const StatCard = ({ icon, label, value, detail, to, gold }) => {
     </div>
   );
   return (
-    <div className="col-sm-6 col-xl-3 mb-4">
+    <div className="col-6 col-xl-3 mb-4">
       {to ? <Link to={to} className="card h-100 text-reset">{contenu}</Link> : <div className="card h-100">{contenu}</div>}
     </div>
   );
@@ -52,11 +65,75 @@ const Barres = ({ lignes, total, vide }) =>
     </ul>
   );
 
+/** Ce qui demande une action de l'administration, le plus urgent d'abord */
+const tachesAFaire = (stats) => {
+  const { comptes, publications = [] } = stats;
+  const taches = [];
+
+  publications
+    .filter((p) => !p.publie && p.notes_attendues > 0 && p.notes_saisies === p.notes_attendues)
+    .forEach((p) => taches.push({
+      cle: `pub-${p.niveau}-${p.semestre}`,
+      icon: 'bx-send', ton: 'success',
+      titre: `${p.semestre} · ${p.niveau} : notes complètes`,
+      detail: 'Prêtes à être publiées aux étudiants',
+      to: '/admin/noteEtudiant', action: 'Publier',
+    }));
+
+  const aActiver = comptes.prof.inactifs + comptes.etudiant.inactifs;
+  if (aActiver > 0) {
+    taches.push({
+      cle: 'activation', icon: 'bx-lock-open-alt', ton: 'warning',
+      titre: `${nombre(aActiver)} compte(s) en attente d'activation`,
+      detail: 'Ces personnes ne peuvent pas encore se connecter',
+      to: '/admin/portal', action: 'Activer',
+    });
+  }
+
+  publications
+    .filter((p) => !p.publie && p.notes_saisies < p.notes_attendues)
+    .forEach((p) => taches.push({
+      cle: `saisie-${p.niveau}-${p.semestre}`,
+      icon: 'bx-edit', ton: 'primary',
+      titre: `${p.semestre} · ${p.niveau} : ${nombre(p.notes_saisies)} / ${nombre(p.notes_attendues)} notes`,
+      progression: pourcent(p.notes_saisies, p.notes_attendues),
+      to: '/admin/noteEtudiant', action: 'Saisir',
+    }));
+
+  return taches;
+};
+
+const AFaire = ({ taches }) =>
+  taches.length === 0 ? (
+    <div className="gstf-empty py-4">
+      <i className="bx bx-check-circle d-block text-success"></i>
+      Tout est à jour.
+    </div>
+  ) : (
+    <ul className="list-unstyled mb-0 gstf-taches">
+      {taches.slice(0, 6).map((t) => (
+        <li key={t.cle} className="gstf-tache">
+          <span className={`gstf-tache__icone bg-label-${t.ton}`} aria-hidden="true"><i className={`bx ${t.icon}`}></i></span>
+          <div className="flex-grow-1 min-w-0">
+            <div className="fw-semibold">{t.titre}</div>
+            {t.detail && <small className="text-muted">{t.detail}</small>}
+            {t.progression !== undefined && (
+              <div className="gstf-bar mt-1" role="presentation"><span style={{ width: `${t.progression}%` }}></span></div>
+            )}
+          </div>
+          <Link to={t.to} className={`btn btn-sm btn-outline-${t.ton === 'success' ? 'success' : 'primary'}`}>{t.action}</Link>
+        </li>
+      ))}
+      {taches.length > 6 && <li className="small text-muted pt-2">… et {taches.length - 6} autre(s)</li>}
+    </ul>
+  );
+
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [anneeId, setAnneeId] = useState('');
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState(null);
+  const nomPrenom = localStorage.getItem('nom_prenom') || '';
 
   const charger = useCallback(async (annee) => {
     setLoading(true);
@@ -65,7 +142,7 @@ const AdminDashboard = () => {
       const res = await api.get('/dashboard/stats', { params: annee ? { annee } : {} });
       setStats(res.data);
     } catch (err) {
-      setErreur(errorMessage(err, 'Impossible de charger les statistiques.'));
+      setErreur(errorMessage(err, 'Impossible de charger le tableau de bord.'));
     } finally {
       setLoading(false);
     }
@@ -95,79 +172,50 @@ const AdminDashboard = () => {
     );
   }
 
-  const { etudiants, comptes, notes, configuration } = stats;
+  const { etudiants, comptes, notes } = stats;
   const comptesAActiver = comptes.prof.inactifs + comptes.etudiant.inactifs;
   const provisoires = comptes.prof.provisoires + comptes.etudiant.provisoires;
+  const taches = tachesAFaire(stats);
 
   const dioceses = etudiants.par_diocese;
-  const lignesDioceses = dioceses.length > 8
+  const lignesDioceses = dioceses.length > 6
     ? [
-        ...dioceses.slice(0, 7).map((d) => ({ label: d.diocese, total: d.total })),
-        { label: `Autres (${dioceses.length - 7})`, total: dioceses.slice(7).reduce((s, d) => s + d.total, 0) },
+        ...dioceses.slice(0, 5).map((d) => ({ label: d.diocese, total: d.total })),
+        { label: `Autres (${dioceses.length - 5})`, total: dioceses.slice(5).reduce((s, d) => s + d.total, 0) },
       ]
     : dioceses.map((d) => ({ label: d.diocese, total: d.total }));
 
-  // Mise en route : étapes nécessaires avant d'utiliser l'application au quotidien
-  const etapes = [
-    { ok: configuration.niveaux > 0, label: 'Créer les niveaux (L1, L2, L3…)', to: '/admin/niveau' },
-    { ok: configuration.semestres > 0, label: 'Créer les semestres', to: '/admin/semestre' },
-    { ok: configuration.matieres > 0, label: 'Ajouter les matières avec leur code', to: '/admin/matiere' },
-    { ok: configuration.annees > 0 && etudiants.total > 0, label: 'Inscrire les étudiants (l’import crée l’année académique)', to: '/admin/listeEtudiant' },
-    { ok: configuration.emplois_du_temps > 0, label: 'Publier l’emploi du temps', to: '/admin/edt' },
-    { ok: comptesAActiver === 0 && etudiants.total > 0, label: 'Activer les comptes dans « Comptes et accès »', to: '/admin/portal' },
-  ];
-  const etapesRestantes = etapes.filter((e) => !e.ok);
-
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
-      <div className="gstf-page-header">
-        <div>
-          <h4 className="fw-bold">Tableau de bord</h4>
-          <small className="text-muted">
-            {stats.annee ? `Année académique ${stats.annee.annee_aca}` : 'Aucune année académique pour le moment'}
-          </small>
-        </div>
-        {stats.annees.length > 1 && (
-          <div className="d-flex align-items-center gap-2">
-            <label htmlFor="dashboard-annee" className="form-label mb-0 text-nowrap">Année</label>
-            <select
-              id="dashboard-annee"
-              className="form-select"
-              value={anneeId || stats.annee?.id || ''}
-              onChange={(e) => setAnneeId(e.target.value)}
-              disabled={loading}
-            >
-              {stats.annees.map((a) => <option key={a.id} value={a.id}>{a.annee_aca}</option>)}
-            </select>
+      {/* Accueil */}
+      <div className="card mb-4">
+        <div className="card-body d-flex flex-wrap align-items-center gap-3">
+          <img src="/images/logo-GS.jpg" alt="" width="64" height="64" className="rounded-circle" />
+          <div className="flex-grow-1">
+            <h4 className="mb-1">{salutation()}{nomPrenom ? `, ${nomPrenom}` : ''}</h4>
+            <p className="mb-0 text-muted">
+              {majuscule(new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}
+              {stats.annee && <> · Année académique {stats.annee.annee_aca}</>}
+            </p>
           </div>
-        )}
+          {stats.annees.length > 1 && (
+            <div className="d-flex align-items-center gap-2">
+              <label htmlFor="dashboard-annee" className="form-label mb-0 text-nowrap">Année</label>
+              <select
+                id="dashboard-annee"
+                className="form-select"
+                value={anneeId || stats.annee?.id || ''}
+                onChange={(e) => setAnneeId(e.target.value)}
+                disabled={loading}
+              >
+                {stats.annees.map((a) => <option key={a.id} value={a.id}>{a.annee_aca}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
-      {etapesRestantes.length > 0 && (
-        <div className="card mb-4 border border-warning">
-          <div className="card-body">
-            <h5 className="card-title gstf-section-title mb-1">Mise en route</h5>
-            <p className="text-muted mb-3">
-              {etapes.length - etapesRestantes.length} étape(s) sur {etapes.length} terminée(s).
-              Voici ce qu’il reste à faire pour que l’application soit pleinement utilisable :
-            </p>
-            <ul className="list-unstyled mb-0">
-              {etapes.map((e) => (
-                <li key={e.label} className="d-flex align-items-center mb-2">
-                  <i className={`bx ${e.ok ? 'bx-check-circle text-success' : 'bx-circle text-muted'} me-2 fs-5`} aria-hidden="true"></i>
-                  {e.ok ? (
-                    <span className="text-muted text-decoration-line-through">{e.label}</span>
-                  ) : (
-                    <Link to={e.to}>{e.label}</Link>
-                  )}
-                  <span className="visually-hidden">{e.ok ? ' (fait)' : ' (à faire)'}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
+      {/* Chiffres clés */}
       <div className="row">
         <StatCard
           icon="bx-group"
@@ -195,8 +243,71 @@ const AdminDashboard = () => {
         />
       </div>
 
+      {/* Dernières annonces + accès rapides */}
       <div className="row">
-        <div className="col-lg-6 mb-4">
+        <div className="col-lg-7 mb-4">
+          <div className="card h-100">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="card-title gstf-section-title mb-0">Dernières annonces</h5>
+              <Link to="/admin/annonce" className="btn btn-sm btn-outline-primary">Toutes les annonces</Link>
+            </div>
+            <div className="card-body">
+              {stats.annonces_recentes.length === 0 ? (
+                <div className="gstf-empty py-4">
+                  <i className="bx bx-message-square-dots d-block"></i>
+                  Aucune annonce publiée.
+                </div>
+              ) : (
+                <ul className="list-unstyled mb-0">
+                  {stats.annonces_recentes.map((a) => (
+                    <li key={a.id} className="py-2 border-bottom">
+                      <div className="d-flex justify-content-between align-items-start gap-2">
+                        <strong className="text-truncate">{a.titre}</strong>
+                        <span className="badge bg-label-primary">{a.niveau?.niveau || 'Tous'}</span>
+                      </div>
+                      {a.description && (
+                        <p className="mb-1 text-muted small gstf-extrait-2">{a.description}</p>
+                      )}
+                      <small className="text-muted">{a.expediteur} · {new Date(a.created_at).toLocaleDateString('fr-FR')}</small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="col-lg-5 mb-4">
+          <div className="card h-100">
+            <div className="card-header">
+              <h5 className="card-title gstf-section-title mb-0">Accès rapides</h5>
+            </div>
+            <div className="card-body d-grid gap-2 align-content-start">
+              {ACCES_RAPIDES.map((l) => (
+                <Link key={l.to} to={l.to} className="gstf-quick-link">
+                  <i className={`bx ${l.icon}`} aria-hidden="true"></i>{l.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* À faire + répartition des étudiants */}
+      <div className="row">
+        <div className="col-lg-12 col-xl-5 mb-4">
+          <div className="card h-100">
+            <div className="card-header">
+              <h5 className="card-title gstf-section-title mb-0">À faire</h5>
+              <small className="text-muted">Notes à saisir ou à publier, comptes à activer</small>
+            </div>
+            <div className="card-body">
+              <AFaire taches={taches} />
+            </div>
+          </div>
+        </div>
+
+        <div className="col-md-6 col-xl-3 mb-4">
           <div className="card h-100">
             <div className="card-header">
               <h5 className="card-title gstf-section-title mb-0">Inscrits par niveau</h5>
@@ -211,62 +322,14 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="col-lg-6 mb-4">
+        <div className="col-md-6 col-xl-4 mb-4">
           <div className="card h-100">
             <div className="card-header">
               <h5 className="card-title gstf-section-title mb-0">Origine des étudiants</h5>
-              <small className="text-muted">Diocèse ou congrégation renseigné sur la fiche</small>
+              <small className="text-muted">Diocèse ou congrégation</small>
             </div>
             <div className="card-body">
               <Barres lignes={lignesDioceses} total={etudiants.inscrits} vide="Aucune origine renseignée." />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="row">
-        <div className="col-lg-7 mb-4">
-          <div className="card h-100">
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="card-title gstf-section-title mb-0">Dernières annonces</h5>
-              <Link to="/admin/annonce" className="btn btn-sm btn-outline-primary">Toutes les annonces</Link>
-            </div>
-            <div className="card-body">
-              {stats.annonces_recentes.length === 0 ? (
-                <div className="gstf-empty py-3">
-                  <i className="bx bx-message-square-dots d-block"></i>
-                  Aucune annonce publiée.
-                </div>
-              ) : (
-                <ul className="list-unstyled mb-0">
-                  {stats.annonces_recentes.map((a) => (
-                    <li key={a.id} className="d-flex justify-content-between align-items-start py-2 border-bottom">
-                      <div className="me-2 min-w-0">
-                        <div className="fw-semibold text-truncate">{a.titre}</div>
-                        <small className="text-muted">{a.expediteur}</small>
-                      </div>
-                      <div className="text-end text-nowrap">
-                        {a.niveau && <span className="badge bg-label-primary me-1">{a.niveau.niveau}</span>}
-                        <small className="text-muted d-block">{dateCourte(a.created_at)}</small>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-5 mb-4">
-          <div className="card h-100">
-            <div className="card-header">
-              <h5 className="card-title gstf-section-title mb-0">Accès rapides</h5>
-            </div>
-            <div className="card-body d-grid gap-2">
-              <Link to="/admin/listeEtudiant" className="gstf-quick-link"><i className="bx bx-user-plus"></i>Inscrire ou importer des étudiants</Link>
-              <Link to="/admin/noteEtudiant" className="gstf-quick-link"><i className="bx bx-edit"></i>Saisir ou importer des notes</Link>
-              <Link to="/admin/annonce" className="gstf-quick-link"><i className="bx bx-send"></i>Publier une annonce</Link>
-              <Link to="/admin/portal" className="gstf-quick-link"><i className="bx bx-key"></i>Activer un compte, réinitialiser un mot de passe</Link>
             </div>
           </div>
         </div>
