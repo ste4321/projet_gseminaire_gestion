@@ -353,7 +353,7 @@ const NoteEtudiant = () => {
               className={`nav-link ${niveau === i ? 'active' : ''}`}
               onClick={() => handleNiveauChange(i)}
             >
-              Notes des étudiants en L{i}
+              Notes L{i}
             </button>
           </li>
         ))}
