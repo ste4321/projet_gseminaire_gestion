@@ -98,9 +98,10 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
                   <div className="gstf-bar mt-1" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100" aria-label={`Notes saisies du ${s.semestre}`}>
                     <span style={{ width: `${pct}%` }}></span>
                   </div>
-                  <div className="small text-muted mt-2">
+                  <br />
+                  {/* <div className="small text-muted mt-2">
                     {s.publie ? `Publié le ${dateCourte(s.publie_le)} par ${s.publie_par}` : 'Invisible pour les étudiants'}
-                  </div>
+                  </div> */}
                   <button
                     type="button"
                     className={`btn btn-sm w-100 mt-3 ${s.publie ? 'btn-outline-secondary' : 'btn-primary'}`}
