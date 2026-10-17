@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { clearSession } from '../auth/session';
 
@@ -97,6 +98,12 @@ const Header = () => {
                 </div>
               </li>
               <li><hr className="dropdown-divider" /></li>
+              <li>
+                <Link className="dropdown-item" to="/changer-mot-de-passe">
+                  <i className="bx bx-lock-alt me-2"></i>
+                  <span className="align-middle">Changer mon mot de passe</span>
+                </Link>
+              </li>
               <li>
                 <button className="dropdown-item" onClick={handleLogout}>
                   <i className="bx bx-power-off me-2"></i>

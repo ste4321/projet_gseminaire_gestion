@@ -12,6 +12,8 @@ import DataTable from './DataTable';
 import Pagination from './Pagination';
 import DetailModal from './DetailModal';
 import ImportModal from './ImportModal';
+import MotDePasseProvisoire from './MotDePasseProvisoire';
+import { telechargerIdentifiants } from '../utils/identifiants';
 
 const ListeEtudiant = () => {
   const { etudiantParcours, refetchParcours } = useEtudiantParcours();
@@ -41,6 +43,7 @@ const ListeEtudiant = () => {
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   const [loadingImport, setLoadingImport] = useState(false);
+  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   
   // État pour la pagination
   const [currentPage, setCurrentPage] = useState(0);
@@ -160,6 +163,11 @@ const ListeEtudiant = () => {
     setLoadingCreate(true);
     try {
       const response = await api.post(`/etudiants`, newEtudiant);
+      setIdentifiants({
+        nom: response.data.etudiant?.nom_prenom,
+        email: response.data.user?.email,
+        mot_de_passe: response.data.mot_de_passe,
+      });
       
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
@@ -264,7 +272,6 @@ const ListeEtudiant = () => {
         }
       );
   
-      console.log("Réponse de l'import :", response.data);
       
       // Affichage des résultats détaillés
       let message = `✅ ${response.data.message}\n`;
@@ -279,6 +286,14 @@ const ListeEtudiant = () => {
         }
       }
       
+      // Identifiants provisoires des nouveaux comptes : fichier Excel téléchargé chez l'admin uniquement
+      const comptes = response.data.comptes || [];
+      if (comptes.length > 0) {
+        telechargerIdentifiants(comptes, `identifiants_${file.name.replace(/\.(xlsx|xls|csv)$/i, '')}.xlsx`);
+        message += `\n\n🔑 ${comptes.length} compte(s) créé(s) : le fichier des mots de passe provisoires a été téléchargé.`;
+        message += `\nIl ne pourra pas être régénéré : conservez-le en lieu sûr et supprimez-le après distribution.`;
+      }
+
       alert(message);
       
       // Fermer la modal
@@ -519,6 +534,7 @@ const ListeEtudiant = () => {
         acceptedFormats=".csv,.xlsx,.xls"
         // description="Sélectionnez un fichier CSV ou Excel contenant les données des étudiants"
       />
+      <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>
   );
 };

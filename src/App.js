@@ -68,6 +68,7 @@ import Semestre from './components/Semestre';
 import ListeEtudiants from './components/ListeEtudiants';
 import NoteEtudiant from './components/NoteEtudiant';
 import Portal from './components/Portal';
+import ChangerMotDePasse from './pages/ChangerMotDePasse';
 
 
 function App() {
@@ -85,6 +86,7 @@ function App() {
     <Route path="/" element={<Login />} />
 
     <Route element={<PrivateRoute />}>
+      <Route path="/changer-mot-de-passe" element={<ChangerMotDePasse />} />
       <Route element={<RoleRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route path="dashboard" element={<AdminDashboard />} />

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useProf } from '../contexts/ProfContext';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -10,6 +10,7 @@ import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
 import DetailModal from './DetailModal';
+import MotDePasseProvisoire from './MotDePasseProvisoire';
 
 const ListeProf = () => {
   const { profs, setProfs, loading } = useProf();
@@ -26,6 +27,7 @@ const ListeProf = () => {
   });
 
   const [loadingCreate, setLoadingCreate] = useState(false);
+  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -80,8 +82,13 @@ const ListeProf = () => {
       setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal.hide();
+      setIdentifiants({
+        nom: response.data.enseignant?.nom_prenom,
+        email: response.data.user?.email,
+        mot_de_passe: response.data.mot_de_passe,
+      });
     } catch (error) {
-      console.error("Erreur lors de l'ajout :", error.response?.data);
+      alert(errorMessage(error, "Erreur lors de l'ajout de l'enseignant."));
     } finally {
       setLoadingCreate(false);
     }
@@ -233,6 +240,7 @@ const ListeProf = () => {
         data={detailProf}
         fields={profFields}
       />
+      <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>
   );
 };

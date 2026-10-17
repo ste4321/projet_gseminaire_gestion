@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from './api/client';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { saveSession, isSessionValid, getRole, HOME_BY_ROLE } from './auth/session';
+import { saveSession, isSessionValid, getRole, HOME_BY_ROLE, mustChangePassword, CHANGE_PASSWORD_PATH } from './auth/session';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ const Login = () => {
       const route = HOME_BY_ROLE[res.data.user?.role];
       if (route) {
         saveSession(res.data);
-        navigate(route, { replace: true });
+        navigate(res.data.user.must_change_password ? CHANGE_PASSWORD_PATH : route, { replace: true });
       } else {
         setErrors({ general: 'Rôle utilisateur non reconnu' });
         setLoading(false);
@@ -99,7 +99,7 @@ const Login = () => {
 
   // Déjà connecté : on renvoie directement vers son espace
   if (isSessionValid() && HOME_BY_ROLE[getRole()]) {
-    return <Navigate to={HOME_BY_ROLE[getRole()]} replace />;
+    return <Navigate to={mustChangePassword() ? CHANGE_PASSWORD_PATH : HOME_BY_ROLE[getRole()]} replace />;
   }
 
   return (

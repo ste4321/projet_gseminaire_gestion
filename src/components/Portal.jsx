@@ -4,7 +4,9 @@ import SearchBar from './SearchBar';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
 import { useUserCession } from '../contexts/UserCessionContext';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
+import { getUser } from '../auth/session';
+import MotDePasseProvisoire from './MotDePasseProvisoire';
 
 const roles = ['admin', 'prof', 'etudiant'];
 
@@ -15,6 +17,9 @@ const Portal = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
   const [togglingId, setTogglingId] = useState(null);
+  const [resettingId, setResettingId] = useState(null);
+  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
+  const currentUserId = getUser()?.id;
   
   // États pour la sélection multiple
   const [selectedUsers, setSelectedUsers] = useState(new Set());
@@ -130,6 +135,24 @@ const Portal = () => {
     }
   };
 
+  const handleResetPassword = async (user) => {
+    const nom = user.nom_prenom || user.email;
+    if (!window.confirm(`Générer un nouveau mot de passe provisoire pour ${nom} ?\n\nSon mot de passe actuel ne fonctionnera plus et ses sessions ouvertes seront fermées.`)) {
+      return;
+    }
+
+    setResettingId(user.id);
+    try {
+      const res = await api.post(`/user-cessions/${user.id}/reset-password`);
+      updateUserLocal(selectedRole, user.id, { must_change_password: true });
+      setIdentifiants({ nom: user.nom_prenom, email: res.data.email, mot_de_passe: res.data.mot_de_passe });
+    } catch (err) {
+      alert(errorMessage(err, 'Erreur lors de la réinitialisation du mot de passe.'));
+    } finally {
+      setResettingId(null);
+    }
+  };
+
   const loading = !!loadingByRole[selectedRole];
   const { totalPages, currentUsers } = paginationData;
 
@@ -151,7 +174,8 @@ const Portal = () => {
     { label: 'Nom', field: 'nom_prenom' },
     { label: 'Email', field: 'email' },
     { label: 'Créé', field: 'created_at' },
-    { label: 'Accès', field: 'is_verified' }
+    { label: 'Accès', field: 'is_verified' },
+    { label: 'Mot de passe', field: 'password' }
   ];
 
   const renderCell = (row, field) => {
@@ -186,11 +210,39 @@ const Portal = () => {
             checked={!!row.is_verified}
             onChange={() => handleToggle(row)}
             style={{ cursor: 'pointer' }}
-            disabled={togglingId !== null || bulkTogglingType !== null}
+            disabled={togglingId !== null || bulkTogglingType !== null || row.id === currentUserId}
+            title={row.id === currentUserId ? 'Vous ne pouvez pas désactiver votre propre compte' : undefined}
           />
           <label className="form-check-label ms-2">
             {row.is_verified ? 'Activé' : 'Désactivé'}
           </label>
+        </div>
+      );
+    }
+
+    if (field === 'password') {
+      return (
+        <div className="d-flex align-items-center gap-2">
+          {row.must_change_password ? (
+            <span className="badge bg-label-warning" title="L'utilisateur doit le changer à sa prochaine connexion">Provisoire</span>
+          ) : (
+            <span className="badge bg-label-success">Personnel</span>
+          )}
+          {row.id !== currentUserId && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => handleResetPassword(row)}
+              disabled={resettingId !== null}
+              title="Générer un nouveau mot de passe provisoire"
+            >
+              {resettingId === row.id ? (
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+              ) : (
+                <><i className="bx bx-reset me-1"></i>Réinitialiser</>
+              )}
+            </button>
+          )}
         </div>
       );
     }
@@ -272,6 +324,7 @@ const Portal = () => {
               headers={tableHeaders}
               data={currentUsers}
               role="admin"
+              showActions={false}
               renderCell={renderCell}
             />
           )}
@@ -285,6 +338,8 @@ const Portal = () => {
           />
         )}
       </div>
+
+      <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>
   );
 };

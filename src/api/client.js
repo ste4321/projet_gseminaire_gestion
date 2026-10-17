@@ -3,7 +3,7 @@
 // - redirige vers la page de connexion si la session a expiré (401)
 import axios from 'axios';
 import { API_URL } from '../config';
-import { clearSession, getToken } from '../auth/session';
+import { clearSession, getToken, setMustChangePassword, CHANGE_PASSWORD_PATH } from '../auth/session';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -31,6 +31,14 @@ api.interceptors.response.use(
       clearSession();
       if (window.location.pathname !== '/') {
         window.location.assign('/?session=expiree');
+      }
+    }
+
+    // Le serveur exige le remplacement du mot de passe provisoire
+    if (status === 403 && error.response?.data?.error_type === 'password_change_required') {
+      setMustChangePassword(true);
+      if (window.location.pathname !== CHANGE_PASSWORD_PATH) {
+        window.location.assign(CHANGE_PASSWORD_PATH);
       }
     }
     return Promise.reject(error);
