@@ -3,6 +3,7 @@ import { useMatiere } from '../contexts/MatiereContext';
 import { useNiveau } from '../contexts/NiveauContext';
 import { useSemestre } from '../contexts/SemestreContext';
 import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 import SearchBar from './SearchBar';
 import DataTable from './DataTable';
 import AddModal from './AddModal';
@@ -17,7 +18,7 @@ const Matiere = () => {
   const { semestres } = useSemestre();
   const [niveauFilter, setNiveauFilter] = useState('');
   const [semestreFilter, setSemestreFilter] = useState('');
-  
+
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     matiere: '',
@@ -32,10 +33,10 @@ const Matiere = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
-  const [alert, setAlert] = useState({ message: '', type: '' });
+  const { notify } = useFeedback();
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
-  
+
   useEffect(() => {
     setCurrentPage(0);
   }, [search, niveauFilter, semestreFilter]);
@@ -62,11 +63,11 @@ const Matiere = () => {
     try {
       await api.delete(`/matieres/${deleteId}`);
       fetchMatieres();
-      setAlert({ message: 'Matière supprimée avec succès', type: 'success' });
+      notify.success('Matière supprimée avec succès');
       window.bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
     } catch (err) {
       console.error(err);
-      setAlert({ message: errorMessage(err, 'Erreur lors de la suppression'), type: 'danger' });
+      notify.error(errorMessage(err, 'Erreur lors de la suppression'));
     } finally {
       setLoadingDeleteId(null);
     }
@@ -78,10 +79,10 @@ const Matiere = () => {
     try {
       if (selected) {
         await api.put(`/matieres/${selected.id}`, form);
-        setAlert({ message: 'Matière modifiée avec succès', type: 'success' });
+        notify.success('Matière modifiée avec succès');
       } else {
         await api.post('/matieres', form);
-        setAlert({ message: 'Matière ajoutée avec succès', type: 'success' });
+        notify.success('Matière ajoutée avec succès');
       }
       fetchMatieres();
       const modalId = selected ? 'editModal' : 'addModal';
@@ -90,7 +91,7 @@ const Matiere = () => {
       setSelected(null);
     } catch (err) {
       console.error(err);
-      setAlert({ message: errorMessage(err, 'Erreur lors de l\'enregistrement'), type: 'danger' });
+      notify.error(errorMessage(err, 'Erreur lors de l\'enregistrement'));
     } finally {
       setLoadingSubmit(false);
     }
@@ -133,17 +134,10 @@ const Matiere = () => {
     { label: 'Niveau', field: 'niveau.niveau' },
     { label: 'Semestre', field: 'semestre.code_semestre' }
   ]
-  
+
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">Gestion des matières</h4>
-
-      {alert.message && (
-        <div className={`alert alert-${alert.type} alert-dismissible`} role="alert">
-          {alert.message}
-          <button type="button" className="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      )}
 
       <div className="mb-3">
         <button
@@ -161,14 +155,14 @@ const Matiere = () => {
       <div className="card">
         <h5 className="card-header">Liste des matières</h5>
         <div className="card-body pb-0">
-          <SearchBar 
-          searchTerm={search} 
-          onSearchChange={setSearch} 
+          <SearchBar
+          searchTerm={search}
+          onSearchChange={setSearch}
           placeholder="Rechercher une matière..."
         />
         </div>
         <div className="row px-3 py-2">
-          <div className="col-md-6 mb-2"> 
+          <div className="col-md-6 mb-2">
             <select
               className="form-control"
               value={niveauFilter}
@@ -201,18 +195,7 @@ const Matiere = () => {
             setDetail(matiere);
             openModal('detailModal');
           }}
-          onEdit={(matiere) => {
-            setSelected(matiere);
-            setForm({
-              matiere: matiere.matiere,
-              heures: matiere.heures,
-              id_niveau: matiere.id_niveau,
-              id_semestre: matiere.id_semestre,
-              code_matiere: matiere.code_matiere,
-              coefficient: matiere.coefficient
-            });
-            openModal('editModal');
-          }}
+          onEdit={handleEdit}
           onDelete={(id) => {
             setDeleteId(id);
             openModal('deleteModal');
@@ -222,10 +205,10 @@ const Matiere = () => {
             return value || '--';
           }}
         />
-      <Pagination 
-        currentPage={currentPage} 
-        totalPages={totalPages} 
-        onPageChange={setCurrentPage} 
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
       />
       </div>
       <AddModal

@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 import { storageUrl } from '../config';
 import { FaAngleDoubleLeft, FaAngleDoubleRight } from 'react-icons/fa';
 import { useEmploi } from '../contexts/EmploiContext';
@@ -33,44 +34,44 @@ const EmploiDuTemps = () => {
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
+  const { notify } = useFeedback();
 
-  const emploiActuel = useMemo(() => 
-    semestre === 1 ? emploiSemestre1 : emploiSemestre2, 
+  const emploiActuel = useMemo(() =>
+    semestre === 1 ? emploiSemestre1 : emploiSemestre2,
     [semestre, emploiSemestre1, emploiSemestre2]
   );
-  
+
   const totalPages = emploiActuel.length;
   const currentEmploi = emploiActuel[page];
 
   // Configuration des champs pour les modales
   const emploiFields = useMemo(() => [
-    { 
-      name: 'image', 
-      label: 'Fichier image', 
-      type: 'file', 
-      accept: 'image/*', 
-      required: true 
+    {
+      name: 'image',
+      label: 'Fichier image',
+      type: 'file',
+      accept: 'image/*',
+      required: true
     },
-    { 
-      name: 'semestre', 
-      label: 'Semestre', 
-      type: 'select', 
+    {
+      name: 'semestre',
+      label: 'Semestre',
+      type: 'select',
       options: [
         { value: 1, label: 'Semestre 1' },
         { value: 2, label: 'Semestre 2' }
       ],
-      required: true 
+      required: true
     }
   ], []);
-  
+
   const editFields = useMemo(() => [
-    { 
-      name: 'image', 
-      label: 'Nouvelle image', 
-      type: 'file', 
-      accept: 'image/*', 
-      required: true 
+    {
+      name: 'image',
+      label: 'Nouvelle image',
+      type: 'file',
+      accept: 'image/*',
+      required: true
     }
   ], []);
 
@@ -125,12 +126,12 @@ const EmploiDuTemps = () => {
 
   const handleFormChange = useCallback((field, value, isEdit = false) => {
     let processedValue = value;
-    
+
     // Pour le champ semestre, convertir en entier
     if (field === 'semestre') {
       processedValue = parseInt(value);
     }
-    
+
     if (isEdit) {
       setEditEmploi(prev => ({ ...prev, [field]: processedValue }));
     } else {
@@ -162,20 +163,19 @@ const EmploiDuTemps = () => {
       setNewEmploi({ image: null, semestre: 1 });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal?.hide();
-      
+
       // Si on a ajouté dans le semestre actuel, aller à la nouvelle page
       if (newEmploi.semestre === semestre) {
         setPage(emploiActuel.length); // Nouvelle page sera à la fin
       }
-      
-      setSuccessMessage("L'emploi du temps a été ajouté avec succès !");
-      setTimeout(() => setSuccessMessage(''), 5000);
+
+      notify.success("Emploi du temps ajouté.");
     } catch (error) {
-      console.error("Erreur lors de l'ajout :", error);
+      notify.error(errorMessage(error, "Erreur lors de l'ajout de l'emploi du temps."));
     } finally {
       setLoadingCreate(false);
     }
-  }, [newEmploi, semestre, emploiActuel.length, setEmploiSemestre1, setEmploiSemestre2]);
+  }, [newEmploi, semestre, emploiActuel.length, setEmploiSemestre1, setEmploiSemestre2, notify]);
 
   const handleUpdate = useCallback(async () => {
     if (!editEmploi?.image || !currentEmploi) return;
@@ -184,7 +184,6 @@ const EmploiDuTemps = () => {
     const formData = new FormData();
     formData.append('image', editEmploi.image);
     formData.append('semestre', semestre);
-    formData.append('email', localStorage.getItem('email'));
 
     try {
       const res = await api.post(`/emplois/${currentEmploi.id}/upload`, formData, {
@@ -198,17 +197,16 @@ const EmploiDuTemps = () => {
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
       modal?.hide();
       setEditEmploi(null);
-      
+
       // Réinitialiser le state de chargement pour forcer le rechargement
       setImageLoading(prev => ({ ...prev, [currentEmploi.id]: false }));
-      setSuccessMessage("L'image a été mise à jour avec succès !");
-      setTimeout(() => setSuccessMessage(''), 5000);
+      notify.success("Image de l'emploi du temps remplacée.");
     } catch (error) {
-      console.error("Erreur lors de la mise à jour :", error.response?.data || error.message);
+      notify.error(errorMessage(error, "Erreur lors du remplacement de l'image."));
     } finally {
       setLoadingUpdate(false);
     }
-  }, [editEmploi, currentEmploi, semestre, emploiActuel, page, setEmploiSemestre1, setEmploiSemestre2]);
+  }, [editEmploi, currentEmploi, semestre, emploiActuel, page, setEmploiSemestre1, setEmploiSemestre2, notify]);
 
   const handleDelete = useCallback(async () => {
     if (!confirmDeleteId) return;
@@ -218,24 +216,23 @@ const EmploiDuTemps = () => {
       await api.delete(`/emplois/${confirmDeleteId}`);
       const updatedList = emploiActuel.filter(item => item.id !== confirmDeleteId);
       (semestre === 1 ? setEmploiSemestre1 : setEmploiSemestre2)(updatedList);
-      
+
       // Ajuster la page après suppression
       if (page >= updatedList.length && updatedList.length > 0) {
         setPage(updatedList.length - 1);
       } else if (updatedList.length === 0) {
         setPage(0);
       }
-      
+
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal?.hide();
-      setSuccessMessage("L'emploi du temps a été supprimé avec succès !");
-      setTimeout(() => setSuccessMessage(''), 5000);
+      notify.success("Emploi du temps supprimé.");
     } catch (error) {
-      console.error('Erreur lors de la suppression :', error);
+      notify.error(errorMessage(error, "Erreur lors de la suppression de l'emploi du temps."));
     } finally {
       setLoadingDeleteId(null);
     }
-  }, [confirmDeleteId, emploiActuel, semestre, page, setEmploiSemestre1, setEmploiSemestre2]);
+  }, [confirmDeleteId, emploiActuel, semestre, page, setEmploiSemestre1, setEmploiSemestre2, notify]);
 
   const openAddModal = useCallback(() => {
     setNewEmploi({ image: null, semestre: semestre });
@@ -314,7 +311,7 @@ const EmploiDuTemps = () => {
             </div>
           </div>
         )}
-        
+
         <div className="d-flex justify-content-center align-items-center bg-light rounded border overflow-hidden" style={{ height: '60vh' }}>
           <PhotoProvider>
             <PhotoView src={imageUrl}>
@@ -359,32 +356,20 @@ const EmploiDuTemps = () => {
         <span className="text-muted fw-light text-capitalize">{role} /</span> Emploi du temps
       </h4>
 
-      {successMessage && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          {successMessage}
-          <button 
-            type="button" 
-            className="btn-close" 
-            onClick={() => setSuccessMessage('')} 
-            aria-label="Close"
-          ></button>
-        </div>
-      )}
-
       <div className="row">
         <div className="col-md-12">
           <ul className="nav nav-pills flex-column flex-md-row mb-3">
             <li className="nav-item">
-              <button 
-                className={`nav-link ${semestre === 1 ? 'active' : ''}`} 
+              <button
+                className={`nav-link ${semestre === 1 ? 'active' : ''}`}
                 onClick={() => handleChangeSemestre(1)}
               >
                 Premier semestre
               </button>
             </li>
             <li className="nav-item">
-              <button 
-                className={`nav-link ${semestre === 2 ? 'active' : ''}`} 
+              <button
+                className={`nav-link ${semestre === 2 ? 'active' : ''}`}
                 onClick={() => handleChangeSemestre(2)}
               >
                 Deuxième semestre

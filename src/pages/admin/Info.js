@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useInfo } from '../../contexts/InfoContext';
-import api from '../../api/client';
+import api, { errorMessage } from '../../api/client';
+import { useFeedback } from '../../contexts/FeedbackContext';
 
 // Import des composants modulaires
 import SearchBar from '../../components/SearchBar';
@@ -11,6 +12,7 @@ import DataTable from '../../components/DataTable';
 import DetailModal from '../../components/DetailModal';
 
 const Info = () => {
+  const { notify } = useFeedback();
   const { infos, fetchInfos } = useInfo();
   const [newInfo, setNewInfo] = useState({ auteur: '', titre: '', description: '' });
   const [editInfo, setEditInfo] = useState({ id: null, auteur: '', titre: '', description: '' });
@@ -88,8 +90,9 @@ const Info = () => {
       setNewInfo({ auteur: '', titre: '', description: '' });
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('addModal'))?.hide();
+      notify.success('Actualité publiée sur le site.');
     } catch (err) {
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de la publication."));
     } finally {
       setLoadingCreate(false);
     }
@@ -102,8 +105,9 @@ const Info = () => {
       setEditInfo({ id: null, auteur: '', titre: '', description: '' });
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('editModal'))?.hide();
+      notify.success('Actualité modifiée.');
     } catch (err) {
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de la modification."));
     } finally {
       setLoadingUpdate(false);
     }
@@ -115,8 +119,9 @@ const Info = () => {
       await api.delete(`/infos/${confirmDeleteId}`);
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'))?.hide();
+      notify.success('Actualité supprimée.');
     } catch (err) {
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de la suppression."));
     } finally {
       setLoadingDelete(false);
     }
@@ -148,7 +153,7 @@ const Info = () => {
   // Rendu personnalisé pour les détails
   const renderDetailContent = (info) => {
     if (!info) return <p>Aucune information disponible.</p>;
-    
+
     return (
       <>
         <p className="fst-italic text-muted mb-3">

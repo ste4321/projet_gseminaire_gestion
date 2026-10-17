@@ -5,12 +5,14 @@ import DataTable from './DataTable';
 import Pagination from './Pagination';
 import { useUserCession } from '../contexts/UserCessionContext';
 import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 import { getUser } from '../auth/session';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 
 const roles = ['admin', 'prof', 'etudiant'];
 
 const Portal = () => {
+  const { notify, confirm } = useFeedback();
   const { usersByRole, fetchUsers, updateUserLocal, loadingByRole } = useUserCession();
   const [selectedRole, setSelectedRole] = useState('admin');
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,7 +22,7 @@ const Portal = () => {
   const [resettingId, setResettingId] = useState(null);
   const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   const currentUserId = getUser()?.id;
-  
+
   // États pour la sélection multiple
   const [selectedUsers, setSelectedUsers] = useState(new Set());
   const [bulkTogglingType, setBulkTogglingType] = useState(null); // 'activate' | 'deactivate'
@@ -34,7 +36,7 @@ const Portal = () => {
     const usersForRole = usersByRole[selectedRole] || [];
     const term = searchTerm.trim().toLowerCase();
     if (!term) return usersForRole;
-    
+
     return usersForRole.filter(u => {
       return (
         (u.email || '').toLowerCase().includes(term) ||
@@ -69,14 +71,14 @@ const Portal = () => {
     try {
       const res = await api.patch(`/user-cessions/${user.id}/toggle`);
       updateUserLocal(selectedRole, user.id, { is_verified: res.data.is_verified });
-      
+      notify.success(`${user.nom_prenom || user.email} : accès ${res.data.is_verified ? 'activé' : 'désactivé'}.`);
+
       // Update selection if this user was selected
       if (selectedUsers.has(user.id)) {
         setSelectedUsers(prev => new Set([...prev].filter(id => id !== user.id)));
       }
     } catch (err) {
-      console.error('toggle error', err);
-      alert('Erreur lors de la mise à jour. Réessayez.');
+      notify.error(errorMessage(err, 'Erreur lors de la mise à jour. Réessayez.'));
     } finally {
       setTogglingId(null);
     }
@@ -106,11 +108,19 @@ const Portal = () => {
   // Actions en lot
   const handleBulkToggle = async (action) => {
     if (selectedUsers.size === 0) {
-      alert('Aucun utilisateur sélectionné');
+      notify.warning('Aucun utilisateur sélectionné.');
       return;
     }
 
     const isActivating = action === 'activate';
+    if (!isActivating && !(await confirm({
+      title: 'Désactiver les comptes ?',
+      message: `${selectedUsers.size} compte(s) ne pourront plus se connecter jusqu'à leur réactivation.`,
+      confirmLabel: 'Désactiver',
+      danger: true,
+    }))) {
+      return;
+    }
     setBulkTogglingType(action);
 
     try {
@@ -120,16 +130,15 @@ const Portal = () => {
         is_verified: isActivating
       });
 
-      // Mise à jour locale des utilisateurs
-      userIds.forEach(userId => {
+      // Mise à jour locale (le serveur ignore toujours le compte de l'admin connecté)
+      userIds.filter(userId => userId !== currentUserId).forEach(userId => {
         updateUserLocal(selectedRole, userId, { is_verified: isActivating });
       });
 
       setSelectedUsers(new Set());
-      alert(`${userIds.length} utilisateur(s) ${isActivating ? 'activé(s)' : 'désactivé(s)'} avec succès`);
+      notify.success(res.data.message);
     } catch (err) {
-      console.error('bulk toggle error', err);
-      alert('Erreur lors de la mise à jour en lot. Réessayez.');
+      notify.error(errorMessage(err, 'Erreur lors de la mise à jour en lot. Réessayez.'));
     } finally {
       setBulkTogglingType(null);
     }
@@ -137,9 +146,13 @@ const Portal = () => {
 
   const handleResetPassword = async (user) => {
     const nom = user.nom_prenom || user.email;
-    if (!window.confirm(`Générer un nouveau mot de passe provisoire pour ${nom} ?\n\nSon mot de passe actuel ne fonctionnera plus et ses sessions ouvertes seront fermées.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Réinitialiser le mot de passe ?',
+      message: `Un nouveau mot de passe provisoire sera généré pour ${nom}.\nSon mot de passe actuel ne fonctionnera plus et ses sessions ouvertes seront fermées.`,
+      confirmLabel: 'Réinitialiser',
+      danger: true,
+    });
+    if (!ok) return;
 
     setResettingId(user.id);
     try {
@@ -147,7 +160,7 @@ const Portal = () => {
       updateUserLocal(selectedRole, user.id, { must_change_password: true });
       setIdentifiants({ nom: user.nom_prenom, email: res.data.email, mot_de_passe: res.data.mot_de_passe });
     } catch (err) {
-      alert(errorMessage(err, 'Erreur lors de la réinitialisation du mot de passe.'));
+      notify.error(errorMessage(err, 'Erreur lors de la réinitialisation du mot de passe.'));
     } finally {
       setResettingId(null);
     }
@@ -157,7 +170,7 @@ const Portal = () => {
   const { totalPages, currentUsers } = paginationData;
 
   const tableHeaders = [
-    { 
+    {
       label: (
         <div className="form-check">
           <input
@@ -168,8 +181,8 @@ const Portal = () => {
             disabled={loading || currentUsers.length === 0}
           />
         </div>
-      ), 
-      field: 'select' 
+      ),
+      field: 'select'
     },
     { label: 'Nom', field: 'nom_prenom' },
     { label: 'Email', field: 'email' },
@@ -250,7 +263,7 @@ const Portal = () => {
     if (field === 'created_at' || field === 'updated_at') {
       return row[field] ? new Date(row[field]).toLocaleString() : '--';
     }
-    
+
     return row[field] ?? '--';
   };
 
