@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
-import api from '../api/client';
+import api, { errorMessage as messageErreur } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
 
 // Import des composants modulaires
@@ -12,16 +13,19 @@ import DataTable from './DataTable';
 import Pagination from './Pagination';
 import DetailModal from './DetailModal';
 import ImportModal from './ImportModal';
+import MotDePasseProvisoire from './MotDePasseProvisoire';
+import { telechargerIdentifiants } from '../utils/identifiants';
 
 const ListeEtudiant = () => {
+  const { notify } = useFeedback();
   const { etudiantParcours, refetchParcours } = useEtudiantParcours();
   const { etudiants, setEtudiants, loading } = useEtudiant();
-  
+
   // États pour les filtres
   const [selectedAnnee, setSelectedAnnee] = useState('');
   const [niveau, setNiveau] = useState(1); // Par défaut L1
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // États pour les modales
   const [editEtudiant, setEditEtudiant] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -32,8 +36,7 @@ const ListeEtudiant = () => {
     email: '',
     telephone: '',
     matricule: '',
-    niveau: '',
-    filiere: ''
+    niveau: ''
   });
 
   // États pour les loadings
@@ -41,11 +44,12 @@ const ListeEtudiant = () => {
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   const [loadingImport, setLoadingImport] = useState(false);
-  
+  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
+
   // État pour la pagination
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
-  
+
   // État pour le rôle
   const [role, setRole] = useState(localStorage.getItem('role'));
 
@@ -56,7 +60,7 @@ const ListeEtudiant = () => {
       const anneeIds = etudiantParcours
         .map(p => p.annee_academique?.id)
         .filter(Boolean);
-      
+
       if (anneeIds.length > 0) {
         const maxAnneeId = Math.max(...anneeIds);
         setSelectedAnnee(String(maxAnneeId));
@@ -67,7 +71,7 @@ const ListeEtudiant = () => {
   // Obtenir les années académiques uniques
   const annees = etudiantParcours
     .map(p => p.annee_academique)
-    .filter((annee, index, self) => 
+    .filter((annee, index, self) =>
       annee && self.findIndex(a => a?.id === annee.id) === index
     )
     .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
@@ -90,7 +94,6 @@ const ListeEtudiant = () => {
         telephone: etu?.telephone,
         diocese: etu?.diocese,
         niveau: parcours?.niveau?.niveau,
-        filiere: '--',
         original: parcours
       };
     })
@@ -119,8 +122,7 @@ const ListeEtudiant = () => {
       { value: 'L3', label: 'Licence 3' },
       { value: 'M1', label: 'Master 1' },
       { value: 'M2', label: 'Master 2' }
-    ]},
-    { name: 'filiere', label: 'Filière', type: 'text', placeholder: 'Entrer la filière', required: true }
+    ]}
   ];
 
   // Configuration des en-têtes du tableau
@@ -128,8 +130,7 @@ const ListeEtudiant = () => {
     { label: 'Nom', field: 'nom_prenom' },
     { label: 'Matricule', field: 'matricule' },
     { label: 'Email', field: 'email' },
-    { label: 'Niveau', field: 'niveau' },
-    { label: 'Filière', field: 'filiere' }
+    { label: 'Niveau', field: 'niveau' }
   ];
 
   // Handlers
@@ -160,60 +161,63 @@ const ListeEtudiant = () => {
     setLoadingCreate(true);
     try {
       const response = await api.post(`/etudiants`, newEtudiant);
-      
+      setIdentifiants({
+        nom: response.data.etudiant?.nom_prenom,
+        email: response.data.user?.email,
+        mot_de_passe: response.data.mot_de_passe,
+      });
+
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal.hide();
-      
+
       // Réinitialiser le formulaire
-      setNewEtudiant({ 
-        nom_prenom: '', 
-        diocese: '', 
-        email: '', 
-        telephone: '', 
-        matricule: '', 
-        niveau: '', 
-        filiere: '' 
+      setNewEtudiant({
+        nom_prenom: '',
+        diocese: '',
+        email: '',
+        telephone: '',
+        matricule: '',
+        niveau: ''
       });
-      
+
       // 🔹 Recharger les données du contexte
       await refetchParcours();
-      
+
       console.log("Étudiant ajouté avec succès et données rechargées");
-      
+
     } catch (error) {
       if ([409, 422].includes(error.response?.status)) {
-        alert(error.response.data.message); // 🔴 Matricule ou email déjà existant, champ invalide
+        notify.error(error.response.data.message); // matricule ou email déjà existant, champ invalide
       } else {
-        console.error("Erreur lors de l'ajout :", error.response?.data);
+        notify.error(messageErreur(error, "Erreur lors de l'ajout de l'étudiant."));
       }
     }
      finally {
       setLoadingCreate(false);
     }
   };
-  
+
 
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      const response = await api.put(
+      await api.put(
         `/etudiants/${editEtudiant.id}`,
         editEtudiant
       );
-      
+
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
       if (modal) modal.hide();
       setEditEtudiant(null);
-      
+
       // 🔹 Recharger les données du contexte
       await refetchParcours();
-      
-      console.log("Étudiant modifié avec succès et données rechargées");
-      
+
+      notify.success('Étudiant modifié.');
     } catch (error) {
-      console.error("Erreur lors de la mise à jour :", error.response?.data || error.message);
+      notify.error(messageErreur(error, "Erreur lors de la modification de l'étudiant."));
     } finally {
       setLoadingUpdate(false);
     }
@@ -223,33 +227,32 @@ const ListeEtudiant = () => {
     setLoadingDeleteId(confirmDeleteId);
     try {
       await api.delete(`/etudiants/${confirmDeleteId}`);
-      
+
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       if (modal) modal.hide();
-      
+
       // 🔹 Recharger les données du contexte
       await refetchParcours();
-      
-      console.log("Étudiant supprimé avec succès et données rechargées");
-      
+
+      notify.success('Étudiant et compte associé supprimés.');
     } catch (error) {
-      console.error("Erreur lors de la suppression :", error);
+      notify.error(messageErreur(error, "Erreur lors de la suppression de l'étudiant."));
     } finally {
       setLoadingDeleteId(null);
     }
   };
-  
+
   // Fonction handleImport améliorée pour ListeEtudiant.jsx
   const handleImport = async (file) => {
     setLoadingImport(true);
     const formData = new FormData();
     formData.append('file', file);
-  
+
     try {
       const response = await api.post(
-        '/etudiants/import', 
-        formData, 
+        '/etudiants/import',
+        formData,
         {
           headers: {
             'Content-Type': 'multipart/form-data'
@@ -263,62 +266,70 @@ const ListeEtudiant = () => {
           }
         }
       );
-  
-      console.log("Réponse de l'import :", response.data);
-      
-      // Affichage des résultats détaillés
-      let message = `✅ ${response.data.message}\n`;
-      message += `📊 ${response.data.processed_rows}/${response.data.total_rows} étudiants traités`;
-      message += ` (${response.data.success_rate})`;
-      
-      if (response.data.errors && response.data.errors.length > 0) {
-        message += `\n\n⚠️ ${response.data.error_count} erreurs détectées:\n`;
-        message += response.data.errors.slice(0, 5).join('\n');
-        if (response.data.errors.length > 5) {
-          message += `\n... et ${response.data.errors.length - 5} autres erreurs`;
-        }
+
+
+      // Résumé de l'import
+      const erreurs = response.data.errors || [];
+      let message = `${response.data.processed_rows} étudiant(s) sur ${response.data.total_rows} importé(s).`;
+      if (erreurs.length > 0) {
+        message += `\n${erreurs.length} ligne(s) à vérifier :\n` + erreurs.slice(0, 5).join('\n');
+        if (erreurs.length > 5) message += `\n… et ${erreurs.length - 5} autre(s)`;
       }
-      
-      alert(message);
-      
+
+      // Identifiants provisoires des nouveaux comptes : fichier Excel téléchargé chez l'admin uniquement
+      const comptes = response.data.comptes || [];
+      if (comptes.length > 0) {
+        telechargerIdentifiants(comptes, `identifiants_${file.name.replace(/\.(xlsx|xls|csv)$/i, '')}.xlsx`);
+        notify.info(
+          `${comptes.length} compte(s) créé(s) : le fichier des mots de passe provisoires a été téléchargé.\n` +
+          'Il ne pourra pas être régénéré : conservez-le en lieu sûr et supprimez-le après distribution.',
+          { title: 'Identifiants provisoires', duration: 20000 }
+        );
+      }
+
+      if (erreurs.length > 0) {
+        notify.warning(message, { title: 'Import partiel', duration: 15000 });
+      } else {
+        notify.success(message, { title: 'Import terminé' });
+      }
+
       // Fermer la modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('importModal'));
       if (modal) modal.hide();
-      
+
       // 🔹 Recharger les données du contexte
       await refetchParcours();
-      
+
       console.log("Import terminé et données rechargées");
-      
+
     } catch (error) {
       console.error("Erreur lors de l'import :", error.response?.data, error);
-      
+
       let errorMessage = "Erreur lors de l'import du fichier";
-      
+
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.code === 'ECONNABORTED') {
-        errorMessage = "⏱️ Timeout: L'import prend trop de temps. Essayez avec un fichier plus petit ou contactez l'administrateur.";
+        errorMessage = "L'import prend trop de temps. Essayez avec un fichier plus petit.";
       } else if (error.message === 'Network Error') {
-        errorMessage = "🌐 Erreur réseau: Vérifiez votre connexion ou contactez l'administrateur.";
+        errorMessage = "Serveur injoignable. Vérifiez votre connexion internet.";
       }
-      
-      alert(errorMessage);
+
+      notify.error(errorMessage, { title: 'Import impossible' });
     } finally {
       setLoadingImport(false);
     }
   };
-  
+
   // Fonctions pour les modales
   const openAddModal = () => {
-    setNewEtudiant({ 
-      nom_prenom: '', 
-      diocese: '', 
-      email: '', 
-      telephone: '', 
-      matricule: '', 
-      niveau: '', 
-      filiere: '' 
+    setNewEtudiant({
+      nom_prenom: '',
+      diocese: '',
+      email: '',
+      telephone: '',
+      matricule: '',
+      niveau: ''
     });
     const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
     modal.show();
@@ -384,7 +395,7 @@ const ListeEtudiant = () => {
               className={`nav-link ${niveau === i ? 'active' : ''}`}
               onClick={() => handleNiveauChange(i)}
             >
-              Liste des étudiants en L{i}
+              L{i}
             </button>
           </li>
         ))}
@@ -404,9 +415,9 @@ const ListeEtudiant = () => {
           <button className="btn btn-primary me-2" onClick={openAddModal}>
             Nouveau
           </button>
-          <button className="btn btn-success" onClick={openImportModal}>
+          <button className="btn btn-outline-primary" onClick={openImportModal}>
             <i className="bx bx-import me-1"></i>
-            Importer Fichier
+            Importer un fichier Excel
           </button>
         </div>
       )}
@@ -434,7 +445,7 @@ const ListeEtudiant = () => {
 
         {currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
-            Aucun étudiant trouvé pour L{niveau} 
+            Aucun étudiant trouvé pour L{niveau}
             {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
               <span> en {annees.find(a => a.id == selectedAnnee)?.annee_aca}</span>
             )}
@@ -505,7 +516,6 @@ const ListeEtudiant = () => {
               <strong>Niveau:</strong> {data?.niveau || '--'}
             </div>
             <div className="mb-3">
-              <strong>Filière:</strong> {data?.filiere || '--'}
             </div>
           </div>
         )}
@@ -519,6 +529,7 @@ const ListeEtudiant = () => {
         acceptedFormats=".csv,.xlsx,.xls"
         // description="Sélectionnez un fichier CSV ou Excel contenant les données des étudiants"
       />
+      <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>
   );
 };

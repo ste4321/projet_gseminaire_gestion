@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 import { useProf } from '../contexts/ProfContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
 import { useNiveau  } from '../contexts/NiveauContext';
 import { useAnnee } from '../contexts/AnneeContext';
 
 const AnnonceAdminProf = () => {
-  const [role, setRole] = useState(localStorage.getItem('role'));
-  const [nomPrenom, setNomPrenom] = useState(localStorage.getItem('nom_prenom'));
+  const { notify } = useFeedback();
+  const role = localStorage.getItem('role');
   const { annonces, fetchAnnonces } = useAnnonce();
   const { profs: enseignants } = useProf();
   const { niveaux } = useNiveau ();
@@ -54,15 +55,11 @@ const AnnonceAdminProf = () => {
   const handleCreate = async () => {
     setLoadingCreate(true);
     const formData = new FormData();
-    
-    // Ajouter tous les champs sauf expediteur
+
+    // L'expéditeur est déterminé par le serveur
     Object.entries(newAnnonce).forEach(([key, value]) => {
       if (value) formData.append(key, value);
     });
-    
-    // Déterminer l'expéditeur selon le rôle
-    const expediteur = role === 'admin' ? 'admin' : nomPrenom;
-    formData.append('expediteur', expediteur);
 
     try {
       await api.post('/annonces', formData, {
@@ -70,10 +67,10 @@ const AnnonceAdminProf = () => {
       });
       setNewAnnonce({ titre: '', description: '', fichier: null, id_niveau: '', id_annee_aca: '' });
       fetchAnnonces();
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
-      modal.hide();
+      window.bootstrap.Modal.getInstance(document.getElementById('addModal'))?.hide();
+      notify.success('Annonce publiée.');
     } catch (err) {
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de la publication de l'annonce."));
     } finally {
       setLoadingCreate(false);
     }
@@ -82,25 +79,21 @@ const AnnonceAdminProf = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     const formData = new FormData();
-    
-    // Ajouter tous les champs sauf expediteur
-    Object.entries(editAnnonce).forEach(([key, value]) => {
-      if (value) formData.append(key, value);
+
+    // Seuls les champs modifiables sont envoyés ; l'expéditeur est déterminé par le serveur
+    ['titre', 'description', 'id_niveau', 'id_annee_aca', 'fichier'].forEach((key) => {
+      if (editAnnonce[key]) formData.append(key, editAnnonce[key]);
     });
-    
-    // Déterminer l'expéditeur selon le rôle
-    const expediteur = role === 'admin' ? 'admin' : nomPrenom;
-    formData.append('expediteur', expediteur);
 
     try {
       await api.post(`/annonces/${editAnnonce.id}?_method=PUT`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       fetchAnnonces();
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
-      modal.hide();
+      window.bootstrap.Modal.getInstance(document.getElementById('editModal'))?.hide();
+      notify.success('Annonce modifiée.');
     } catch (err) {
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de la modification de l'annonce."));
     } finally {
       setLoadingUpdate(false);
     }
@@ -111,10 +104,10 @@ const AnnonceAdminProf = () => {
     try {
       await api.delete(`/annonces/${id}`);
       fetchAnnonces();
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-      modal.hide();
+      window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'))?.hide();
+      notify.success('Annonce supprimée.');
     } catch (err) {
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de la suppression de l'annonce."));
     } finally {
       setLoadingDeleteId(null);
     }

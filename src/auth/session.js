@@ -38,3 +38,23 @@ export const HOME_BY_ROLE = {
   prof: '/prof/dashboard',
   etudiant: '/etudiant/dashboard',
 };
+
+export const CHANGE_PASSWORD_PATH = '/changer-mot-de-passe';
+
+export const getUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user')) || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Mot de passe provisoire : l'utilisateur doit le remplacer avant d'accéder à son espace
+export const mustChangePassword = () => !!getUser()?.must_change_password;
+
+export const setMustChangePassword = (value) => {
+  const user = getUser();
+  if (user) {
+    localStorage.setItem('user', JSON.stringify({ ...user, must_change_password: value }));
+  }
+};

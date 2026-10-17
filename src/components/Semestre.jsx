@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSemestre } from '../contexts/SemestreContext';
 import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 
 const Semestre = () => {
   const { semestres, fetchSemestres, loading } = useSemestre();
@@ -11,7 +12,7 @@ const Semestre = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
-  const [alert, setAlert] = useState({ type: '', message: '' });
+  const { notify } = useFeedback();
 
   // Pagination
   const itemsPerPage = 5;
@@ -25,10 +26,7 @@ const Semestre = () => {
     currentPage * itemsPerPage
   );
 
-  const showAlert = (type, message) => {
-    setAlert({ type, message });
-    setTimeout(() => setAlert({ type: '', message: '' }), 4000);
-  };
+  const showAlert = (type, message) => (type === 'success' ? notify.success(message) : notify.error(message));
 
   const openModal = (id) => {
     const modal = new window.bootstrap.Modal(document.getElementById(id));
@@ -79,13 +77,6 @@ const Semestre = () => {
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">Gestion des Semestres</h4>
-
-      {alert.message && (
-        <div className={`alert alert-${alert.type} alert-dismissible`} role="alert">
-          {alert.message}
-          <button type="button" className="btn-close" onClick={() => setAlert({})}></button>
-        </div>
-      )}
 
       <input
         type="text"

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from './api/client';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { saveSession, isSessionValid, getRole, HOME_BY_ROLE } from './auth/session';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { saveSession, isSessionValid, getRole, HOME_BY_ROLE, mustChangePassword, CHANGE_PASSWORD_PATH } from './auth/session';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
@@ -14,19 +14,19 @@ const Login = () => {
   // Validation des champs
   const validateForm = (email, password) => {
     const newErrors = {};
-    
+
     if (!email) {
       newErrors.email = 'L\'email est requis';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Format d\'email invalide';
     }
-    
+
     if (!password) {
       newErrors.password = 'Le mot de passe est requis';
     } else if (password.length < 6) {
       newErrors.password = 'Le mot de passe doit contenir au moins 6 caractères';
     }
-    
+
     return newErrors;
   };
 
@@ -52,7 +52,7 @@ const Login = () => {
       const route = HOME_BY_ROLE[res.data.user?.role];
       if (route) {
         saveSession(res.data);
-        navigate(route, { replace: true });
+        navigate(res.data.user.must_change_password ? CHANGE_PASSWORD_PATH : route, { replace: true });
       } else {
         setErrors({ general: 'Rôle utilisateur non reconnu' });
         setLoading(false);
@@ -60,7 +60,7 @@ const Login = () => {
 
     } catch (err) {
       let errorMessage = 'Une erreur est survenue';
-      
+
       if (err.response) {
         // Erreur de réponse du serveur
         switch (err.response.status) {
@@ -99,7 +99,7 @@ const Login = () => {
 
   // Déjà connecté : on renvoie directement vers son espace
   if (isSessionValid() && HOME_BY_ROLE[getRole()]) {
-    return <Navigate to={HOME_BY_ROLE[getRole()]} replace />;
+    return <Navigate to={mustChangePassword() ? CHANGE_PASSWORD_PATH : HOME_BY_ROLE[getRole()]} replace />;
   }
 
   return (
@@ -110,13 +110,14 @@ const Login = () => {
             <div className="card-body">
               <div className="app-brand justify-content-center">
                 <img
-                  src="images/sainte.jpg"
-                  alt="Logo de G.S.T.F"
-                  width="70"
+                  src="/images/logo-GS.jpg"
+                  alt="Logo du Grand Séminaire de Théologie Faliarivo"
+                  width="90"
+                  height="90"
                 />
               </div>
-              <h4 className="mb-2">G . S . T . F </h4>
-              <p className="mb-4">Grand Séminaire de Théologie Faliarivo</p>
+              <h4 className="mb-1 text-center">Espace de gestion GSTF</h4>
+              <p className="mb-4 text-center text-muted">Grand Séminaire de Théologie Faliarivo</p>
 
               {/* Affichage des erreurs générales */}
               {sessionExpiree && !errors.general && (
@@ -131,11 +132,10 @@ const Login = () => {
                 </div>
               )}
 
-              <form 
-                id="formAuthentication" 
-                className="mb-3" 
+              <form
+                id="formAuthentication"
+                className="mb-3"
                 onSubmit={handleLogin}
-                autoComplete="off"
               >
                 <div className="mb-3">
                   <label htmlFor="email" className="form-label">Email</label>
@@ -146,7 +146,7 @@ const Login = () => {
                     name="email"
                     placeholder="Entrer votre email"
                     autoFocus
-                    autoComplete="new-email"
+                    autoComplete="username"
                     autoCorrect="off"
                     autoCapitalize="off"
                     spellCheck="false"
@@ -160,12 +160,7 @@ const Login = () => {
                 </div>
 
                 <div className="mb-3 form-password-toggle">
-                  <div className="d-flex justify-content-between">
-                    <label className="form-label" htmlFor="password">Mot de passe</label>
-                    <Link to="/forgot-password">
-                      <small>Mot de passe oublié ?</small>
-                    </Link>
-                  </div>
+                  <label className="form-label" htmlFor="password">Mot de passe</label>
                   <div className="input-group input-group-merge">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -173,18 +168,20 @@ const Login = () => {
                       className={`form-control ${errors.password ? 'is-invalid' : ''}`}
                       name="password"
                       placeholder="••••••••••••"
-                      autoComplete="new-password"
+                      autoComplete="current-password"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck="false"
                       disabled={loading}
                     />
-                    <span 
-                      className="input-group-text cursor-pointer" 
+                    <button
+                      type="button"
+                      className="input-group-text cursor-pointer"
                       onClick={togglePasswordVisibility}
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                     >
                       <i className={`bx ${showPassword ? 'bx-show' : 'bx-hide'}`}></i>
-                    </span>
+                    </button>
                   </div>
                   {errors.password && (
                     <div className="invalid-feedback d-block">
@@ -193,19 +190,10 @@ const Login = () => {
                   )}
                 </div>
 
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input 
-                      className="form-check-input" 
-                      type="checkbox" 
-                      id="remember-me" 
-                      disabled={loading}
-                    />
-                    <label className="form-check-label" htmlFor="remember-me">
-                      Se souvenir de moi
-                    </label>
-                  </div>
-                </div>
+                <p className="small text-muted mb-3">
+                  Mot de passe oublié ? Adressez-vous à l'administration du séminaire,
+                  qui vous remettra un mot de passe provisoire.
+                </p>
 
                 <div className="mb-3">
                   <button

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useNiveau } from '../../contexts/NiveauContext';
 import api, { errorMessage } from '../../api/client';
+import { useFeedback } from '../../contexts/FeedbackContext';
 
 const Niveau = () => {
+  const { notify } = useFeedback();
   const { niveaux, fetchNiveaux, loading } = useNiveau();
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({ niveau: '' });
@@ -32,7 +34,7 @@ const Niveau = () => {
       setForm({ niveau: '' });
       setSelected(null);
     } catch (err) {
-      alert(errorMessage(err, "Erreur lors de l'enregistrement."));
+      notify.error(errorMessage(err, "Erreur lors de l'enregistrement."));
     } finally {
       setLoadingSubmit(false);
     }
@@ -46,7 +48,7 @@ const Niveau = () => {
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal.hide();
     } catch (err) {
-      alert(errorMessage(err, 'Erreur lors de la suppression.'));
+      notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
     } finally {
       setLoadingDeleteId(null);
     }

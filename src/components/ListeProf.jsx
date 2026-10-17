@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useProf } from '../contexts/ProfContext';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -10,8 +11,10 @@ import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
 import DetailModal from './DetailModal';
+import MotDePasseProvisoire from './MotDePasseProvisoire';
 
 const ListeProf = () => {
+  const { notify } = useFeedback();
   const { profs, setProfs, loading } = useProf();
   const [searchTerm, setSearchTerm] = useState('');
   const [editProf, setEditProf] = useState(null);
@@ -26,6 +29,7 @@ const ListeProf = () => {
   });
 
   const [loadingCreate, setLoadingCreate] = useState(false);
+  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -80,8 +84,13 @@ const ListeProf = () => {
       setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
       modal.hide();
+      setIdentifiants({
+        nom: response.data.enseignant?.nom_prenom,
+        email: response.data.user?.email,
+        mot_de_passe: response.data.mot_de_passe,
+      });
     } catch (error) {
-      console.error("Erreur lors de l'ajout :", error.response?.data);
+      notify.error(errorMessage(error, "Erreur lors de l'ajout de l'enseignant."));
     } finally {
       setLoadingCreate(false);
     }
@@ -90,7 +99,7 @@ const ListeProf = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      const response = await api.put(
+      await api.put(
         `/enseignants/${editProf.id}`,
         editProf
       );
@@ -101,8 +110,9 @@ const ListeProf = () => {
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
       if (modal) modal.hide();
       setEditProf(null);
+      notify.success('Enseignant modifié.');
     } catch (error) {
-      console.error("Erreur lors de la mise à jour :", error.response?.data || error.message);
+      notify.error(errorMessage(error, "Erreur lors de la modification de l'enseignant."));
     } finally {
       setLoadingUpdate(false);
     }
@@ -115,8 +125,9 @@ const ListeProf = () => {
       setProfs(profs.filter(prof => prof.id !== confirmDeleteId));
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       if (modal) modal.hide();
+      notify.success('Enseignant et compte associé supprimés.');
     } catch (error) {
-      console.error("Erreur lors de la suppression :", error);
+      notify.error(errorMessage(error, "Erreur lors de la suppression de l'enseignant."));
     } finally {
       setLoadingDeleteId(null);
     }
@@ -171,7 +182,7 @@ const ListeProf = () => {
 
       <div className="card">
         <h5 className="card-header">Liste des enseignants</h5>
-        
+
         {/* Barre de recherche dans la carte */}
         <div className="card-body pb-0">
           <SearchBar
@@ -180,7 +191,7 @@ const ListeProf = () => {
             placeholder="Rechercher un professeur..."
           />
         </div>
-        
+
         <DataTable
           headers={tableHeaders}
           data={currentProfs}
@@ -233,6 +244,7 @@ const ListeProf = () => {
         data={detailProf}
         fields={profFields}
       />
+      <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>
   );
 };

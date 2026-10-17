@@ -1,40 +1,20 @@
-import Header from '../components/Header';
-import Sidebar from '../components/Sidebar';
-// import Footer from '../components/Footer';
-import { Outlet } from 'react-router-dom';
-import useScripts from '../hooks/useScripts';
+import AppShell from './AppShell';
 import { ProfProvider } from '../contexts/ProfContext';
 import { AnnonceProvider } from '../contexts/AnnonceContext';
+import { NiveauProvider } from '../contexts/NiveauContext';
+import { AnneeProvider } from '../contexts/AnneeContext';
 
-function ProfLayout() {
-    useScripts([
-        "/assets/vendor/libs/jquery/jquery.js",
-        "/assets/vendor/libs/popper/popper.js",
-        "/assets/vendor/js/bootstrap.js",
-        "/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js",
-        "/assets/vendor/js/menu.js",
-        "/assets/vendor/libs/apex-charts/apexcharts.js",
-        "/assets/js/main.js",
-        "/assets/js/dashboards-analytics.js",
-      ]);
-  return (
-    <AnnonceProvider>
-    <ProfProvider>
-      <div className="layout-wrapper layout-content-navbar">
-        <div className="layout-container">
-          <Sidebar />
-            <div className="layout-page">
-              <Header />
-              <Outlet />
-              {/* <Footer /> */}
-          <div className="layout-overlay layout-menu-toggle"></div>
-
-        </div>
-        </div>
-      </div>
-    </ProfProvider>
-    </AnnonceProvider>
-  );
-}
+// Niveaux et années : utilisés par la page Annonces (filtres et formulaires)
+const ProfLayout = () => (
+  <AnneeProvider>
+    <NiveauProvider>
+      <AnnonceProvider>
+        <ProfProvider>
+          <AppShell />
+        </ProfProvider>
+      </AnnonceProvider>
+    </NiveauProvider>
+  </AnneeProvider>
+);
 
 export default ProfLayout;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
+import { useFeedback } from '../contexts/FeedbackContext';
 import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
 
 // Import des composants modulaires
@@ -13,6 +14,7 @@ import jsPDF from "jspdf";
 import 'jspdf-autotable';
 
 const NoteEtudiant = () => {
+  const { notify } = useFeedback();
   const { etudiantParcours } = useEtudiantParcours();
   const { etudiants, setEtudiants, loading } = useEtudiant();
   const [selectedFile, setSelectedFile] = useState(null);
@@ -23,18 +25,18 @@ const NoteEtudiant = () => {
   const [selectedAnnee, setSelectedAnnee] = useState('');
   const [niveau, setNiveau] = useState(1); // Par défaut L1
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // États pour les notes
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
   const [matieres, setMatieres] = useState([]);
   const [notes, setNotes] = useState([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
-  
+
   // État pour la pagination
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
-  
+
   // État pour le rôle
   const [role, setRole] = useState(localStorage.getItem('role'));
   //
@@ -43,7 +45,7 @@ const NoteEtudiant = () => {
   const moyenne = notesSaisies.length > 0
     ? (notesSaisies.reduce((acc, n) => acc + parseFloat(n.note), 0) / notesSaisies.length).toFixed(2)
     : null;
-  
+
   let statut = 'En attente';
   if (moyenne !== null) {
     if (moyenne >= 10) statut = 'Validé';
@@ -57,7 +59,7 @@ const NoteEtudiant = () => {
       const anneeIds = etudiantParcours
         .map(p => p.annee_academique?.id)
         .filter(Boolean);
-      
+
       if (anneeIds.length > 0) {
         const maxAnneeId = Math.max(...anneeIds);
         setSelectedAnnee(String(maxAnneeId));
@@ -68,7 +70,7 @@ const NoteEtudiant = () => {
   // Obtenir les années académiques uniques
   const annees = etudiantParcours
     .map(p => p.annee_academique)
-    .filter((annee, index, self) => 
+    .filter((annee, index, self) =>
       annee && self.findIndex(a => a?.id === annee.id) === index
     )
     .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
@@ -91,7 +93,6 @@ const NoteEtudiant = () => {
         telephone: etu?.telephone,
         diocese: etu?.diocese,
         niveau: parcours?.niveau?.niveau,
-        filiere: '--',
         parcours_id: parcours?.id,
         original: parcours
       };
@@ -113,8 +114,7 @@ const NoteEtudiant = () => {
     { label: 'Nom', field: 'nom_prenom' },
     { label: 'Matricule', field: 'matricule' },
     { label: 'Email', field: 'email' },
-    { label: 'Niveau', field: 'niveau' },
-    { label: 'Filière', field: 'filiere' }
+    { label: 'Niveau', field: 'niveau' }
   ];
 
   // Handlers
@@ -136,43 +136,43 @@ const NoteEtudiant = () => {
   // Fonction pour ouvrir le modal des notes
   const openNotesModal = async (etudiant) => {
     setSelectedEtudiant(etudiant);
-  
+
     // Afficher modal de chargement
     const loading = new window.bootstrap.Modal(document.getElementById('loadingModal'));
     loading.show();
-  
+
     try {
       // Récupérer les matières
       const matieresResponse = await api.get(`/matieres/niveau/${niveau}`);
       setMatieres(matieresResponse.data);
-  
+
       // Récupérer les notes
       const notesResponse = await api.get(`/notes/etudiant-parcours/${etudiant.parcours_id}`);
       setNotes(notesResponse.data);
-  
+
       // Fermer le modal de chargement
       loading.hide();
-  
+
       // Afficher modal des notes
       const modal = new window.bootstrap.Modal(document.getElementById('notesModal'));
       modal.show();
     } catch (error) {
       console.error("Erreur lors du chargement des notes :", error);
-      alert("Erreur lors du chargement des notes");
+      notify.error(errorMessage(error, "Erreur lors du chargement des notes."));
       loading.hide();
     }
   };
-  
+
 
   // Fonction pour mettre à jour une note
   const handleNoteChange = (matiereId, noteValue) => {
     setNotes(prevNotes => {
       const existingNote = prevNotes.find(n => n.id_matiere === matiereId);
-      
+
       if (existingNote) {
         // Mettre à jour la note existante
-        return prevNotes.map(n => 
-          n.id_matiere === matiereId 
+        return prevNotes.map(n =>
+          n.id_matiere === matiereId
             ? { ...n, note: noteValue }
             : n
         );
@@ -191,22 +191,22 @@ const NoteEtudiant = () => {
   // Fonction pour sauvegarder les notes
   const handleSaveNotes = async () => {
     setSavingNotes(true);
-    
+
     try {
       await api.post(`/notes/update-bulk`, {
         etudiant_parcours_id: selectedEtudiant.parcours_id,
         notes: notes
       });
-      
-      alert("Notes sauvegardées avec succès !");
-      
+
+      notify.success("Notes enregistrées.");
+
       // Fermer le modal
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('notesModal'));
       if (modal) modal.hide();
-      
+
     } catch (error) {
       console.error("Erreur lors de la sauvegarde :", error);
-      alert("Erreur lors de la sauvegarde des notes");
+      notify.error(errorMessage(error, "Erreur lors de l'enregistrement des notes."));
     } finally {
       setSavingNotes(false);
     }
@@ -230,14 +230,14 @@ const NoteEtudiant = () => {
     setSelectedFile(e.target.files[0]);
     setUploadProgress(0);
   };
-  
+
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
     if (e.type === "dragleave") setDragActive(false);
   };
-  
+
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -247,45 +247,46 @@ const NoteEtudiant = () => {
       setUploadProgress(0);
     }
   };
-  
+
   const handleModalClose = () => {
     setSelectedFile(null);
     setDragActive(false);
     setUploadProgress(0);
   };
-  
+
   const getFileIcon = (filename) => {
     const ext = filename?.split('.').pop().toLowerCase();
     if (ext === 'csv') return 'bx-file-blank';
     if (ext === 'xlsx' || ext === 'xls') return 'bx-spreadsheet';
     return 'bx-file';
   };
-  
+
   const formatFileSize = (bytes) => {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-  
+
   const handleImportSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFile) return;
-  
+
     // Vérifier le format du nom de fichier
-    const match = selectedFile.name.match(/^NOTES_([A-Z0-9]+)_L([1-3])_([0-9]{4}-[0-9]{4})\.xlsx$/i);
+    // Même règle que le serveur : NOTES_<CODE>_<NIVEAU>_<ANNEE>.xlsx (L1…L3, M1, M2)
+    const match = selectedFile.name.match(/^NOTES_([A-Z0-9]+)_([A-Z]?[0-9])_([0-9]{4}-[0-9]{4})\.(xlsx|xls|csv)$/i);
     if (!match) {
-      alert("Nom de fichier invalide. Format attendu : NOTES_CODEMATIERE_LNIVEAU_ANNEE.xlsx (ex: NOTES_FRS_L1_2022-2023.xlsx)");
+      notify.error("Nom de fichier invalide. Format attendu : NOTES_<CODE_MATIERE>_<NIVEAU>_<ANNÉE>.xlsx\nExemple : NOTES_FRS_L1_2025-2026.xlsx", { title: 'Fichier refusé' });
       return;
     }
 
     const formData = new FormData();
     formData.append("file", selectedFile);
     // Ne pas ajouter les paramètres supplémentaires car le contrôleur les extrait du nom du fichier
-  
+
     setImportLoading(true);
     setUploadProgress(0);
-  
+
     try {
       const response = await api.post("/notes/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -294,32 +295,28 @@ const NoteEtudiant = () => {
           setUploadProgress(percent);
         },
       });
-  
-      alert(`Importation réussie ! ${response.data.message}`);
-      
-      // Afficher les erreurs s'il y en a
-      if (response.data.errors && response.data.errors.length > 0) {
-        console.log("Erreurs lors de l'importation :", response.data.errors);
-        alert(`Importation terminée avec ${response.data.errors.length} erreur(s). Consultez la console pour plus de détails.`);
+
+      const erreurs = response.data.errors || [];
+      if (erreurs.length > 0) {
+        const apercu = erreurs.slice(0, 5).join('\n') + (erreurs.length > 5 ? `\n… et ${erreurs.length - 5} autre(s)` : '');
+        notify.warning(`${response.data.message}\n${erreurs.length} ligne(s) ignorée(s) :\n${apercu}`, { title: 'Import partiel', duration: 15000 });
+      } else {
+        notify.success(response.data.message, { title: 'Import terminé' });
       }
-      
+
       // Fermer le modal et rafraîchir
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('importNotesModal'));
       if (modal) modal.hide();
       } catch (err) {
       console.error("Erreur lors de l'importation :", err);
-      
+
       // Afficher un message d'erreur plus détaillé
-      if (err.response && err.response.data && err.response.data.message) {
-        alert(`Erreur lors de l'importation : ${err.response.data.message}`);
-      } else {
-        alert("Erreur lors de l'importation. Vérifiez le format du fichier et réessayez.");
-      }
+      notify.error(errorMessage(err, "Erreur lors de l'importation. Vérifiez le format du fichier et réessayez."), { title: 'Import impossible' });
     } finally {
       setImportLoading(false);
     }
   };
-  
+
   if (loading) {
     return (
       <div className="text-center py-5">
@@ -345,15 +342,15 @@ const NoteEtudiant = () => {
 //     doc.setFontSize(14);
 //     doc.setFont("helvetica", "bold");
 //     doc.text("GRAND SEMINAIRE DE THEOLOGIE", 105, currentY, { align: "center" });
-    
+
 //     currentY += 6;
 //     doc.setFontSize(12);
 //     doc.text("Sainte Thérèse de l'Enfant Jésus", 105, currentY, { align: "center" });
-    
+
 //     currentY += 5;
 //     doc.setFontSize(10);
 //     doc.text("BP-6047 AMBANIDIA - 101 ANTANANARIVO - MADAGASCAR", 105, currentY, { align: "center" });
-    
+
 //     currentY += 5;
 //     doc.text("Mail : seminairetheo@yahoo.fr | Tél : +261 38 21 220 21", 105, currentY, { align: "center" });
 
@@ -375,11 +372,11 @@ const NoteEtudiant = () => {
 //     currentY += 15;
 //     doc.setFontSize(11);
 //     doc.setFont("helvetica", "normal");
-    
+
 //     const nomPrenom = selectedEtudiant?.nom_prenom || 'Non défini';
 //     const [nom, ...prenomParts] = nomPrenom.split(' ');
 //     const prenom = prenomParts.join(' ');
-    
+
 //     doc.text(`Nom : ${nom || 'Non défini'}`, 14, currentY);
 //     currentY += 6;
 //     doc.text(`Prénom : ${prenom || 'Non défini'}`, 14, currentY);
@@ -390,56 +387,56 @@ const NoteEtudiant = () => {
 
 //     // === TABLEAU MANUEL (sans autoTable) ===
 //     currentY += 15;
-    
+
 //     // En-têtes du tableau
 //     const tableStartY = currentY;
 //     const rowHeight = 8;
 //     const colWidths = [20, 120, 40]; // Largeurs des colonnes
 //     const colPositions = [14, 34, 154]; // Positions X des colonnes
-    
+
 //     // Dessiner l'en-tête
 //     doc.setFillColor(41, 128, 185); // Bleu
 //     doc.rect(14, currentY, 180, rowHeight, 'F');
-    
+
 //     doc.setTextColor(255, 255, 255); // Blanc
 //     doc.setFont("helvetica", "bold");
 //     doc.setFontSize(10);
 //     doc.text("#", colPositions[0] + 10, currentY + 5.5, { align: "center" });
 //     doc.text("Matières", colPositions[1] + 5, currentY + 5.5);
 //     doc.text("Notes /20", colPositions[2] + 20, currentY + 5.5, { align: "center" });
-    
+
 //     currentY += rowHeight;
 
 //     // Dessiner les lignes de données
 //     doc.setTextColor(0, 0, 0); // Noir
 //     doc.setFont("helvetica", "normal");
 //     doc.setFontSize(9);
-    
+
 //     matieres.forEach((matiere, index) => {
 //       const note = notes.find(n => n.id_matiere === matiere.id);
 //       const noteValue = note?.note || '--';
-      
+
 //       // Alternance des couleurs de fond
 //       if (index % 2 === 1) {
 //         doc.setFillColor(245, 245, 245);
 //         doc.rect(14, currentY, 180, rowHeight, 'F');
 //       }
-      
+
 //       // Bordures des cellules
 //       doc.setDrawColor(200, 200, 200);
 //       doc.rect(14, currentY, colWidths[0], rowHeight); // Numéro
 //       doc.rect(colPositions[1], currentY, colWidths[1], rowHeight); // Matière
 //       doc.rect(colPositions[2], currentY, colWidths[2], rowHeight); // Note
-      
+
 //       // Texte
 //       doc.text(String(index + 1), colPositions[0] + 10, currentY + 5.5, { align: "center" });
-      
+
 //       // Nom de matière (limiter la longueur)
 //       const matiereNom = (matiere.matiere || matiere.nom || matiere.code_matiere || '--').substring(0, 50);
 //       doc.text(matiereNom, colPositions[1] + 5, currentY + 5.5);
-      
+
 //       doc.text(String(noteValue), colPositions[2] + 20, currentY + 5.5, { align: "center" });
-      
+
 //       currentY += rowHeight;
 //     });
 
@@ -449,7 +446,7 @@ const NoteEtudiant = () => {
 //     const notesValides = notes.filter(n => n.note && !isNaN(parseFloat(n.note)) && parseFloat(n.note) >= 0);
 //     let moyenneText = '--';
 //     let moyenneNum = 0;
-    
+
 //     if (notesValides.length > 0) {
 //       const somme = notesValides.reduce((acc, n) => acc + parseFloat(n.note), 0);
 //       moyenneNum = somme / notesValides.length;
@@ -469,7 +466,7 @@ const NoteEtudiant = () => {
 //       else if (moyenneNum >= 8) statutText = 'Rattrapage';
 //       else statutText = 'Non validé';
 //     }
-    
+
 //     currentY += 10;
 //     doc.text(`Statut : ${statutText}`, 14, currentY);
 
@@ -479,10 +476,10 @@ const NoteEtudiant = () => {
 //     doc.setFont("helvetica", "normal");
 //     doc.setFontSize(10);
 //     doc.text(`Antananarivo, le ${dateStr}`, 14, currentY);
-    
+
 //     currentY += 20;
 //     doc.text("Le Préfet des études", 140, currentY);
-    
+
 //     // Ligne de signature
 //     currentY += 15;
 //     doc.line(140, currentY, 190, currentY);
@@ -492,34 +489,34 @@ const NoteEtudiant = () => {
 //     const anneeAca = anneeObj?.annee_aca || 'XXXX-XXXX';
 //     const niveauStr = selectedEtudiant?.niveau || 'LX';
 //     const nomComplet = selectedEtudiant?.nom_prenom || 'Etudiant_Inconnu';
-    
+
 //     // Nettoyer le nom pour le fichier
 //     const nomFichierSecurise = nomComplet
 //       .replace(/[^\w\sÀ-ÿ-]/g, '') // Garder les accents français
 //       .replace(/\s+/g, ' ')
 //       .trim();
-    
+
 //     const nomFichier = `${anneeAca}_${niveauStr}_${nomFichierSecurise}.pdf`;
-    
+
 //     console.log('Génération du PDF avec le nom:', nomFichier);
-    
+
 //     // Sauvegarde
 //     doc.save(nomFichier);
-    
+
 //     // Message de succès
 //     alert('PDF généré avec succès !');
-    
+
 //   } catch (error) {
 //     console.error('Erreur détaillée lors de la génération du PDF:', error);
 //     console.error('Stack trace:', error.stack);
-    
+
 //     alert(`Erreur lors de la génération du PDF: ${error.message}`);
 //   }
 // };
 const generatePDF = () => {
   try {
     if (!selectedEtudiant) {
-      alert("Aucun étudiant sélectionné");
+      notify.warning("Aucun étudiant sélectionné.");
       return;
     }
 
@@ -663,10 +660,10 @@ const generatePDF = () => {
     const nomFichier = `${anneeAca}_${niveauStr}_${nomFichierSecurise}.pdf`;
 
     doc.save(nomFichier);
-    alert("PDF généré avec succès !");
+    notify.success("Bulletin PDF téléchargé.");
   } catch (error) {
     console.error("Erreur PDF:", error);
-    alert(`Erreur lors de la génération du PDF: ${error.message}`);
+    notify.error("Le bulletin PDF n'a pas pu être généré.");
   }
 };
 
@@ -887,7 +884,7 @@ const generatePDF = () => {
 
         {currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
-            Aucun étudiant trouvé pour L{niveau} 
+            Aucun étudiant trouvé pour L{niveau}
             {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
               <span> en {annees.find(a => a.id == selectedAnnee)?.annee_aca}</span>
             )}
@@ -1011,17 +1008,17 @@ const generatePDF = () => {
             )}
             <br />
             <div className="modal-footer">
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={handleCancelNotes}
                 disabled={savingNotes}
               >
                 Annuler
               </button>
-              <button 
-                type="button" 
-                className="btn btn-primary" 
+              <button
+                type="button"
+                className="btn btn-primary"
                 onClick={handleSaveNotes}
                 disabled={savingNotes || loadingNotes}
               >

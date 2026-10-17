@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
-import { clearSession } from '../auth/session';
+import { clearSession, getRole } from '../auth/session';
+import { ROLE_LABELS } from '../navigation';
+
+const initiales = (nom) =>
+  (nom || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((mot) => mot[0].toUpperCase())
+    .join('');
 
 const Header = () => {
-  const [role, setRole] = useState('');
-  const [nom_prenom, setNom_prenom] = useState('');
-
-  useEffect(() => {
-    const storedRole = localStorage.getItem('role');
-    const storedNomPrenom = localStorage.getItem('nom_prenom');
-    if (storedRole) setRole(storedRole);
-    if (storedNomPrenom) setNom_prenom(storedNomPrenom);
-  }, []);
+  const role = getRole();
+  const nomPrenom = localStorage.getItem('nom_prenom') || '';
 
   const handleLogout = async () => {
     try {
@@ -25,82 +28,61 @@ const Header = () => {
     }
   };
 
-  const toggleSidebar = () => {
-    const body = document.body;
-    body.classList.toggle('layout-menu-expanded');
-  };
+  const toggleSidebar = () => document.body.classList.toggle('layout-menu-expanded');
 
   return (
     <nav
       className="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
       id="layout-navbar"
     >
-      {/* Bouton menu burger pour mobile */}
       <div className="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
         <button
+          type="button"
           className="nav-item nav-link px-0 me-xl-4 btn border-0 bg-transparent"
           onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
+          aria-label="Ouvrir le menu"
         >
           <i className="bx bx-menu bx-sm"></i>
         </button>
       </div>
 
       <div className="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-        <div className="navbar-nav align-items-center">
-          <div className="nav-item d-flex align-items-center">
-            <i className="bx bx-search fs-4 lh-0"></i>
-            <input
-              type="text"
-              className="form-control border-0 shadow-none"
-              placeholder="Search..."
-              aria-label="Search..."
-            />
-          </div>
-        </div>
-
         <ul className="navbar-nav flex-row align-items-center ms-auto">
           <li className="nav-item navbar-dropdown dropdown-user dropdown">
-            <button 
-              className="nav-link dropdown-toggle hide-arrow btn border-0 bg-transparent"
+            <button
+              className="nav-link dropdown-toggle hide-arrow btn border-0 bg-transparent d-flex align-items-center gap-2"
               type="button"
               data-bs-toggle="dropdown"
               aria-expanded="false"
-              aria-label="User menu"
+              aria-label="Menu du compte"
             >
-              <div className="avatar avatar-online">
-                <img
-                  src="../assets/img/avatars/1.png"
-                  alt="User avatar"
-                  className="w-px-40 h-auto rounded-circle"
-                />
-              </div>
+              <span className="d-none d-md-block text-end lh-sm">
+                <span className="d-block fw-semibold text-body">{nomPrenom}</span>
+                <small className="text-muted">{ROLE_LABELS[role]}</small>
+              </span>
+              <span className="avatar avatar-online">
+                <span className="avatar-initial rounded-circle bg-label-primary">{initiales(nomPrenom)}</span>
+              </span>
             </button>
             <ul className="dropdown-menu dropdown-menu-end">
-              <li>
-                <div className="dropdown-item">
-                  <div className="d-flex">
-                    <div className="flex-shrink-0 me-3">
-                      <div className="avatar avatar-online">
-                        <img
-                          src="../assets/img/avatars/1.png"
-                          alt=""
-                          className="w-px-40 h-auto rounded-circle"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex-grow-1">
-                      <span className="fw-semibold d-block">{nom_prenom}</span>
-                      <small className="text-muted text-capitalize">{role}</small>
-                    </div>
-                  </div>
+              <li className="d-md-none">
+                <div className="dropdown-item-text">
+                  <span className="fw-semibold d-block">{nomPrenom}</span>
+                  <small className="text-muted">{ROLE_LABELS[role]}</small>
                 </div>
+              </li>
+              <li className="d-md-none"><hr className="dropdown-divider" /></li>
+              <li>
+                <Link className="dropdown-item" to="/changer-mot-de-passe">
+                  <i className="bx bx-lock-alt me-2"></i>
+                  <span className="align-middle">Changer mon mot de passe</span>
+                </Link>
               </li>
               <li><hr className="dropdown-divider" /></li>
               <li>
-                <button className="dropdown-item" onClick={handleLogout}>
+                <button type="button" className="dropdown-item" onClick={handleLogout}>
                   <i className="bx bx-power-off me-2"></i>
-                  <span className="align-middle">Déconnexion</span>
+                  <span className="align-middle">Se déconnecter</span>
                 </button>
               </li>
             </ul>
