@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const NotesContext = createContext();
 
@@ -55,7 +55,7 @@ export const NotesProvider = ({ children }) => {
     try {
       setLoadingMatieres(prev => ({ ...prev, [cacheKey]: true }));
       
-      const response = await axios.get(`http://127.0.0.1:8000/api/matieres/niveau/${niveau}`);
+      const response = await api.get(`/matieres/niveau/${niveau}`);
       const matieres = response.data;
 
       // Mettre en cache
@@ -96,7 +96,7 @@ export const NotesProvider = ({ children }) => {
     try {
       setLoadingNotes(prev => ({ ...prev, [parcoursId]: true }));
       
-      const response = await axios.get(`http://127.0.0.1:8000/api/notes/etudiant-parcours/${parcoursId}`);
+      const response = await api.get(`/notes/etudiant-parcours/${parcoursId}`);
       const notes = response.data;
 
       // Mettre en cache
@@ -138,7 +138,7 @@ export const NotesProvider = ({ children }) => {
    */
   const saveBulkNotes = useCallback(async (parcoursId, notes) => {
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/notes/update-bulk', {
+      const response = await api.post('/notes/update-bulk', {
         etudiant_parcours_id: parcoursId,
         notes: notes
       });
@@ -186,7 +186,7 @@ export const NotesProvider = ({ children }) => {
     try {
       setLoadingMoyennes(prev => ({ ...prev, [parcoursId]: true }));
       
-      const response = await axios.get(`http://127.0.0.1:8000/api/notes/moyenne/${parcoursId}`);
+      const response = await api.get(`/notes/moyenne/${parcoursId}`);
       const moyenne = response.data;
 
       // Mettre en cache

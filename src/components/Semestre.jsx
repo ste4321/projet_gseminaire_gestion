@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSemestre } from '../contexts/SemestreContext';
-import axios from 'axios';
+import api, { errorMessage } from '../api/client';
 
 const Semestre = () => {
   const { semestres, fetchSemestres, loading } = useSemestre();
@@ -40,10 +40,10 @@ const Semestre = () => {
     setLoadingSubmit(true);
     try {
       if (selected) {
-        await axios.put(`http://127.0.0.1:8000/api/semestres/${selected.id}`, form);
+        await api.put(`/semestres/${selected.id}`, form);
         showAlert('success', 'Semestre modifié avec succès.');
       } else {
-        await axios.post(`http://127.0.0.1:8000/api/semestres`, form);
+        await api.post(`/semestres`, form);
         showAlert('success', 'Semestre ajouté avec succès.');
       }
       fetchSemestres();
@@ -54,7 +54,7 @@ const Semestre = () => {
       setForm({ semestre: '', code_semestre: '' });
       setSelected(null);
     } catch (err) {
-      showAlert('danger', 'Erreur lors de l\'enregistrement.');
+      showAlert('danger', errorMessage(err, 'Erreur lors de l\'enregistrement.'));
       console.error(err);
     } finally {
       setLoadingSubmit(false);
@@ -64,13 +64,13 @@ const Semestre = () => {
   const handleDelete = async () => {
     setLoadingDeleteId(deleteId);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/semestres/${deleteId}`);
+      await api.delete(`/semestres/${deleteId}`);
       fetchSemestres();
       showAlert('success', 'Semestre supprimé.');
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal.hide();
     } catch (err) {
-      showAlert('danger', 'Erreur lors de la suppression.');
+      showAlert('danger', errorMessage(err, 'Erreur lors de la suppression.'));
     } finally {
       setLoadingDeleteId(null);
     }

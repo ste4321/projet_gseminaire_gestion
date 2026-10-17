@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNiveau } from '../../contexts/NiveauContext';
-import axios from 'axios';
+import api, { errorMessage } from '../../api/client';
 
 const Niveau = () => {
   const { niveaux, fetchNiveaux, loading } = useNiveau();
@@ -22,9 +22,9 @@ const Niveau = () => {
     setLoadingSubmit(true);
     try {
       if (selected) {
-        await axios.put(`/api/niveaux/${selected.id}`, form);
+        await api.put(`/niveaux/${selected.id}`, form);
       } else {
-        await axios.post(`/api/niveaux`, form);
+        await api.post(`/niveaux`, form);
       }
       fetchNiveaux();
       const modal = window.bootstrap.Modal.getInstance(document.getElementById(selected ? 'editModal' : 'addModal'));
@@ -32,7 +32,7 @@ const Niveau = () => {
       setForm({ niveau: '' });
       setSelected(null);
     } catch (err) {
-      console.error(err);
+      alert(errorMessage(err, "Erreur lors de l'enregistrement."));
     } finally {
       setLoadingSubmit(false);
     }
@@ -41,12 +41,12 @@ const Niveau = () => {
   const handleDelete = async () => {
     setLoadingDeleteId(deleteId);
     try {
-      await axios.delete(`/api/niveaux/${deleteId}`);
+      await api.delete(`/niveaux/${deleteId}`);
       fetchNiveaux();
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal.hide();
     } catch (err) {
-      console.error(err);
+      alert(errorMessage(err, 'Erreur lors de la suppression.'));
     } finally {
       setLoadingDeleteId(null);
     }

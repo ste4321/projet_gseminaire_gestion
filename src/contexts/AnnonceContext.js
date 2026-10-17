@@ -1,6 +1,6 @@
 // contexts/AnnonceContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const AnnonceContext = createContext();
 
@@ -11,7 +11,7 @@ export const AnnonceProvider = ({ children }) => {
   const fetchAnnonces = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/annonces');
+      const res = await api.get('/annonces');
       setAnnonces(res.data);
     } catch (err) {
       console.error('Erreur fetch annonces:', err);

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const MatiereContext = createContext();
 
@@ -12,7 +12,7 @@ export const MatiereProvider = ({ children }) => {
   const fetchMatieres = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/matieres');
+      const response = await api.get('/matieres');
       setMatieres(response.data);
     } catch (error) {
       console.error("Erreur lors du chargement des matières :", error);

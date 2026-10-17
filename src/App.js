@@ -91,7 +91,6 @@ function App() {
           <Route path="info" element={<Info />} />
           <Route path="edt" element={<EmploiDuTemps />} />
           <Route path="listeProf" element={<ListeProf />} />
-          <Route path="noteEtudiant" element={<NoteEtudiant />} />
           <Route path="inscriptionEtudiant" element={<InscriptionEtudiant />} />
           <Route path="annonce" element={<AnnonceAdminProf />} />
           <Route path="niveau" element={<Niveau />} />

@@ -2,7 +2,7 @@ import React, { useState, useEffect} from 'react';
 import { useMatiere } from '../contexts/MatiereContext';
 import { useNiveau } from '../contexts/NiveauContext';
 import { useSemestre } from '../contexts/SemestreContext';
-import axios from 'axios';
+import api, { errorMessage } from '../api/client';
 import SearchBar from './SearchBar';
 import DataTable from './DataTable';
 import AddModal from './AddModal';
@@ -60,13 +60,13 @@ const Matiere = () => {
   const handleDelete = async () => {
     setLoadingDeleteId(deleteId);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/matieres/${deleteId}`);
+      await api.delete(`/matieres/${deleteId}`);
       fetchMatieres();
       setAlert({ message: 'Matière supprimée avec succès', type: 'success' });
       window.bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
     } catch (err) {
       console.error(err);
-      setAlert({ message: 'Erreur lors de la suppression', type: 'danger' });
+      setAlert({ message: errorMessage(err, 'Erreur lors de la suppression'), type: 'danger' });
     } finally {
       setLoadingDeleteId(null);
     }
@@ -77,10 +77,10 @@ const Matiere = () => {
     setLoadingSubmit(true);
     try {
       if (selected) {
-        await axios.put(`http://127.0.0.1:8000/api/matieres/${selected.id}`, form);
+        await api.put(`/matieres/${selected.id}`, form);
         setAlert({ message: 'Matière modifiée avec succès', type: 'success' });
       } else {
-        await axios.post('http://127.0.0.1:8000/api/matieres', form);
+        await api.post('/matieres', form);
         setAlert({ message: 'Matière ajoutée avec succès', type: 'success' });
       }
       fetchMatieres();
@@ -90,7 +90,7 @@ const Matiere = () => {
       setSelected(null);
     } catch (err) {
       console.error(err);
-      setAlert({ message: 'Erreur lors de l\'enregistrement', type: 'danger' });
+      setAlert({ message: errorMessage(err, 'Erreur lors de l\'enregistrement'), type: 'danger' });
     } finally {
       setLoadingSubmit(false);
     }

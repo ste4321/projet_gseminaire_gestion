@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const SemestreContext = createContext();
 
@@ -12,7 +12,7 @@ export const SemestreProvider = ({ children }) => {
   const fetchSemestres = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/semestres');
+      const res = await api.get('/semestres');
       setSemestres(res.data);
     } catch (err) {
       console.error(err);

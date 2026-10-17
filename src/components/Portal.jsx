@@ -4,7 +4,7 @@ import SearchBar from './SearchBar';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
 import { useUserCession } from '../contexts/UserCessionContext';
-import axios from 'axios';
+import api from '../api/client';
 
 const roles = ['admin', 'prof', 'etudiant'];
 
@@ -62,7 +62,7 @@ const Portal = () => {
   const handleToggle = async (user) => {
     setTogglingId(user.id);
     try {
-      const res = await axios.patch(`http://127.0.0.1:8000/api/user-cessions/${user.id}/toggle`);
+      const res = await api.patch(`/user-cessions/${user.id}/toggle`);
       updateUserLocal(selectedRole, user.id, { is_verified: res.data.is_verified });
       
       // Update selection if this user was selected
@@ -110,7 +110,7 @@ const Portal = () => {
 
     try {
       const userIds = Array.from(selectedUsers);
-      const res = await axios.patch('http://127.0.0.1:8000/api/user-cessions/bulk-toggle', {
+      const res = await api.patch('/user-cessions/bulk-toggle', {
         user_ids: userIds,
         is_verified: isActivating
       });

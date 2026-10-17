@@ -1,10 +1,9 @@
 // auth/PrivateRoute.js
 import { Navigate, Outlet } from 'react-router-dom';
+import { isSessionValid } from './session';
 
 const PrivateRoute = () => {
-  const token = localStorage.getItem('token'); // ou n'importe quel mécanisme de session
-
-  return token ? <Outlet /> : <Navigate to="/" />;
+  return isSessionValid() ? <Outlet /> : <Navigate to="/?session=expiree" replace />;
 };
 
 export default PrivateRoute;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 import { useProf } from '../contexts/ProfContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
 import { useNiveau  } from '../contexts/NiveauContext';
@@ -65,7 +65,7 @@ const AnnonceAdminProf = () => {
     formData.append('expediteur', expediteur);
 
     try {
-      await axios.post('http://127.0.0.1:8000/api/annonces', formData, {
+      await api.post('/annonces', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setNewAnnonce({ titre: '', description: '', fichier: null, id_niveau: '', id_annee_aca: '' });
@@ -93,7 +93,7 @@ const AnnonceAdminProf = () => {
     formData.append('expediteur', expediteur);
 
     try {
-      await axios.post(`http://127.0.0.1:8000/api/annonces/${editAnnonce.id}?_method=PUT`, formData, {
+      await api.post(`/annonces/${editAnnonce.id}?_method=PUT`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       fetchAnnonces();
@@ -109,7 +109,7 @@ const AnnonceAdminProf = () => {
   const handleDelete = async (id) => {
     setLoadingDeleteId(id);
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/annonces/${id}`);
+      await api.delete(`/annonces/${id}`);
       fetchAnnonces();
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal.hide();

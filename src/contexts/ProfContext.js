@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const ProfContext = createContext();
 
@@ -12,7 +12,7 @@ export const ProfProvider = ({ children }) => {
   const fetchProfs = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/enseignants');
+      const response = await api.get('/enseignants');
       setProfs(response.data);
     } catch (error) {
       console.error("Erreur lors du chargement des enseignants :", error);

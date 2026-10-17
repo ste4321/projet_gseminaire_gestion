@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api/client';
 
 const AnneeContext = createContext();
 
@@ -12,7 +12,7 @@ export const AnneeProvider = ({ children }) => {
   const fetchAnnees = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/annee_aca');
+      const res = await api.get('/annee_aca');
       setAnnees(res.data);
     } catch (error) {
       console.error("Erreur lors du chargement des années :", error);
