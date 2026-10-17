@@ -1,5 +1,5 @@
 // src/contexts/UserCessionContext.jsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import api from '../api/client';
 
 const UserCessionContext = createContext();
@@ -10,33 +10,34 @@ export const useUserCession = () => useContext(UserCessionContext);
 export const UserCessionProvider = ({ children }) => {
   const [usersByRole, setUsersByRole] = useState({});
   const [loadingByRole, setLoadingByRole] = useState({});
+  // Requête en cours ou terminée par rôle : un seul appel par rôle,
+  // même si la liste est vide ou si plusieurs composants la demandent en même temps.
+  const requestsRef = useRef({});
 
-  // Fetch users from API if not already loaded
-  const fetchUsers = useCallback(async (role) => {
-    // Si les données existent déjà, on ne refait pas l'appel
-    if (usersByRole[role]?.length) {
-      return usersByRole[role];
+  // Chargement à la demande (page Portail) ; { force: true } pour recharger
+  const fetchUsers = useCallback((role, { force = false } = {}) => {
+    if (!force && requestsRef.current[role]) {
+      return requestsRef.current[role];
     }
 
     setLoadingByRole(prev => ({ ...prev, [role]: true }));
-    try {
-      const res = await api.get('/user-cessions', { params: { role } });
-      setUsersByRole(prev => ({ ...prev, [role]: res.data }));
-      return res.data;
-    } catch (err) {
-      console.error('fetchUsers error', err);
-      return [];
-    } finally {
-      setLoadingByRole(prev => ({ ...prev, [role]: false }));
-    }
-  }, [usersByRole]);
+    const request = api.get('/user-cessions', { params: { role } })
+      .then(res => {
+        setUsersByRole(prev => ({ ...prev, [role]: res.data }));
+        return res.data;
+      })
+      .catch(err => {
+        console.error('fetchUsers error', err);
+        delete requestsRef.current[role]; // autorise un nouvel essai
+        return [];
+      })
+      .finally(() => {
+        setLoadingByRole(prev => ({ ...prev, [role]: false }));
+      });
 
-  // Chargement initial au montage du provider
-  useEffect(() => {
-    ["admin", "prof", "etudiant"].forEach(role => {
-      fetchUsers(role);
-    });
-  }, [fetchUsers]);
+    requestsRef.current[role] = request;
+    return request;
+  }, []);
 
   // Mise à jour locale (modification utilisateur)
   const updateUserLocal = useCallback((role, id, patch) => {
