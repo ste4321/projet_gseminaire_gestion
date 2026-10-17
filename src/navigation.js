@@ -35,6 +35,7 @@ export const MENUS = {
 
   etudiant: [
     { to: '/etudiant/dashboard', label: 'Accueil', icon: 'bx-home-circle' },
+    { to: '/etudiant/notes', label: 'Mes notes', icon: 'bx-spreadsheet' },
     { to: '/etudiant/edt', label: 'Emploi du temps', icon: 'bx-calendar' },
     { to: '/etudiant/listeProf', label: 'Enseignants', icon: 'bx-user-voice' },
     { to: '/etudiant/annonce', label: 'Annonces', icon: 'bx-message-square-dots' },

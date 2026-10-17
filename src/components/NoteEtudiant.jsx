@@ -10,8 +10,7 @@ import DataTable from './DataTable';
 import Pagination from './Pagination';
 
 // Import de jsPDF et autoTable
-import jsPDF from "jspdf";
-import 'jspdf-autotable';
+import { telechargerBulletin } from '../utils/bulletin';
 
 const NoteEtudiant = () => {
   const { notify } = useFeedback();
@@ -325,347 +324,21 @@ const NoteEtudiant = () => {
       </div>
     );
   }
-// Fonction PDF
-// const generatePDF = () => {
-//   try {
-//     // Vérifications préalables
-//     if (!selectedEtudiant) {
-//       alert('Aucun étudiant sélectionné');
-//       return;
-//     }
-
-//     // Création du document
-//     const doc = new jsPDF();
-//     let currentY = 15;
-
-//     // --- En-tête ---
-//     doc.setFontSize(14);
-//     doc.setFont("helvetica", "bold");
-//     doc.text("GRAND SEMINAIRE DE THEOLOGIE", 105, currentY, { align: "center" });
-
-//     currentY += 6;
-//     doc.setFontSize(12);
-//     doc.text("Sainte Thérèse de l'Enfant Jésus", 105, currentY, { align: "center" });
-
-//     currentY += 5;
-//     doc.setFontSize(10);
-//     doc.text("BP-6047 AMBANIDIA - 101 ANTANANARIVO - MADAGASCAR", 105, currentY, { align: "center" });
-
-//     currentY += 5;
-//     doc.text("Mail : seminairetheo@yahoo.fr | Tél : +261 38 21 220 21", 105, currentY, { align: "center" });
-
-//     // Année académique
-//     currentY += 15;
-//     doc.setFontSize(11);
-//     doc.setFont("helvetica", "normal");
-//     const anneeObj = annees.find(a => a.id == selectedAnnee);
-//     const anneeText = anneeObj?.annee_aca || '--';
-//     doc.text(`Année académique: ${anneeText}`, 180, currentY, { align: "right" });
-
-//     // Titre
-//     currentY += 15;
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(13);
-//     doc.text("RELEVÉ DES NOTES", 105, currentY, { align: "center" });
-
-//     // Infos étudiant
-//     currentY += 15;
-//     doc.setFontSize(11);
-//     doc.setFont("helvetica", "normal");
-
-//     const nomPrenom = selectedEtudiant?.nom_prenom || 'Non défini';
-//     const [nom, ...prenomParts] = nomPrenom.split(' ');
-//     const prenom = prenomParts.join(' ');
-
-//     doc.text(`Nom : ${nom || 'Non défini'}`, 14, currentY);
-//     currentY += 6;
-//     doc.text(`Prénom : ${prenom || 'Non défini'}`, 14, currentY);
-//     currentY += 6;
-//     doc.text(`Classe : ${selectedEtudiant?.niveau || 'Non défini'}`, 14, currentY);
-//     currentY += 6;
-//     doc.text(`Diocèse : ${selectedEtudiant?.original?.etudiant?.diocese || 'Non défini'}`, 14, currentY);
-
-//     // === TABLEAU MANUEL (sans autoTable) ===
-//     currentY += 15;
-
-//     // En-têtes du tableau
-//     const tableStartY = currentY;
-//     const rowHeight = 8;
-//     const colWidths = [20, 120, 40]; // Largeurs des colonnes
-//     const colPositions = [14, 34, 154]; // Positions X des colonnes
-
-//     // Dessiner l'en-tête
-//     doc.setFillColor(41, 128, 185); // Bleu
-//     doc.rect(14, currentY, 180, rowHeight, 'F');
-
-//     doc.setTextColor(255, 255, 255); // Blanc
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(10);
-//     doc.text("#", colPositions[0] + 10, currentY + 5.5, { align: "center" });
-//     doc.text("Matières", colPositions[1] + 5, currentY + 5.5);
-//     doc.text("Notes /20", colPositions[2] + 20, currentY + 5.5, { align: "center" });
-
-//     currentY += rowHeight;
-
-//     // Dessiner les lignes de données
-//     doc.setTextColor(0, 0, 0); // Noir
-//     doc.setFont("helvetica", "normal");
-//     doc.setFontSize(9);
-
-//     matieres.forEach((matiere, index) => {
-//       const note = notes.find(n => n.id_matiere === matiere.id);
-//       const noteValue = note?.note || '--';
-
-//       // Alternance des couleurs de fond
-//       if (index % 2 === 1) {
-//         doc.setFillColor(245, 245, 245);
-//         doc.rect(14, currentY, 180, rowHeight, 'F');
-//       }
-
-//       // Bordures des cellules
-//       doc.setDrawColor(200, 200, 200);
-//       doc.rect(14, currentY, colWidths[0], rowHeight); // Numéro
-//       doc.rect(colPositions[1], currentY, colWidths[1], rowHeight); // Matière
-//       doc.rect(colPositions[2], currentY, colWidths[2], rowHeight); // Note
-
-//       // Texte
-//       doc.text(String(index + 1), colPositions[0] + 10, currentY + 5.5, { align: "center" });
-
-//       // Nom de matière (limiter la longueur)
-//       const matiereNom = (matiere.matiere || matiere.nom || matiere.code_matiere || '--').substring(0, 50);
-//       doc.text(matiereNom, colPositions[1] + 5, currentY + 5.5);
-
-//       doc.text(String(noteValue), colPositions[2] + 20, currentY + 5.5, { align: "center" });
-
-//       currentY += rowHeight;
-//     });
-
-//     // === FIN DU TABLEAU MANUEL ===
-
-//     // Calcul de la moyenne
-//     const notesValides = notes.filter(n => n.note && !isNaN(parseFloat(n.note)) && parseFloat(n.note) >= 0);
-//     let moyenneText = '--';
-//     let moyenneNum = 0;
-
-//     if (notesValides.length > 0) {
-//       const somme = notesValides.reduce((acc, n) => acc + parseFloat(n.note), 0);
-//       moyenneNum = somme / notesValides.length;
-//       moyenneText = moyenneNum.toFixed(2);
-//     }
-
-//     // Affichage de la moyenne
-//     currentY += 15;
-//     doc.setFont("helvetica", "bold");
-//     doc.setFontSize(12);
-//     doc.text(`Moyenne générale : ${moyenneText}/20`, 14, currentY);
-
-//     // Statut
-//     let statutText = 'En attente';
-//     if (moyenneText !== '--') {
-//       if (moyenneNum >= 10) statutText = 'Validé';
-//       else if (moyenneNum >= 8) statutText = 'Rattrapage';
-//       else statutText = 'Non validé';
-//     }
-
-//     currentY += 10;
-//     doc.text(`Statut : ${statutText}`, 14, currentY);
-
-//     // Signature et date
-//     currentY += 20;
-//     const dateStr = new Date().toLocaleDateString('fr-FR');
-//     doc.setFont("helvetica", "normal");
-//     doc.setFontSize(10);
-//     doc.text(`Antananarivo, le ${dateStr}`, 14, currentY);
-
-//     currentY += 20;
-//     doc.text("Le Préfet des études", 140, currentY);
-
-//     // Ligne de signature
-//     currentY += 15;
-//     doc.line(140, currentY, 190, currentY);
-
-//     // Construction du nom de fichier selon votre format
-//     // Format: 2023-2024_L1_ANDRIAMANANTENA Nambinintsoa François
-//     const anneeAca = anneeObj?.annee_aca || 'XXXX-XXXX';
-//     const niveauStr = selectedEtudiant?.niveau || 'LX';
-//     const nomComplet = selectedEtudiant?.nom_prenom || 'Etudiant_Inconnu';
-
-//     // Nettoyer le nom pour le fichier
-//     const nomFichierSecurise = nomComplet
-//       .replace(/[^\w\sÀ-ÿ-]/g, '') // Garder les accents français
-//       .replace(/\s+/g, ' ')
-//       .trim();
-
-//     const nomFichier = `${anneeAca}_${niveauStr}_${nomFichierSecurise}.pdf`;
-
-//     console.log('Génération du PDF avec le nom:', nomFichier);
-
-//     // Sauvegarde
-//     doc.save(nomFichier);
-
-//     // Message de succès
-//     alert('PDF généré avec succès !');
-
-//   } catch (error) {
-//     console.error('Erreur détaillée lors de la génération du PDF:', error);
-//     console.error('Stack trace:', error.stack);
-
-//     alert(`Erreur lors de la génération du PDF: ${error.message}`);
-//   }
-// };
-const generatePDF = () => {
-  try {
-    if (!selectedEtudiant) {
+  // Bulletin PDF : relevé calculé par le serveur (moyenne pondérée, notes de 0 incluses),
+  // même format que le bulletin téléchargé par l'étudiant.
+  const generatePDF = async () => {
+    if (!selectedEtudiant?.parcours_id) {
       notify.warning("Aucun étudiant sélectionné.");
       return;
     }
-
-    const doc = new jsPDF();
-    let currentY = 15;
-
-    // === LOGO ===
-    const logoPath = "/images/logo-GS.jpg"; // chemin relatif depuis public
-    doc.addImage(logoPath, "JPEG", 14, 10, 25, 25); // (x,y, largeur, hauteur)
-
-    // === EN-TÊTE ===
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("GRAND SEMINAIRE DE THEOLOGIE", 105, currentY, { align: "center" });
-
-    currentY += 6;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text("Sainte Thérèse de l'Enfant Jésus", 105, currentY, { align: "center" });
-
-    currentY += 5;
-    doc.setFontSize(10);
-    doc.text("BP-6047 AMBANIDIA - 101 ANTANANARIVO - MADAGASCAR", 105, currentY, { align: "center" });
-
-    currentY += 5;
-    doc.text("Mail : seminairetheo@yahoo.fr   |   Tél : +261 38 21 220 21", 105, currentY, { align: "center" });
-
-    // === ANNÉE ACADÉMIQUE ===
-    currentY += 20;
-    const anneeObj = annees.find((a) => a.id == selectedAnnee);
-    const anneeText = anneeObj?.annee_aca || "--";
-    doc.setFontSize(11);
-    doc.text(`Année académique: ${anneeText}`, 200 - 14, currentY, { align: "right" });
-
-    // === TITRE ===
-    currentY += 15;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text("RELEVE DES NOTES", 105, currentY, { align: "center" });
-
-    // === INFOS ETUDIANT ===
-    currentY += 15;
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-
-    const nomPrenom = selectedEtudiant?.nom_prenom || "Non défini";
-    const [nom, ...prenomParts] = nomPrenom.split(" ");
-    const prenom = prenomParts.join(" ");
-
-    doc.text(`NOM : ${nom || "Non défini"}`, 14, currentY);
-    currentY += 6;
-    doc.text(`PRENOM : ${prenom || "Non défini"}`, 14, currentY);
-    currentY += 6;
-    doc.text(`CLASSE : ${selectedEtudiant?.niveau || "Non défini"}`, 14, currentY);
-    currentY += 6;
-    doc.text(`Diocèse : ${selectedEtudiant?.original?.etudiant?.diocese || "Non défini"}`, 14, currentY);
-
-    // === TABLEAU SIMPLE (style officiel) ===
-    currentY += 15;
-
-    const rowHeight = 8;
-    const colWidths = [10, 120, 40];
-    const colPositions = [14, 24, 144];
-
-    // En-tête du tableau
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-
-    doc.rect(colPositions[0], currentY, colWidths[0], rowHeight);
-    doc.text("N°", colPositions[0] + 3, currentY + 6);
-
-    doc.rect(colPositions[1], currentY, colWidths[1], rowHeight);
-    doc.text("Matières", colPositions[1] + 2, currentY + 6);
-
-    doc.rect(colPositions[2], currentY, colWidths[2], rowHeight);
-    doc.text("Notes /20", colPositions[2] + 15, currentY + 6, { align: "center" });
-
-    currentY += rowHeight;
-
-    // Contenu du tableau
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    matieres.forEach((matiere, index) => {
-      const note = notes.find((n) => n.id_matiere === matiere.id);
-      const noteValue = note?.note || "--";
-
-      // Bordures
-      doc.rect(colPositions[0], currentY, colWidths[0], rowHeight);
-      doc.rect(colPositions[1], currentY, colWidths[1], rowHeight);
-      doc.rect(colPositions[2], currentY, colWidths[2], rowHeight);
-
-      // Texte
-      doc.text(String(index + 1), colPositions[0] + 3, currentY + 6);
-      const matiereNom = (matiere.matiere || matiere.nom || matiere.code_matiere || "--").substring(0, 50);
-      doc.text(matiereNom, colPositions[1] + 2, currentY + 6);
-      doc.text(String(noteValue), colPositions[2] + 20, currentY + 6, { align: "center" });
-
-      currentY += rowHeight;
-    });
-
-    // === TOTAL ET MOYENNE ===
-    const notesValides = notes.filter((n) => n.note && !isNaN(parseFloat(n.note)) && parseFloat(n.note) >= 0);
-    let moyenneText = "--";
-    let moyenneNum = 0;
-
-    if (notesValides.length > 0) {
-      const somme = notesValides.reduce((acc, n) => acc + parseFloat(n.note), 0);
-      moyenneNum = somme;
-      moyenneText = (somme / notesValides.length).toFixed(2);
+    try {
+      const res = await api.get(`/notes/releve/${selectedEtudiant.parcours_id}`);
+      await telechargerBulletin(res.data);
+      notify.success("Bulletin PDF téléchargé (notes enregistrées uniquement).");
+    } catch (error) {
+      notify.error(errorMessage(error, "Le bulletin PDF n'a pas pu être généré."));
     }
-
-    currentY += 10;
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL : ${moyenneNum}`, 14, currentY);
-    currentY += 6;
-    doc.text(`Moyenne/20 : ${moyenneText}`, 14, currentY);
-
-    // === SIGNATURE ===
-    currentY += 20;
-    const dateStr = new Date().toLocaleDateString("fr-FR");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(`Faliarivo, le ${dateStr}`, 14, currentY);
-
-    currentY += 20;
-    doc.text("Préfet des études", 140, currentY);
-    currentY += 15;
-    doc.line(140, currentY, 190, currentY);
-
-    // === NOM FICHIER ===
-    const anneeAca = anneeObj?.annee_aca || "XXXX-XXXX";
-    const niveauStr = selectedEtudiant?.niveau || "LX";
-    const nomComplet = selectedEtudiant?.nom_prenom || "Etudiant_Inconnu";
-
-    const nomFichierSecurise = nomComplet
-      .replace(/[^\w\sÀ-ÿ-]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const nomFichier = `${anneeAca}_${niveauStr}_${nomFichierSecurise}.pdf`;
-
-    doc.save(nomFichier);
-    notify.success("Bulletin PDF téléchargé.");
-  } catch (error) {
-    console.error("Erreur PDF:", error);
-    notify.error("Le bulletin PDF n'a pas pu être généré.");
-  }
-};
+  };
 
 
 
@@ -938,8 +611,8 @@ const generatePDF = () => {
                           <p><strong>Diocèse :</strong> {selectedEtudiant?.diocese}</p>
                         </div>
                         <div className="col-md-6 text-end">
-                          <button className="btn btn-danger" onClick={generatePDF}>
-                            📄 Télécharger PDF
+                          <button className="btn btn-outline-primary" onClick={generatePDF}>
+                            <i className="bx bx-download me-1"></i>Bulletin PDF
                           </button>
                         </div>
                       </div>

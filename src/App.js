@@ -15,6 +15,7 @@ import ProfDashboard from './pages/prof/ProfDashboard';
 
 import EtudiantLayout from './layouts/EtudiantLayout';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
+import MesNotes from './pages/etudiant/MesNotes';
 
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
@@ -64,6 +65,7 @@ function App() {
               <Route path="/etudiant" element={<EtudiantLayout />}>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<EtudiantDashboard />} />
+                <Route path="notes" element={<MesNotes />} />
                 <Route path="edt" element={<EmploiDuTemps />} />
                 <Route path="listeProf" element={<ListeProf />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />

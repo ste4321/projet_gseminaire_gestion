@@ -81,9 +81,11 @@ const AnnonceAdminProf = () => {
     const formData = new FormData();
 
     // Seuls les champs modifiables sont envoyés ; l'expéditeur est déterminé par le serveur
-    ['titre', 'description', 'id_niveau', 'id_annee_aca', 'fichier'].forEach((key) => {
+    ['titre', 'description', 'id_annee_aca', 'fichier'].forEach((key) => {
       if (editAnnonce[key]) formData.append(key, editAnnonce[key]);
     });
+    // Toujours envoyé : vide = « Tous les niveaux »
+    formData.append('id_niveau', editAnnonce.id_niveau || '');
 
     try {
       await api.post(`/annonces/${editAnnonce.id}?_method=PUT`, formData, {
@@ -145,7 +147,7 @@ const AnnonceAdminProf = () => {
                   <td>{a.titre}</td>
                   <td>{a.expediteur}</td>
                   <td>{new Date(a.created_at).toLocaleDateString('fr-FR')}</td>
-                  <td>{a.niveau?.niveau || '—'}</td>
+                  <td>{a.niveau?.niveau || 'Tous'}</td>
                   <td>{a.annee_aca?.annee_aca || '--'}</td>
                   {role === 'admin' && (
                     <td>
@@ -178,7 +180,7 @@ const AnnonceAdminProf = () => {
 
                 <label className="form-label">Niveau</label>
                 <select className="form-control mb-2" value={newAnnonce.id_niveau} onChange={e => setNewAnnonce({ ...newAnnonce, id_niveau: e.target.value })}>
-                  <option value="">-- Choisir un niveau --</option>
+                  <option value="">Tous les niveaux</option>
                   {niveaux.map(n => <option key={n.id} value={n.id}>{n.niveau}</option>)}
                 </select>
 
@@ -215,7 +217,7 @@ const AnnonceAdminProf = () => {
 
                 <label className="form-label">Niveau</label>
                 <select className="form-control mb-2" value={editAnnonce?.id_niveau || ''} onChange={e => setEditAnnonce({ ...editAnnonce, id_niveau: e.target.value })}>
-                  <option value="">-- Choisir un niveau --</option>
+                  <option value="">Tous les niveaux</option>
                   {niveaux.map(n => <option key={n.id} value={n.id}>{n.niveau}</option>)}
                 </select>
 
@@ -261,7 +263,7 @@ const AnnonceAdminProf = () => {
               <div className="modal-header"><h5>{selectedAnnonce?.titre}</h5></div>
               <div className="modal-body">
                 <p><strong>Expéditeur:</strong> {selectedAnnonce?.expediteur}</p>
-                <p><strong>Niveau:</strong> {selectedAnnonce?.niveau?.niveau}</p>
+                <p><strong>Niveau:</strong> {selectedAnnonce?.niveau?.niveau || 'Tous les niveaux'}</p>
                 <p><strong>Année académique:</strong> {selectedAnnonce?.annee_aca?.annee}</p>
                 <p><strong>Description:</strong></p>
                 <p>{selectedAnnonce?.description}</p>
