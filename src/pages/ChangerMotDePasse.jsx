@@ -98,7 +98,7 @@ const ChangerMotDePasse = () => {
           <div className="card">
             <div className="card-body">
               <div className="app-brand justify-content-center">
-                <img src="/images/Sainte.jpg" alt="Logo de G.S.T.F" width="70" />
+                <img src="/images/logo-GS.jpg" alt="Logo du GSTF" width="70" height="70" />
               </div>
               <h4 className="mb-2">Changer mon mot de passe</h4>
 

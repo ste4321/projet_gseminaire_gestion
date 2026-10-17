@@ -1,0 +1,222 @@
+/* Identité visuelle GSTF — complète le thème Sneat (couleurs appliquées par scripts/theme-gstf.js) */
+
+:root {
+  --gstf-primary: #8c2f39;      /* bordeaux carmélite */
+  --gstf-primary-dark: #77262f;
+  --gstf-primary-soft: #f4e4e6;
+  --gstf-gold: #c9a227;         /* or du calice */
+  --gstf-gold-soft: #f8f1dc;
+  --gstf-text-muted: #6f6b7d;
+}
+
+/* ─── Marque ─────────────────────────────────────────────── */
+.app-brand-text.gstf-brand {
+  color: var(--gstf-primary);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.app-brand .gstf-brand-sub {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--gstf-text-muted);
+  letter-spacing: 0;
+}
+.app-brand-logo img {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Liseré doré sous l'en-tête des cartes de section */
+.gstf-section-title {
+  border-left: 3px solid var(--gstf-gold);
+  padding-left: 0.75rem;
+}
+
+/* Titre de page */
+.gstf-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 0 1.5rem;
+}
+.gstf-page-header h4 {
+  margin: 0;
+}
+
+/* ─── Notifications ──────────────────────────────────────── */
+.gstf-toasts {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(380px, calc(100vw - 2rem));
+  pointer-events: none;
+}
+.gstf-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border-radius: 0.5rem;
+  border-left: 4px solid currentColor;
+  box-shadow: 0 0.25rem 1rem rgba(67, 89, 113, 0.2);
+  animation: gstf-toast-in 0.2s ease-out;
+}
+.gstf-toast__icon { font-size: 1.4rem; line-height: 1.2; }
+.gstf-toast__body { flex: 1; color: #566a7f; min-width: 0; }
+.gstf-toast__body strong { color: #384551; }
+.gstf-toast__message { white-space: pre-line; word-break: break-word; }
+.gstf-toast--success { color: #2e7d32; }
+.gstf-toast--error { color: #c62828; }
+.gstf-toast--warning { color: #b26a00; }
+.gstf-toast--info { color: #0277bd; }
+
+@keyframes gstf-toast-in {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gstf-toast { animation: none; }
+}
+
+/* ─── États vides et chargement ──────────────────────────── */
+.gstf-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-empty .bx {
+  font-size: 2.5rem;
+  color: var(--gstf-gold);
+  margin-bottom: 0.5rem;
+}
+
+/* ─── Tableau de bord ────────────────────────────────────── */
+.gstf-stat {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.gstf-stat__icon {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.5rem;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+}
+.gstf-stat__icon--gold { background: var(--gstf-gold-soft); color: #8a6d12; }
+.gstf-stat__value { font-size: 1.6rem; font-weight: 600; color: #384551; line-height: 1.1; }
+.gstf-stat__label { color: var(--gstf-text-muted); font-size: 0.875rem; }
+
+.gstf-bar {
+  height: 0.5rem;
+  border-radius: 1rem;
+  background: #eceef1;
+  overflow: hidden;
+}
+.gstf-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 1rem;
+  background: var(--gstf-primary);
+}
+
+/* Liens d'accès rapide */
+.gstf-quick-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: #566a7f;
+  border: 1px solid #eceef1;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.gstf-quick-link:hover,
+.gstf-quick-link:focus-visible {
+  border-color: var(--gstf-primary);
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+}
+.gstf-quick-link .bx { font-size: 1.3rem; color: var(--gstf-primary); }
+
+/* ─── Divers ─────────────────────────────────────────────── */
+/* Focus clavier visible partout (accessibilité) */
+:focus-visible {
+  outline: 2px solid var(--gstf-gold);
+  outline-offset: 2px;
+}
+
+/* Footer */
+.gstf-footer {
+  color: var(--gstf-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ─── Menu latéral ───────────────────────────────────────── */
+.bg-menu-theme .menu-link.active {
+  background-color: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+  font-weight: 600;
+}
+.bg-menu-theme .menu-link.active .menu-icon {
+  color: var(--gstf-primary);
+}
+
+/* Mobile : menu en tiroir au-dessus du contenu, fond assombri derrière */
+@media (max-width: 1199.98px) {
+  #layout-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    background-color: #fff;
+    z-index: 1060;
+    transition: transform 0.3s ease-in-out;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  }
+  body:not(.layout-menu-expanded) #layout-menu {
+    transform: translateX(-100%);
+  }
+  body.layout-menu-expanded #layout-menu {
+    transform: translateX(0);
+  }
+  #layout-navbar {
+    position: relative;
+    z-index: 1030;
+  }
+  .layout-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1040;
+    transition: opacity 0.3s ease-in-out;
+  }
+  body:not(.layout-menu-expanded) .layout-overlay {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+@media (min-width: 1200px) {
+  .layout-overlay {
+    display: none !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #layout-menu, .layout-overlay { transition: none; }
+}
