@@ -12,6 +12,9 @@ import AddModal from './AddModal';
 import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
 
+// Même limite que le serveur (EmploiDuTempsController::MAX_PAR_SEMESTRE)
+const MAX_IMAGES = 5;
+
 const EmploiDuTemps = () => {
   const {
     emploiSemestre1,
@@ -43,6 +46,7 @@ const EmploiDuTemps = () => {
   );
 
   const totalPages = emploiActuel.length;
+  const complet = emploiActuel.length >= MAX_IMAGES;
   const currentEmploi = emploiActuel[page];
 
   // Configuration des champs pour les modales
@@ -403,16 +407,24 @@ const EmploiDuTemps = () => {
           <div className="card mb-4 text-center p-4 pt-5 position-relative">
             {/* Boutons d'action */}
             {role === 'admin' && (
+              <div className="position-absolute top-0 start-0 m-3 small text-muted" aria-live="polite">
+                <i className="bx bx-images me-1"></i>
+                {emploiActuel.length} / {MAX_IMAGES} images
+                {complet && <span className="ms-1 d-none d-md-inline">— supprimez ou remplacez une image pour en ajouter</span>}
+              </div>
+            )}
+            {role === 'admin' && (
               <div className="position-absolute top-0 end-0 m-3 d-flex gap-2">
-                <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} title="Nouveau">
+                <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} disabled={complet}
+                  title={complet ? `Maximum ${MAX_IMAGES} images par semestre` : 'Ajouter une image'} aria-label="Ajouter une image">
                   <i className="bx bx-plus"></i>
                 </button>
                 {emploiActuel.length > 0 && (
                   <>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="Modifier">
+                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="Remplacer cette image" aria-label="Remplacer cette image">
                       <i className="bx bx-edit"></i>
                     </button>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="Supprimer">
+                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="Supprimer cette image" aria-label="Supprimer cette image">
                       <i className="bx bx-trash"></i>
                     </button>
                   </>
