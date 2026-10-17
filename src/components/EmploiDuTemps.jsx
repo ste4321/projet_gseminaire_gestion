@@ -12,6 +12,9 @@ import AddModal from './AddModal';
 import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
 
+// Même limite que le serveur (EmploiDuTempsController::MAX_PAR_SEMESTRE)
+const MAX_IMAGES = 5;
+
 const EmploiDuTemps = () => {
   const {
     emploiSemestre1,
@@ -31,6 +34,7 @@ const EmploiDuTemps = () => {
     semestre: 1
   });
   const [imageLoading, setImageLoading] = useState({});
+  const [imageErreur, setImageErreur] = useState({}); // id → image inaccessible
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingUpdate, setLoadingUpdate] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState(null);
@@ -42,6 +46,7 @@ const EmploiDuTemps = () => {
   );
 
   const totalPages = emploiActuel.length;
+  const complet = emploiActuel.length >= MAX_IMAGES;
   const currentEmploi = emploiActuel[page];
 
   // Configuration des champs pour les modales
@@ -302,6 +307,25 @@ const EmploiDuTemps = () => {
     const imageUrl = storageUrl(currentEmploi.image_url);
     const isLoading = imageLoading[imageId];
 
+    // Fichier enregistré mais inaccessible (ex. lien public/storage manquant côté serveur)
+    if (imageErreur[imageId] === imageUrl) {
+      return (
+        <div className="d-flex flex-column align-items-center justify-content-center bg-light rounded border p-4" style={{ minHeight: '40vh' }}>
+          <i className="bx bx-image-alt display-4 text-muted mb-3"></i>
+          <p className="fw-semibold mb-1">L'image de cet emploi du temps est introuvable.</p>
+          <p className="text-muted small mb-3" style={{ maxWidth: 520 }}>
+            {role === 'admin'
+              ? "Le fichier n'est pas accessible sur le serveur. Remplacez l'image avec le bouton « Modifier », ou demandez à l'administrateur technique de vérifier le stockage (php artisan storage:link)."
+              : "Réessayez plus tard ou contactez le secrétariat."}
+          </p>
+          <button type="button" className="btn btn-sm btn-outline-primary"
+            onClick={() => setImageErreur(prev => ({ ...prev, [imageId]: null }))}>
+            Réessayer
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="position-relative">
         {isLoading && (
@@ -327,7 +351,10 @@ const EmploiDuTemps = () => {
                 }}
                 onLoadStart={() => handleImageLoadStart(imageId)}
                 onLoad={() => handleImageLoadEnd(imageId)}
-                onError={() => handleImageLoadEnd(imageId)}
+                onError={() => {
+                  handleImageLoadEnd(imageId);
+                  setImageErreur(prev => ({ ...prev, [imageId]: imageUrl }));
+                }}
                 loading="lazy"
               />
             </PhotoView>
@@ -335,7 +362,7 @@ const EmploiDuTemps = () => {
         </div>
       </div>
     );
-  }, [currentEmploi, imageLoading, semestre, handleImageLoadStart, handleImageLoadEnd]);
+  }, [currentEmploi, imageLoading, imageErreur, role, semestre, handleImageLoadStart, handleImageLoadEnd]);
 
   if (loading) {
     return (
@@ -380,16 +407,24 @@ const EmploiDuTemps = () => {
           <div className="card mb-4 text-center p-4 pt-5 position-relative">
             {/* Boutons d'action */}
             {role === 'admin' && (
+              <div className="position-absolute top-0 start-0 m-3 small text-muted" aria-live="polite">
+                <i className="bx bx-images me-1"></i>
+                {emploiActuel.length} / {MAX_IMAGES} images
+                {complet && <span className="ms-1 d-none d-md-inline">— supprimez ou remplacez une image pour en ajouter</span>}
+              </div>
+            )}
+            {role === 'admin' && (
               <div className="position-absolute top-0 end-0 m-3 d-flex gap-2">
-                <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} title="Nouveau">
+                <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} disabled={complet}
+                  title={complet ? `Maximum ${MAX_IMAGES} images par semestre` : 'Ajouter une image'} aria-label="Ajouter une image">
                   <i className="bx bx-plus"></i>
                 </button>
                 {emploiActuel.length > 0 && (
                   <>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="Modifier">
+                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="Remplacer cette image" aria-label="Remplacer cette image">
                       <i className="bx bx-edit"></i>
                     </button>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="Supprimer">
+                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="Supprimer cette image" aria-label="Supprimer cette image">
                       <i className="bx bx-trash"></i>
                     </button>
                   </>

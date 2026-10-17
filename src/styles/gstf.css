@@ -221,3 +221,117 @@
   #layout-menu, .layout-overlay { transition: none; }
 }
 .min-w-0 { min-width: 0; }
+
+/* ─── Connexion : visuel de Sainte Thérèse + formulaire ─────────────── */
+.authentication-wrapper.authentication-basic .authentication-inner.gstf-login {
+  max-width: 860px;
+}
+.gstf-login__card {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  overflow: hidden;
+}
+.gstf-login__visuel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  background: radial-gradient(circle at 50% 38%, #fffaf2 0%, #f6ead9 55%, #f4e4e6 100%);
+  border-right: 1px solid rgba(140, 47, 57, 0.12);
+}
+.gstf-login__sainte {
+  width: min(100%, 218px);
+  height: auto;
+  /* fond blanc de l'image fondu dans le dégradé, bords adoucis */
+  mix-blend-mode: multiply;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 58%, transparent 74%);
+  mask-image: radial-gradient(ellipse at center, #000 58%, transparent 74%);
+}
+.gstf-login__legende {
+  margin: 0;
+  color: #6b5a4a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.gstf-login__legende strong {
+  color: #8c2f39;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.gstf-login__form {
+  padding: 2.5rem 2.25rem;
+}
+
+@media (max-width: 767.98px) {
+  .gstf-login__card {
+    grid-template-columns: 1fr;
+  }
+  .gstf-login__visuel {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    text-align: left;
+    border-right: 0;
+    border-bottom: 1px solid rgba(140, 47, 57, 0.12);
+  }
+  .gstf-login__sainte {
+    width: 72px;
+  }
+  .gstf-login__legende {
+    font-size: 0.8rem;
+  }
+  .gstf-login__legende strong {
+    font-size: 0.95rem;
+  }
+  .gstf-login__form {
+    padding: 1.75rem 1.5rem;
+  }
+}
+
+/* ─── Notes : publication par semestre et bilan de la fenêtre de saisie ─ */
+.gstf-publication__liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.gstf-publication__item {
+  border: 1px solid rgba(140, 47, 57, 0.14);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #fff;
+}
+.gstf-notes-bilan {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(67, 89, 113, 0.12);
+  background: #fbf7f2;
+}
+.gstf-notes-bilan > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.gstf-notes-bilan span:first-child {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8a8d93;
+}
+.gstf-notes-bilan__note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #b7791f;
+}
+@media (max-width: 575.98px) {
+  .gstf-notes-bilan {
+    grid-template-columns: 1fr 1fr;
+  }
+}

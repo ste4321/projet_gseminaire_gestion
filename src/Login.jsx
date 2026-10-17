@@ -105,9 +105,22 @@ const Login = () => {
   return (
     <div className="container-xxl">
       <div className="authentication-wrapper authentication-basic container-p-y">
-        <div className="authentication-inner">
-          <div className="card">
-            <div className="card-body">
+        <div className="authentication-inner gstf-login">
+          <div className="card gstf-login__card">
+            <aside className="gstf-login__visuel">
+              <img
+                src="/images/Sainte.jpg"
+                alt="Sainte Thérèse de l'Enfant Jésus"
+                className="gstf-login__sainte"
+                width="218"
+                height="218"
+              />
+              <p className="gstf-login__legende">
+                Sous la protection de<br />
+                <strong>Sainte Thérèse de l'Enfant Jésus</strong>
+              </p>
+            </aside>
+            <div className="card-body gstf-login__form">
               <div className="app-brand justify-content-center">
                 <img
                   src="/images/logo-GS.jpg"
