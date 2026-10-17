@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useEtudiant } from '../contexts/EtudiantContext';
 import api, { errorMessage as messageErreur } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
@@ -439,6 +440,15 @@ const ListeEtudiant = () => {
           role={role}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
+            // Matricule : ouvre le profil de l'étudiant (sans déclencher le clic sur la ligne)
+            if (field === 'matricule' && value && role === 'admin') {
+              return (
+                <Link to={`/admin/listeEtudiant/${etudiant.id}`} className="gstf-lien-profil" onClick={(e) => e.stopPropagation()}
+                  title={`Voir le profil de ${etudiant.nom_prenom}`}>
+                  {value}
+                </Link>
+              );
+            }
             return value ? value : '--';
           }}
         />

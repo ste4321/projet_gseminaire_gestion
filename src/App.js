@@ -16,6 +16,8 @@ import ProfDashboard from './pages/prof/ProfDashboard';
 import EtudiantLayout from './layouts/EtudiantLayout';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import MesNotes from './pages/etudiant/MesNotes';
+import ProfilEtudiant from './pages/admin/ProfilEtudiant';
+import ProfilEnseignant from './pages/admin/ProfilEnseignant';
 
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
@@ -41,10 +43,12 @@ function App() {
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="listeEtudiant" element={<ListeEtudiants />} />
+                <Route path="listeEtudiant/:id" element={<ProfilEtudiant />} />
                 <Route path="noteEtudiant" element={<NoteEtudiant />} />
                 <Route path="matiere" element={<Matiere />} />
                 <Route path="edt" element={<EmploiDuTemps />} />
                 <Route path="listeProf" element={<ListeProf />} />
+                <Route path="listeProf/:id" element={<ProfilEnseignant />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />
                 <Route path="info" element={<Info />} />
                 <Route path="portal" element={<Portal />} />
