@@ -182,8 +182,8 @@ const ListeEtudiant = () => {
       console.log("Étudiant ajouté avec succès et données rechargées");
       
     } catch (error) {
-      if (error.response?.status === 409) {
-        alert(error.response.data.message); // 🔴 Matricule déjà existant
+      if ([409, 422].includes(error.response?.status)) {
+        alert(error.response.data.message); // 🔴 Matricule ou email déjà existant, champ invalide
       } else {
         console.error("Erreur lors de l'ajout :", error.response?.data);
       }

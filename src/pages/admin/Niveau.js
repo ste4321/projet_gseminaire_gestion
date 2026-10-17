@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNiveau } from '../../contexts/NiveauContext';
-import api from '../../api/client';
+import api, { errorMessage } from '../../api/client';
 
 const Niveau = () => {
   const { niveaux, fetchNiveaux, loading } = useNiveau();
@@ -32,7 +32,7 @@ const Niveau = () => {
       setForm({ niveau: '' });
       setSelected(null);
     } catch (err) {
-      console.error(err);
+      alert(errorMessage(err, "Erreur lors de l'enregistrement."));
     } finally {
       setLoadingSubmit(false);
     }
@@ -46,7 +46,7 @@ const Niveau = () => {
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal.hide();
     } catch (err) {
-      console.error(err);
+      alert(errorMessage(err, 'Erreur lors de la suppression.'));
     } finally {
       setLoadingDeleteId(null);
     }

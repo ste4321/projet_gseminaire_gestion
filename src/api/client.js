@@ -38,3 +38,7 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// Message lisible à afficher à l'utilisateur : celui renvoyé par l'API, sinon un message par défaut
+export const errorMessage = (error, fallback = 'Une erreur est survenue.') =>
+  error?.response?.data?.message || fallback;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSemestre } from '../contexts/SemestreContext';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
 
 const Semestre = () => {
   const { semestres, fetchSemestres, loading } = useSemestre();
@@ -54,7 +54,7 @@ const Semestre = () => {
       setForm({ semestre: '', code_semestre: '' });
       setSelected(null);
     } catch (err) {
-      showAlert('danger', 'Erreur lors de l\'enregistrement.');
+      showAlert('danger', errorMessage(err, 'Erreur lors de l\'enregistrement.'));
       console.error(err);
     } finally {
       setLoadingSubmit(false);
@@ -70,7 +70,7 @@ const Semestre = () => {
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
       modal.hide();
     } catch (err) {
-      showAlert('danger', 'Erreur lors de la suppression.');
+      showAlert('danger', errorMessage(err, 'Erreur lors de la suppression.'));
     } finally {
       setLoadingDeleteId(null);
     }

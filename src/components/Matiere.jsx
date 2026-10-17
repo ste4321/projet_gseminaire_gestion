@@ -2,7 +2,7 @@ import React, { useState, useEffect} from 'react';
 import { useMatiere } from '../contexts/MatiereContext';
 import { useNiveau } from '../contexts/NiveauContext';
 import { useSemestre } from '../contexts/SemestreContext';
-import api from '../api/client';
+import api, { errorMessage } from '../api/client';
 import SearchBar from './SearchBar';
 import DataTable from './DataTable';
 import AddModal from './AddModal';
@@ -66,7 +66,7 @@ const Matiere = () => {
       window.bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
     } catch (err) {
       console.error(err);
-      setAlert({ message: 'Erreur lors de la suppression', type: 'danger' });
+      setAlert({ message: errorMessage(err, 'Erreur lors de la suppression'), type: 'danger' });
     } finally {
       setLoadingDeleteId(null);
     }
@@ -90,7 +90,7 @@ const Matiere = () => {
       setSelected(null);
     } catch (err) {
       console.error(err);
-      setAlert({ message: 'Erreur lors de l\'enregistrement', type: 'danger' });
+      setAlert({ message: errorMessage(err, 'Erreur lors de l\'enregistrement'), type: 'danger' });
     } finally {
       setLoadingSubmit(false);
     }
