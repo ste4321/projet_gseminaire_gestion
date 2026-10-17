@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useProf } from '../contexts/ProfContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
@@ -200,19 +199,6 @@ const ListeProf = () => {
           onEdit={openEditModal}
           onDelete={openDeleteModal}
           role={role}
-          renderCell={(prof, field) => {
-            const value = prof[field];
-            // Email : ouvre le profil de l'enseignant (administration uniquement)
-            if (field === 'email' && value && role === 'admin') {
-              return (
-                <Link to={`/admin/listeProf/${prof.id}`} className="gstf-lien-profil" onClick={(e) => e.stopPropagation()}
-                  title={`Voir le profil de ${prof.nom_prenom}`}>
-                  {value}
-                </Link>
-              );
-            }
-            return value || '--';
-          }}
         />
         <Pagination
           currentPage={currentPage}
