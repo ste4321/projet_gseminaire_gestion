@@ -22,7 +22,8 @@ export const nomFichierBulletin = (releve) => {
   return `Bulletin_${releve.annee || ''}_${releve.niveau || ''}_${nom}.pdf`;
 };
 
-export const telechargerBulletin = async (releve) => {
+// options.publiesSeulement : n'imprime que les semestres publiés (bulletin de l'étudiant)
+export const telechargerBulletin = async (releve, { publiesSeulement = false } = {}) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const largeur = doc.internal.pageSize.getWidth();
   const marge = 14;
@@ -75,7 +76,8 @@ export const telechargerBulletin = async (releve) => {
   y = doc.lastAutoTable.finalY + 6;
 
   // ─── Notes par semestre ──────────────────────────────────
-  (releve.semestres || []).forEach((semestre) => {
+  const semestres = (releve.semestres || []).filter((s) => !publiesSeulement || s.publie);
+  semestres.forEach((semestre) => {
     autoTable(doc, {
       startY: y,
       margin: { left: marge, right: marge },
@@ -87,7 +89,7 @@ export const telechargerBulletin = async (releve) => {
         m.note === null ? '—' : (m.note * m.coefficient).toFixed(2),
       ]),
       foot: [[
-        'Moyenne du semestre',
+        semestre.statut ? `Moyenne du semestre — ${semestre.statut}` : 'Moyenne du semestre',
         String(semestre.coefficients || '—'),
         note(semestre.moyenne),
         semestre.points ? Number(semestre.points).toFixed(2) : '—',
@@ -126,7 +128,15 @@ export const telechargerBulletin = async (releve) => {
   doc.text('MOYENNE GÉNÉRALE', marge + 5, y + 9);
   doc.text(general.moyenne === null || general.moyenne === undefined ? '—' : `${note(general.moyenne)} / 20`, largeur - marge - 5, y + 9, { align: 'right' });
 
-  y += 20;
+  y += 14;
+  if (general.statut) {
+    doc.setTextColor(...BORDEAUX);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(`Résultat : ${general.statut}`, marge, y + 3);
+    y += 9;
+  }
+  y += 6;
   doc.setTextColor(90, 90, 90);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);

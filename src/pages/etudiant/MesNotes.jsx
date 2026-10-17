@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import api, { errorMessage } from '../../api/client';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import { telechargerBulletin } from '../../utils/bulletin';
+import StatutResultat from '../../components/StatutResultat';
 
 const format = (n) => (n === null || n === undefined ? '—' : Number(n).toFixed(2));
 
@@ -47,7 +48,7 @@ const MesNotes = () => {
   const telecharger = async () => {
     setPdfEnCours(true);
     try {
-      await telechargerBulletin(releve);
+      await telechargerBulletin(releve, { publiesSeulement: true });
       notify.success('Bulletin téléchargé.');
     } catch (e) {
       notify.error("Le bulletin n'a pas pu être généré.");
@@ -58,6 +59,8 @@ const MesNotes = () => {
 
   const general = releve?.general;
   const progression = general?.matieres_total ? Math.round((general.notes_saisies / general.matieres_total) * 100) : 0;
+  const aucunePublication = general && general.semestres_publies === 0;
+  const publicationPartielle = general && general.semestres_publies > 0 && general.semestres_publies < general.semestres_total;
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
@@ -78,7 +81,8 @@ const MesNotes = () => {
               {parcours.map((p) => <option key={p.id} value={p.id}>{p.annee} · {p.niveau}</option>)}
             </select>
           )}
-          <button type="button" className="btn btn-primary" onClick={telecharger} disabled={!releve || pdfEnCours || loading}>
+          <button type="button" className="btn btn-primary" onClick={telecharger} disabled={!releve || aucunePublication || pdfEnCours || loading}
+            title={aucunePublication ? 'Disponible dès la publication de vos notes' : undefined}>
             <i className="bx bx-download me-1"></i>
             {pdfEnCours ? 'Préparation…' : 'Télécharger mon bulletin'}
           </button>
@@ -107,7 +111,7 @@ const MesNotes = () => {
                   <div className="gstf-stat__icon" aria-hidden="true"><i className="bx bx-medal"></i></div>
                   <div>
                     <div className="gstf-stat__value">{general.moyenne === null ? '—' : `${format(general.moyenne)} / 20`}</div>
-                    <div className="gstf-stat__label">Moyenne générale</div>
+                    <div className="gstf-stat__label">{publicationPartielle ? 'Moyenne des semestres publiés' : 'Moyenne générale'}</div>
                   </div>
                 </div>
               </div>
@@ -126,7 +130,30 @@ const MesNotes = () => {
                 </div>
               </div>
             </div>
+            <div className="col-sm-6 col-xl-4 mb-4">
+              <div className="card h-100">
+                <div className="card-body gstf-stat">
+                  <div className="gstf-stat__icon" aria-hidden="true"><i className="bx bx-check-shield"></i></div>
+                  <div>
+                    <div className="gstf-stat__value fs-5">
+                      <StatutResultat statut={general.statut} attente={general.semestres_publies < general.semestres_total ? 'Après publication' : 'Notes incomplètes'} />
+                    </div>
+                    <div className="gstf-stat__label">Résultat de l'année</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
+          {aucunePublication && general.matieres_total > 0 && (
+            <div className="alert alert-info d-flex gap-2" role="status">
+              <i className="bx bx-time-five fs-4"></i>
+              <div>
+                <strong>Vos notes ne sont pas encore publiées.</strong><br />
+                Elles apparaîtront ici dès que l'administration aura publié les résultats du semestre.
+              </div>
+            </div>
+          )}
 
           {general.matieres_total === 0 ? (
             <div className="card">
@@ -140,10 +167,21 @@ const MesNotes = () => {
               <div className="card mb-4" key={s.id ?? 'hors'}>
                 <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                   <h5 className="card-title gstf-section-title mb-0">{s.semestre}</h5>
-                  <span className="text-muted">
-                    Moyenne : <strong className="text-body">{s.moyenne === null ? '—' : `${format(s.moyenne)} / 20`}</strong>
-                  </span>
+                  {s.publie ? (
+                    <span className="text-muted d-flex align-items-center gap-2">
+                      Moyenne : <strong className="text-body">{s.moyenne === null ? '—' : `${format(s.moyenne)} / 20`}</strong>
+                      {s.statut && <StatutResultat statut={s.statut} />}
+                    </span>
+                  ) : (
+                    <span className="badge bg-label-secondary">Pas encore publié</span>
+                  )}
                 </div>
+                {!s.publie ? (
+                  <div className="card-body pt-0 text-muted">
+                    <i className="bx bx-lock-alt me-1"></i>
+                    Les notes de ce semestre ({s.matieres.length} matière{s.matieres.length > 1 ? 's' : ''}) seront visibles après leur publication.
+                  </div>
+                ) : (
                 <div className="table-responsive">
                   <table className="table table-hover mb-0">
                     <thead>
@@ -167,6 +205,7 @@ const MesNotes = () => {
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             ))
           )}
@@ -174,6 +213,7 @@ const MesNotes = () => {
           <p className="small text-muted">
             <i className="bx bx-info-circle me-1"></i>
             La moyenne est pondérée par les coefficients et ne tient compte que des matières déjà notées.
+            Le résultat (Validé à partir de 10/20, sinon Rattrapage) s'affiche quand toutes les notes sont publiées.
             Une question sur une note ? Adressez-vous au secrétariat des études.
           </p>
         </>

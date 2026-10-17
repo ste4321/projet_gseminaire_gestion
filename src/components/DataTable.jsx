@@ -1,13 +1,14 @@
 import React from 'react';
 
-const DataTable = ({ 
-  headers, 
-  data, 
-  onRowClick, 
-  onEdit, 
-  onDelete, 
+const DataTable = ({
+  headers,
+  data,
+  onRowClick,
+  onEdit,
+  onDelete,
   showActions = true,
   role,
+  actionLabel, // bouton explicite qui déclenche onRowClick (ex : « Notes »)
   renderCell // fonction pour personnaliser le rendu des cellules
 }) => {
   return (
@@ -24,8 +25,8 @@ const DataTable = ({
           </thead>
           <tbody>
             {data.map((item, index) => (
-              <tr 
-                key={item.id || index} 
+              <tr
+                key={item.id || index}
                 onClick={() => onRowClick && onRowClick(item)}
                 style={{ cursor: onRowClick ? 'pointer' : 'default' }}
               >
@@ -35,27 +36,48 @@ const DataTable = ({
                   </td>
                 ))}
                 {showActions && role === 'admin' && (
-                  <td>
-                    <button
-                      className="btn btn-sm btn-outline-primary me-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(item);
-                      }}
-                      title="Modifier"
-                    >
-                      <i className="bx bx-edit"></i>
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(item.id);
-                      }}
-                      title="Supprimer"
-                    >
-                      <i className="bx bx-trash"></i>
-                    </button>
+                  <td className="text-nowrap">
+                    {/* Chaque bouton n'apparaît que si la page fournit l'action correspondante */}
+                    {actionLabel && onRowClick && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary me-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRowClick(item);
+                        }}
+                      >
+                        <i className="bx bx-spreadsheet me-1"></i>{actionLabel}
+                      </button>
+                    )}
+                    {onEdit && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary me-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(item);
+                        }}
+                        title="Modifier"
+                        aria-label="Modifier"
+                      >
+                        <i className="bx bx-edit"></i>
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(item.id);
+                        }}
+                        title="Supprimer"
+                        aria-label="Supprimer"
+                      >
+                        <i className="bx bx-trash"></i>
+                      </button>
+                    )}
                   </td>
                 )}
               </tr>
