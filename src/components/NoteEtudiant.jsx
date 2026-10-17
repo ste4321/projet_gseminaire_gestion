@@ -93,7 +93,6 @@ const NoteEtudiant = () => {
         telephone: etu?.telephone,
         diocese: etu?.diocese,
         niveau: parcours?.niveau?.niveau,
-        filiere: '--',
         parcours_id: parcours?.id,
         original: parcours
       };
@@ -115,8 +114,7 @@ const NoteEtudiant = () => {
     { label: 'Nom', field: 'nom_prenom' },
     { label: 'Matricule', field: 'matricule' },
     { label: 'Email', field: 'email' },
-    { label: 'Niveau', field: 'niveau' },
-    { label: 'Filière', field: 'filiere' }
+    { label: 'Niveau', field: 'niveau' }
   ];
 
   // Handlers

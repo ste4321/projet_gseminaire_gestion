@@ -36,8 +36,7 @@ const ListeEtudiant = () => {
     email: '',
     telephone: '',
     matricule: '',
-    niveau: '',
-    filiere: ''
+    niveau: ''
   });
 
   // États pour les loadings
@@ -95,7 +94,6 @@ const ListeEtudiant = () => {
         telephone: etu?.telephone,
         diocese: etu?.diocese,
         niveau: parcours?.niveau?.niveau,
-        filiere: '--',
         original: parcours
       };
     })
@@ -124,8 +122,7 @@ const ListeEtudiant = () => {
       { value: 'L3', label: 'Licence 3' },
       { value: 'M1', label: 'Master 1' },
       { value: 'M2', label: 'Master 2' }
-    ]},
-    { name: 'filiere', label: 'Filière', type: 'text', placeholder: 'Entrer la filière', required: true }
+    ]}
   ];
 
   // Configuration des en-têtes du tableau
@@ -133,8 +130,7 @@ const ListeEtudiant = () => {
     { label: 'Nom', field: 'nom_prenom' },
     { label: 'Matricule', field: 'matricule' },
     { label: 'Email', field: 'email' },
-    { label: 'Niveau', field: 'niveau' },
-    { label: 'Filière', field: 'filiere' }
+    { label: 'Niveau', field: 'niveau' }
   ];
 
   // Handlers
@@ -182,8 +178,7 @@ const ListeEtudiant = () => {
         email: '',
         telephone: '',
         matricule: '',
-        niveau: '',
-        filiere: ''
+        niveau: ''
       });
 
       // 🔹 Recharger les données du contexte
@@ -334,8 +329,7 @@ const ListeEtudiant = () => {
       email: '',
       telephone: '',
       matricule: '',
-      niveau: '',
-      filiere: ''
+      niveau: ''
     });
     const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
     modal.show();
@@ -401,7 +395,7 @@ const ListeEtudiant = () => {
               className={`nav-link ${niveau === i ? 'active' : ''}`}
               onClick={() => handleNiveauChange(i)}
             >
-              Liste des étudiants en L{i}
+              L{i}
             </button>
           </li>
         ))}
@@ -421,9 +415,9 @@ const ListeEtudiant = () => {
           <button className="btn btn-primary me-2" onClick={openAddModal}>
             Nouveau
           </button>
-          <button className="btn btn-success" onClick={openImportModal}>
+          <button className="btn btn-outline-primary" onClick={openImportModal}>
             <i className="bx bx-import me-1"></i>
-            Importer Fichier
+            Importer un fichier Excel
           </button>
         </div>
       )}
@@ -522,7 +516,6 @@ const ListeEtudiant = () => {
               <strong>Niveau:</strong> {data?.niveau || '--'}
             </div>
             <div className="mb-3">
-              <strong>Filière:</strong> {data?.filiere || '--'}
             </div>
           </div>
         )}

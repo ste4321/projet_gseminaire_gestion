@@ -10,6 +10,7 @@ import { getUser } from '../auth/session';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 
 const roles = ['admin', 'prof', 'etudiant'];
+const ROLE_TABS = { admin: 'Administrateurs', prof: 'Enseignants', etudiant: 'Étudiants' };
 
 const Portal = () => {
   const { notify, confirm } = useFeedback();
@@ -280,7 +281,7 @@ const Portal = () => {
               className={`nav-link ${selectedRole === r ? 'active' : ''}`}
               onClick={() => handleRoleChange(r)}
             >
-              Portal {r.charAt(0).toUpperCase() + r.slice(1)}
+              {ROLE_TABS[r]}
             </button>
           </li>
         ))}
@@ -288,7 +289,7 @@ const Portal = () => {
 
       <div className="card">
         <h5 className="card-header d-flex justify-content-between align-items-center">
-          <span>Gestion des accès — {selectedRole}</span>
+          <span>Comptes — {ROLE_TABS[selectedRole]}</span>
         </h5>
 
         <div className="card-body pb-0">
