@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useInfo } from '../../contexts/InfoContext';
 import api, { errorMessage } from '../../api/client';
 import { useFeedback } from '../../contexts/FeedbackContext';
+import { confirmerAvecCode } from '../../utils/confirmation';
 
 // Import des composants modulaires
 import SearchBar from '../../components/SearchBar';
@@ -12,7 +13,7 @@ import DataTable from '../../components/DataTable';
 import DetailModal from '../../components/DetailModal';
 
 const Info = () => {
-  const { notify } = useFeedback();
+  const { notify, confirm } = useFeedback();
   const { infos, fetchInfos } = useInfo();
   const [newInfo, setNewInfo] = useState({ auteur: '', titre: '', description: '' });
   const [editInfo, setEditInfo] = useState({ id: null, auteur: '', titre: '', description: '' });
@@ -83,16 +84,40 @@ const Info = () => {
     }
   };
 
+  // Publication sur le site public : code de confirmation à recopier (vérifié aussi par le serveur).
+  // La fenêtre d'ajout est masquée pendant la confirmation, puis rouverte si on annule ou en cas d'erreur.
   const handleCreate = async () => {
+    if (!newInfo.auteur?.trim() || !newInfo.titre?.trim()) {
+      notify.warning("Renseignez l'auteur et le titre de l'actualité.");
+      return;
+    }
+    const fenetreAjout = window.bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal'));
     setLoadingCreate(true);
+    let code;
     try {
-      await api.post('/infos', newInfo);
+      fenetreAjout.hide();
+      code = await confirmerAvecCode(confirm, 'publier_actualite', {
+        title: 'Publier cette actualité sur le site ?',
+        message: `« ${newInfo.titre.trim()} » sera visible immédiatement par tous les visiteurs du site du séminaire.`,
+        confirmLabel: 'Publier sur le site',
+      });
+    } catch (err) {
+      notify.error(errorMessage(err, "Impossible d'obtenir un code de confirmation."));
+    }
+    if (!code) {
+      setLoadingCreate(false);
+      fenetreAjout.show();
+      return;
+    }
+    try {
+      await api.post('/infos', { ...newInfo, code_confirmation: code });
       setNewInfo({ auteur: '', titre: '', description: '' });
       fetchInfos();
       window.bootstrap.Modal.getInstance(document.getElementById('addModal'))?.hide();
       notify.success('Actualité publiée sur le site.');
     } catch (err) {
       notify.error(errorMessage(err, "Erreur lors de la publication."));
+      fenetreAjout.show();
     } finally {
       setLoadingCreate(false);
     }

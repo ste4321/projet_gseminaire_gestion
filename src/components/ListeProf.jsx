@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useProf } from '../contexts/ProfContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
+import { ouvrirEspace } from '../auth/consultation';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -14,7 +15,7 @@ import DetailModal from './DetailModal';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 
 const ListeProf = () => {
-  const { notify } = useFeedback();
+  const { notify, confirm } = useFeedback();
   const { profs, setProfs, loading } = useProf();
   const [searchTerm, setSearchTerm] = useState('');
   const [editProf, setEditProf] = useState(null);
@@ -199,6 +200,23 @@ const ListeProf = () => {
           onEdit={openEditModal}
           onDelete={openDeleteModal}
           role={role}
+          renderCell={(prof, field) => {
+            const value = prof[field];
+            // Email : ouvre l'espace de l'enseignant (lecture seule), administration uniquement
+            if (field === 'email' && value && role === 'admin') {
+              return (
+                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                  title={`Ouvrir l'espace de ${prof.nom_prenom}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    ouvrirEspace({ userId: prof.id_user_cession, nom: prof.nom_prenom, role: 'prof', confirm, notify });
+                  }}>
+                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
+                </button>
+              );
+            }
+            return value || '--';
+          }}
         />
         <Pagination
           currentPage={currentPage}

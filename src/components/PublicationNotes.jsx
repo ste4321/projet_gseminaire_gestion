@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
+import { confirmerAvecCode } from '../utils/confirmation';
 
 // Publication des notes par semestre (année + niveau).
 // Tant qu'un semestre n'est pas publié, le serveur n'envoie pas ses notes aux étudiants.
@@ -33,27 +34,12 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
     charger();
   }, [charger, version]);
 
-  const basculer = async (s) => {
-    const manquantes = s.notes_attendues - s.notes_saisies;
-    const ok = await confirm(s.publie ? {
-      title: `Retirer la publication du ${s.semestre} ?`,
-      message: `Les étudiants de ${niveau.niveau} ne verront plus leurs notes du ${s.semestre}.`,
-      confirmLabel: 'Retirer la publication',
-      danger: true,
-    } : {
-      title: `Publier les notes du ${s.semestre} ?`,
-      message: `Les ${s.etudiants} étudiant(s) de ${niveau.niveau} pourront consulter leurs notes et leur résultat du ${s.semestre}.`
-        + (manquantes > 0 ? ` Attention : ${manquantes} note(s) ne sont pas encore saisies.` : ''),
-      confirmLabel: 'Publier',
-    });
-    if (!ok) return;
+  const cibleDe = (s) => ({ id_annee_aca: Number(anneeId), id_niveau: niveau.id, id_semestre: s.id });
 
-    const cible = { id_annee_aca: Number(anneeId), id_niveau: niveau.id, id_semestre: s.id };
+  const executer = async (s, requete) => {
     setEnCours(s.id);
     try {
-      const res = s.publie
-        ? await api.delete('/notes/publications', { data: cible })
-        : await api.post('/notes/publications', cible);
+      const res = await requete();
       notify.success(res.data.message);
       await charger();
     } catch (error) {
@@ -61,6 +47,39 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
     } finally {
       setEnCours(null);
     }
+  };
+
+  // Publier : code de confirmation à recopier (vérifié aussi par le serveur)
+  const publier = async (s) => {
+    const manquantes = s.notes_attendues - s.notes_saisies;
+    let code;
+    setEnCours(s.id);
+    try {
+      code = await confirmerAvecCode(confirm, 'publier_notes', {
+        title: `Publier les notes du ${s.semestre} ?`,
+        message: `Les ${s.etudiants} étudiant(s) de ${niveau.niveau} pourront consulter leurs notes et leur résultat du ${s.semestre}.`
+          + (manquantes > 0 ? `
+
+⚠️ Attention : ${manquantes} note(s) ne sont pas encore saisies.` : ''),
+        confirmLabel: 'Publier les notes',
+      });
+    } catch (error) {
+      notify.error(errorMessage(error, "Impossible d'obtenir un code de confirmation."));
+    } finally {
+      setEnCours(null);
+    }
+    if (!code) return;
+    await executer(s, () => api.post('/notes/publications', { ...cibleDe(s), code_confirmation: code }));
+  };
+
+  const retirer = async (s) => {
+    const ok = await confirm({
+      title: `Retirer la publication du ${s.semestre} ?`,
+      message: `Les étudiants de ${niveau.niveau} ne verront plus leurs notes du ${s.semestre}.`,
+      confirmLabel: 'Retirer la publication',
+      danger: true,
+    });
+    if (ok) await executer(s, () => api.delete('/notes/publications', { data: cibleDe(s) }));
   };
 
   if (!niveau) return null;
@@ -106,7 +125,7 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
                     type="button"
                     className={`btn btn-sm w-100 mt-3 ${s.publie ? 'btn-outline-secondary' : 'btn-primary'}`}
                     disabled={enCours === s.id || (!s.publie && s.etudiants === 0)}
-                    onClick={() => basculer(s)}
+                    onClick={() => (s.publie ? retirer(s) : publier(s))}
                   >
                     <i className={`bx ${s.publie ? 'bx-hide' : 'bx-send'} me-1`}></i>
                     {enCours === s.id ? 'Patientez…' : s.publie ? 'Retirer la publication' : 'Publier les notes'}

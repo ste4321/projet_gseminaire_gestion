@@ -50,11 +50,56 @@ export const getUser = () => {
 };
 
 // Mot de passe provisoire : l'utilisateur doit le remplacer avant d'accéder à son espace
-export const mustChangePassword = () => !!getUser()?.must_change_password;
+// (sauf pendant une consultation par l'administration, en lecture seule)
+export const mustChangePassword = () => !getConsultation() && !!getUser()?.must_change_password;
 
 export const setMustChangePassword = (value) => {
   const user = getUser();
   if (user) {
     localStorage.setItem('user', JSON.stringify({ ...user, must_change_password: value }));
   }
+};
+
+// ─── Consultation de l'espace d'une autre personne (administration) ───────────
+// La session de l'admin est mise de côté, remplacée par une session de consultation
+// (jeton en lecture seule, 1 h), puis restaurée au retour.
+const CLE_ADMIN = 'session_admin';
+const CLE_CONSULTATION = 'consultation';
+
+const lireJson = (cle) => {
+  try {
+    return JSON.parse(localStorage.getItem(cle)) || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+/** { nom, role, retour, debut } si une consultation est en cours, sinon null */
+export const getConsultation = () => lireJson(CLE_CONSULTATION);
+
+export const demarrerConsultation = (session, retour) => {
+  const admin = {};
+  KEYS.forEach((k) => { admin[k] = localStorage.getItem(k); });
+  localStorage.setItem(CLE_ADMIN, JSON.stringify(admin));
+  saveSession(session);
+  localStorage.setItem(CLE_CONSULTATION, JSON.stringify({
+    nom: session.user.nom_prenom || session.user.email,
+    role: session.user.role,
+    retour,
+    debut: new Date().toISOString(),
+  }));
+};
+
+/** Restaure la session de l'admin ; renvoie la page où revenir (ou null si rien à restaurer) */
+export const terminerConsultation = () => {
+  const consultation = getConsultation();
+  const admin = lireJson(CLE_ADMIN);
+  clearSession();
+  localStorage.removeItem(CLE_CONSULTATION);
+  localStorage.removeItem(CLE_ADMIN);
+  if (!admin) return null;
+  KEYS.forEach((k) => {
+    if (admin[k] !== null && admin[k] !== undefined) localStorage.setItem(k, admin[k]);
+  });
+  return consultation?.retour || HOME_BY_ROLE.admin;
 };

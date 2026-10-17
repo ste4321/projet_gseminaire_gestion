@@ -20,11 +20,13 @@ const EditModal = ({
           <div className="modal-body">
             {fields.map((field, index) => (
               <div key={index} className="mb-2">
-                <label className="form-label">{field.label}</label>
+                <label className="form-label" htmlFor={`${modalId}-${field.name}`}>{field.label}</label>
                 
                 {/* Gestion des différents types de champs */}
                 {field.type === 'textarea' ? (
                   <textarea
+                    id={`${modalId}-${field.name}`}
+                    name={field.name}
                     className="form-control p-3"
                     rows={field.rows || 3}
                     value={formData[field.name] || ''}
@@ -33,6 +35,8 @@ const EditModal = ({
                   />
                 ) : field.type === 'select' ? (
                   <select
+                    id={`${modalId}-${field.name}`}
+                    name={field.name}
                     className="form-select"
                     value={formData[field.name] || ''}
                     onChange={(e) => onFormChange(field.name, e.target.value)}
@@ -47,6 +51,8 @@ const EditModal = ({
                   </select>
                 ) : field.type === 'file' ? (
                   <input
+                    id={`${modalId}-${field.name}`}
+                    name={field.name}
                     type="file"
                     className="form-control"
                     accept={field.accept}
@@ -55,6 +61,8 @@ const EditModal = ({
                   />
                 ) : (
                   <input
+                    id={`${modalId}-${field.name}`}
+                    name={field.name}
                     type={field.type || 'text'}
                     className="form-control"
                     value={formData[field.name] || ''}

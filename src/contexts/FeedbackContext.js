@@ -5,6 +5,7 @@
 //   notify.success('Étudiant ajouté.');
 //   notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
 //   if (await confirm({ title: 'Supprimer ?', message: '…', confirmLabel: 'Supprimer', danger: true })) { … }
+//   Avec `code: 'K7M2QX'`, le bouton ne s'active qu'une fois le code recopié (voir utils/confirmation.js).
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 const FeedbackContext = createContext(null);
@@ -21,6 +22,7 @@ const DUREE = { success: 4000, info: 5000, warning: 7000, error: 8000 };
 export const FeedbackProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const [dialog, setDialog] = useState(null);
+  const [saisieCode, setSaisieCode] = useState('');
   const nextId = useRef(0);
 
   const dismiss = useCallback((id) => {
@@ -42,6 +44,7 @@ export const FeedbackProvider = ({ children }) => {
   }), [push]);
 
   const confirm = useCallback((options) => new Promise((resolve) => {
+    setSaisieCode('');
     setDialog({ ...options, resolve });
   }), []);
 
@@ -49,6 +52,8 @@ export const FeedbackProvider = ({ children }) => {
     dialog?.resolve(result);
     setDialog(null);
   };
+
+  const codeOk = !dialog?.code || saisieCode.trim().toUpperCase() === dialog.code;
 
   const value = useMemo(() => ({ notify, confirm }), [notify, confirm]);
 
@@ -86,11 +91,37 @@ export const FeedbackProvider = ({ children }) => {
                   <button type="button" className="btn-close" aria-label="Fermer" onClick={() => closeDialog(false)}></button>
                 </div>
                 {dialog.message && <div className="modal-body" style={{ whiteSpace: 'pre-line' }}>{dialog.message}</div>}
+                {dialog.code && (
+                  <div className="modal-body pt-0 gstf-code-confirmation">
+                    <label htmlFor="gstf-code-saisie" className="form-label">Pour confirmer, recopiez ce code :</label>
+                    <div className="gstf-code-confirmation__code" aria-label={`Code : ${dialog.code.split('').join(' ')}`}>
+                      {dialog.code}
+                    </div>
+                    <input
+                      id="gstf-code-saisie"
+                      className={`form-control form-control-lg text-center gstf-code-confirmation__saisie ${saisieCode && !codeOk && saisieCode.trim().length >= dialog.code.length ? 'is-invalid' : ''}`}
+                      value={saisieCode}
+                      onChange={(e) => setSaisieCode(e.target.value.toUpperCase())}
+                      onPaste={(e) => e.preventDefault()}
+                      onKeyDown={(e) => e.key === 'Enter' && codeOk && closeDialog(true)}
+                      maxLength={dialog.code.length + 2}
+                      autoFocus
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="characters"
+                      spellCheck="false"
+                      placeholder={'•'.repeat(dialog.code.length)}
+                    />
+                    <div className="invalid-feedback">Le code ne correspond pas.</div>
+                    <small className="text-muted d-block mt-2">Code à usage unique, valable 5 minutes.</small>
+                  </div>
+                )}
                 <div className="modal-footer">
                   <button type="button" className="btn btn-outline-secondary" onClick={() => closeDialog(false)}>
                     {dialog.cancelLabel || 'Annuler'}
                   </button>
-                  <button type="button" autoFocus className={`btn ${dialog.danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => closeDialog(true)}>
+                  <button type="button" autoFocus={!dialog.code} disabled={!codeOk}
+                    className={`btn ${dialog.danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => closeDialog(true)}>
                     {dialog.confirmLabel || 'Confirmer'}
                   </button>
                 </div>

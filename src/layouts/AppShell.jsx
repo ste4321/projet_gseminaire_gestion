@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Sidebar, { closeSidebar } from '../components/Sidebar';
 import Footer from '../components/Footer';
+import BandeauConsultation from '../components/BandeauConsultation';
 import useScripts from '../hooks/useScripts';
 import { getRole } from '../auth/session';
 import { pageTitle } from '../navigation';
@@ -34,6 +35,7 @@ const AppShell = () => {
       <div className="layout-container">
         <Sidebar />
         <div className="layout-page">
+          <BandeauConsultation />
           <Header />
           <div className="content-wrapper">
             <main className="flex-grow-1">
