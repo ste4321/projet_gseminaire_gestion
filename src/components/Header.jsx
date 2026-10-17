@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { clearSession, getRole } from '../auth/session';
+import { getConsultation, quitterConsultation } from '../auth/consultation';
 import { ROLE_LABELS } from '../navigation';
 
 const initiales = (nom) =>
@@ -17,6 +18,10 @@ const Header = () => {
   const nomPrenom = localStorage.getItem('nom_prenom') || '';
 
   const handleLogout = async () => {
+    if (getConsultation()) {
+      quitterConsultation();
+      return;
+    }
     try {
       // Révoque le jeton côté serveur
       await api.post('/logout');

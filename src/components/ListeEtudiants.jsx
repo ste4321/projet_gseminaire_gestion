@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useEtudiant } from '../contexts/EtudiantContext';
 import api, { errorMessage as messageErreur } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
+import { ouvrirEspace } from '../auth/consultation';
 import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
 
 // Import des composants modulaires
@@ -17,7 +18,7 @@ import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { telechargerIdentifiants } from '../utils/identifiants';
 
 const ListeEtudiant = () => {
-  const { notify } = useFeedback();
+  const { notify, confirm } = useFeedback();
   const { etudiantParcours, refetchParcours } = useEtudiantParcours();
   const { etudiants, setEtudiants, loading } = useEtudiant();
 
@@ -90,6 +91,7 @@ const ListeEtudiant = () => {
         id: etu?.id,
         nom_prenom: etu?.nom_prenom,
         matricule: etu?.matricule,
+        id_user_cession: etu?.id_user_cession,
         email: etu?.email,
         telephone: etu?.telephone,
         diocese: etu?.diocese,
@@ -439,6 +441,19 @@ const ListeEtudiant = () => {
           role={role}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
+            // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
+            if (field === 'matricule' && value && role === 'admin') {
+              return (
+                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                  title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
+                  }}>
+                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
+                </button>
+              );
+            }
             return value ? value : '--';
           }}
         />

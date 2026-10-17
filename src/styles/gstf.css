@@ -356,3 +356,61 @@
   letter-spacing: 0.35em;
   text-transform: uppercase;
 }
+
+/* ─── Consultation de l'espace d'une autre personne ────────────────── */
+.gstf-lien-espace {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(140, 47, 57, 0.35);
+  text-underline-offset: 3px;
+  vertical-align: baseline;
+}
+.gstf-lien-espace:hover,
+.gstf-lien-espace:focus-visible {
+  text-decoration-color: currentColor;
+}
+.gstf-consultation {
+  position: sticky;
+  top: 0;
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 1.625rem 0;
+  padding: 0.65rem 1rem;
+  border-radius: 0.5rem;
+  background: #8c2f39;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(140, 47, 57, 0.3);
+}
+.gstf-consultation__icone {
+  font-size: 1.5rem;
+}
+.gstf-consultation__texte {
+  flex: 1;
+  line-height: 1.35;
+}
+.gstf-consultation__detail {
+  opacity: 0.8;
+  font-size: 0.85rem;
+}
+.gstf-consultation .btn-light {
+  color: #8c2f39;
+  font-weight: 600;
+  white-space: nowrap;
+}
+@media (max-width: 575.98px) {
+  .gstf-consultation {
+    flex-wrap: wrap;
+    margin: 0.5rem 0.75rem 0;
+  }
+  .gstf-consultation__detail {
+    display: block;
+  }
+  .gstf-consultation__sep {
+    display: none;
+  }
+  .gstf-consultation .btn {
+    width: 100%;
+  }
+}
