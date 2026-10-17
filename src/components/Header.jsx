@@ -1,8 +1,8 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { clearSession, getRole } from '../auth/session';
-import { pageTitle, ROLE_LABELS } from '../navigation';
+import { ROLE_LABELS } from '../navigation';
 
 const initiales = (nom) =>
   (nom || '?')
@@ -13,10 +13,8 @@ const initiales = (nom) =>
     .join('');
 
 const Header = () => {
-  const { pathname } = useLocation();
   const role = getRole();
   const nomPrenom = localStorage.getItem('nom_prenom') || '';
-  const titre = pageTitle(role, pathname);
 
   const handleLogout = async () => {
     try {
@@ -49,8 +47,6 @@ const Header = () => {
       </div>
 
       <div className="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-        {titre && <h5 className="mb-0 text-truncate">{titre}</h5>}
-
         <ul className="navbar-nav flex-row align-items-center ms-auto">
           <li className="nav-item navbar-dropdown dropdown-user dropdown">
             <button

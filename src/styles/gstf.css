@@ -220,3 +220,4 @@
 @media (prefers-reduced-motion: reduce) {
   #layout-menu, .layout-overlay { transition: none; }
 }
+.min-w-0 { min-width: 0; }
