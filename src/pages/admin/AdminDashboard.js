@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { errorMessage } from '../../api/client';
 
@@ -20,16 +20,86 @@ const ACCES_RAPIDES = [
   { to: '/changer-mot-de-passe', icon: 'bx-lock-alt', label: 'Changer mon mot de passe' },
 ];
 
-const StatCard = ({ icon, label, value, detail, to, gold }) => {
+// Dernières statistiques gardées en mémoire : au retour sur le tableau de bord, elles s'affichent
+// immédiatement puis sont rafraîchies en arrière-plan. Liées au jeton pour ne pas montrer
+// les chiffres d'une autre session (déconnexion, mode consultation).
+let memoire = { jeton: null, anneeId: '', stats: null };
+const memoireValide = () => memoire.stats && memoire.jeton === localStorage.getItem('token');
+
+const mouvementReduit = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/** Fait défiler un nombre jusqu'à `cible` ; repart de la valeur affichée si la cible change en cours de route.
+ *  `instantane` : la valeur de départ est déjà la cible (données reprises de la mémoire, pas de comptage). */
+const useCompteur = (cible, instantane = false, duree = 1000) => {
+  const [valeur, setValeur] = useState(instantane ? cible : 0);
+  const affichee = useRef(instantane ? cible : 0);
+
+  useEffect(() => {
+    const depart = affichee.current;
+    if (mouvementReduit() || depart === cible) {
+      affichee.current = cible;
+      setValeur(cible);
+      return undefined;
+    }
+    let raf;
+    const debut = performance.now();
+    const pas = (maintenant) => {
+      const t = Math.min(1, (maintenant - debut) / duree);
+      const v = depart + (cible - depart) * (1 - (1 - t) ** 3); // décélération en fin de course
+      affichee.current = v;
+      setValeur(v);
+      if (t < 1) raf = requestAnimationFrame(pas);
+    };
+    raf = requestAnimationFrame(pas);
+    return () => cancelAnimationFrame(raf);
+  }, [cible, duree]);
+
+  return Math.round(valeur);
+};
+
+const Compteur = ({ valeur, suffixe = '', instantane }) => <>{nombre(useCompteur(valeur, instantane))}{suffixe}</>;
+
+/** Bloc gris animé à la place d'un contenu en cours de chargement */
+const Squelette = ({ largeur = '100%', hauteur = '0.875rem', className = '' }) => (
+  <span className={`gstf-squelette ${className}`} style={{ width: largeur, height: hauteur }} aria-hidden="true" />
+);
+
+const SqueletteLignes = ({ nombre: n, avecBarre }) => (
+  <ul className="list-unstyled mb-0">
+    {Array.from({ length: n }, (_, i) => (
+      <li key={i} className="mb-3">
+        <div className="d-flex justify-content-between mb-2">
+          <Squelette largeur={`${55 - (i % 3) * 10}%`} />
+          <Squelette largeur="3rem" />
+        </div>
+        {avecBarre && <Squelette hauteur="0.5rem" />}
+      </li>
+    ))}
+  </ul>
+);
+
+const StatCard = ({ icon, label, valeur, suffixe, detail, to, gold, chargement, instantane }) => {
   const contenu = (
     <div className="card-body gstf-stat">
       <div className={`gstf-stat__icon ${gold ? 'gstf-stat__icon--gold' : ''}`} aria-hidden="true">
         <i className={`bx ${icon}`}></i>
       </div>
-      <div className="min-w-0">
-        <div className="gstf-stat__value">{value}</div>
+      <div className="min-w-0 flex-grow-1">
+        <div className="gstf-stat__value">
+          {chargement ? (
+            <Squelette largeur="4rem" hauteur="1.6rem" />
+          ) : valeur === null ? (
+            '—'
+          ) : (
+            <Compteur valeur={valeur} suffixe={suffixe} instantane={instantane} />
+          )}
+        </div>
         <div className="gstf-stat__label">{label}</div>
-        {detail && <small className="text-muted d-block">{detail}</small>}
+        {chargement ? (
+          <Squelette largeur="70%" hauteur="0.75rem" className="mt-1" />
+        ) : (
+          detail && <small className="text-muted d-block">{detail}</small>
+        )}
       </div>
     </div>
   );
@@ -40,7 +110,7 @@ const StatCard = ({ icon, label, value, detail, to, gold }) => {
   );
 };
 
-const Barres = ({ lignes, total, vide }) =>
+const Barres = ({ lignes, total, vide, instantane }) =>
   lignes.length === 0 || total === 0 ? (
     <div className="gstf-empty py-4">
       <i className="bx bx-bar-chart-alt-2 d-block"></i>
@@ -53,11 +123,11 @@ const Barres = ({ lignes, total, vide }) =>
           <div className="d-flex justify-content-between mb-1">
             <span className="text-truncate me-2">{l.label}</span>
             <span className="text-nowrap">
-              <strong>{nombre(l.total)}</strong>
+              <strong><Compteur valeur={l.total} instantane={instantane} /></strong>
               <small className="text-muted ms-1">({pourcent(l.total, total)} %)</small>
             </span>
           </div>
-          <div className="gstf-bar" role="presentation">
+          <div className={`gstf-bar ${instantane ? '' : 'gstf-bar--anime'}`} role="presentation">
             <span style={{ width: `${pourcent(l.total, total)}%` }}></span>
           </div>
         </li>
@@ -103,7 +173,7 @@ const tachesAFaire = (stats) => {
   return taches;
 };
 
-const AFaire = ({ taches }) =>
+const AFaire = ({ taches, instantane }) =>
   taches.length === 0 ? (
     <div className="gstf-empty py-4">
       <i className="bx bx-check-circle d-block text-success"></i>
@@ -118,7 +188,7 @@ const AFaire = ({ taches }) =>
             <div className="fw-semibold">{t.titre}</div>
             {t.detail && <small className="text-muted">{t.detail}</small>}
             {t.progression !== undefined && (
-              <div className="gstf-bar mt-1" role="presentation"><span style={{ width: `${t.progression}%` }}></span></div>
+              <div className={`gstf-bar mt-1 ${instantane ? '' : 'gstf-bar--anime'}`} role="presentation"><span style={{ width: `${t.progression}%` }}></span></div>
             )}
           </div>
           <Link to={t.to} className={`btn btn-sm btn-outline-${t.ton === 'success' ? 'success' : 'primary'}`}>{t.action}</Link>
@@ -129,8 +199,10 @@ const AFaire = ({ taches }) =>
   );
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState(null);
-  const [anneeId, setAnneeId] = useState('');
+  // Calculé une seule fois au montage : données en mémoire → affichage direct, sans squelette ni comptage
+  const [depuisMemoire] = useState(memoireValide);
+  const [stats, setStats] = useState(() => (depuisMemoire ? memoire.stats : null));
+  const [anneeId, setAnneeId] = useState(() => (depuisMemoire ? memoire.anneeId : ''));
   const [loading, setLoading] = useState(true);
   const [erreur, setErreur] = useState(null);
   const nomPrenom = localStorage.getItem('nom_prenom') || '';
@@ -141,6 +213,7 @@ const AdminDashboard = () => {
     try {
       const res = await api.get('/dashboard/stats', { params: annee ? { annee } : {} });
       setStats(res.data);
+      memoire = { jeton: localStorage.getItem('token'), anneeId: annee, stats: res.data };
     } catch (err) {
       setErreur(errorMessage(err, 'Impossible de charger le tableau de bord.'));
     } finally {
@@ -151,15 +224,6 @@ const AdminDashboard = () => {
   useEffect(() => {
     charger(anneeId);
   }, [anneeId, charger]);
-
-  if (loading && !stats) {
-    return (
-      <div className="container-xxl container-p-y text-center py-5" role="status">
-        <div className="spinner-border text-primary"></div>
-        <p className="mt-2 text-muted">Chargement du tableau de bord…</p>
-      </div>
-    );
-  }
 
   if (erreur && !stats) {
     return (
@@ -172,12 +236,14 @@ const AdminDashboard = () => {
     );
   }
 
-  const { etudiants, comptes, notes } = stats;
-  const comptesAActiver = comptes.prof.inactifs + comptes.etudiant.inactifs;
-  const provisoires = comptes.prof.provisoires + comptes.etudiant.provisoires;
-  const taches = tachesAFaire(stats);
+  // Premier chargement : la mise en page s'affiche tout de suite, les données manquantes en squelette
+  const chargement = !stats;
+  const { etudiants, comptes, notes } = stats || {};
+  const comptesAActiver = chargement ? 0 : comptes.prof.inactifs + comptes.etudiant.inactifs;
+  const provisoires = chargement ? 0 : comptes.prof.provisoires + comptes.etudiant.provisoires;
+  const taches = chargement ? [] : tachesAFaire(stats);
 
-  const dioceses = etudiants.par_diocese;
+  const dioceses = etudiants?.par_diocese || [];
   const lignesDioceses = dioceses.length > 6
     ? [
         ...dioceses.slice(0, 5).map((d) => ({ label: d.diocese, total: d.total })),
@@ -186,7 +252,9 @@ const AdminDashboard = () => {
     : dioceses.map((d) => ({ label: d.diocese, total: d.total }));
 
   return (
-    <div className="container-xxl flex-grow-1 container-p-y">
+    <div className="container-xxl flex-grow-1 container-p-y" aria-busy={loading}>
+      {chargement && <span className="visually-hidden" role="status">Chargement du tableau de bord…</span>}
+
       {/* Accueil */}
       <div className="card mb-4">
         <div className="card-body d-flex flex-wrap align-items-center gap-3">
@@ -195,10 +263,14 @@ const AdminDashboard = () => {
             <h4 className="mb-1">{salutation()}{nomPrenom ? `, ${nomPrenom}` : ''}</h4>
             <p className="mb-0 text-muted">
               {majuscule(new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }))}
-              {stats.annee && <> · Année académique {stats.annee.annee_aca}</>}
+              {chargement ? (
+                <Squelette largeur="12rem" className="d-inline-block ms-2 align-middle" />
+              ) : (
+                stats.annee && <> · Année académique {stats.annee.annee_aca}</>
+              )}
             </p>
           </div>
-          {stats.annees.length > 1 && (
+          {!chargement && stats.annees.length > 1 && (
             <div className="d-flex align-items-center gap-2">
               <label htmlFor="dashboard-annee" className="form-label mb-0 text-nowrap">Année</label>
               <select
@@ -220,15 +292,26 @@ const AdminDashboard = () => {
         <StatCard
           icon="bx-group"
           label="Étudiants inscrits"
-          value={nombre(etudiants.inscrits)}
-          detail={stats.annee ? `en ${stats.annee.annee_aca}` : null}
+          chargement={chargement}
+          instantane={depuisMemoire}
+          valeur={etudiants?.inscrits ?? 0}
+          detail={stats?.annee ? `en ${stats.annee.annee_aca}` : null}
           to="/admin/listeEtudiant"
         />
-        <StatCard icon="bx-user-voice" label="Enseignants" value={nombre(stats.enseignants)} to="/admin/listeProf" />
+        <StatCard
+          icon="bx-user-voice"
+          label="Enseignants"
+          chargement={chargement}
+          instantane={depuisMemoire}
+          valeur={stats?.enseignants ?? 0}
+          to="/admin/listeProf"
+        />
         <StatCard
           icon="bx-lock-open-alt"
           label="Comptes à activer"
-          value={nombre(comptesAActiver)}
+          chargement={chargement}
+          instantane={depuisMemoire}
+          valeur={comptesAActiver}
           detail={provisoires > 0 ? `${nombre(provisoires)} mot(s) de passe provisoire(s)` : 'Tous les accès sont prêts'}
           to="/admin/portal"
           gold
@@ -236,8 +319,11 @@ const AdminDashboard = () => {
         <StatCard
           icon="bx-spreadsheet"
           label="Notes saisies"
-          value={notes.attendues > 0 ? `${pourcent(notes.saisies, notes.attendues)} %` : '—'}
-          detail={notes.attendues > 0 ? `${nombre(notes.saisies)} sur ${nombre(notes.attendues)}` : 'Aucune note attendue'}
+          chargement={chargement}
+          instantane={depuisMemoire}
+          valeur={notes?.attendues > 0 ? pourcent(notes.saisies, notes.attendues) : null}
+          suffixe=" %"
+          detail={notes?.attendues > 0 ? `${nombre(notes.saisies)} sur ${nombre(notes.attendues)}` : 'Aucune note attendue'}
           to="/admin/noteEtudiant"
           gold
         />
@@ -252,7 +338,20 @@ const AdminDashboard = () => {
               <Link to="/admin/annonce" className="btn btn-sm btn-outline-primary">Toutes les annonces</Link>
             </div>
             <div className="card-body">
-              {stats.annonces_recentes.length === 0 ? (
+              {chargement ? (
+                <ul className="list-unstyled mb-0">
+                  {[0, 1, 2, 3].map((i) => (
+                    <li key={i} className="py-2 border-bottom">
+                      <div className="d-flex justify-content-between mb-2">
+                        <Squelette largeur={`${60 - i * 8}%`} hauteur="1rem" />
+                        <Squelette largeur="3.5rem" />
+                      </div>
+                      <Squelette largeur="90%" hauteur="0.75rem" className="mb-1" />
+                      <Squelette largeur="35%" hauteur="0.75rem" />
+                    </li>
+                  ))}
+                </ul>
+              ) : stats.annonces_recentes.length === 0 ? (
                 <div className="gstf-empty py-4">
                   <i className="bx bx-message-square-dots d-block"></i>
                   Aucune annonce publiée.
@@ -302,7 +401,22 @@ const AdminDashboard = () => {
               <small className="text-muted">Notes à saisir ou à publier, comptes à activer</small>
             </div>
             <div className="card-body">
-              <AFaire taches={taches} />
+              {chargement ? (
+                <ul className="list-unstyled mb-0 gstf-taches">
+                  {[0, 1, 2].map((i) => (
+                    <li key={i} className="gstf-tache">
+                      <Squelette largeur="2.25rem" hauteur="2.25rem" className="flex-shrink-0" />
+                      <div className="flex-grow-1">
+                        <Squelette largeur={`${70 - i * 12}%`} className="mb-2" />
+                        <Squelette largeur="45%" hauteur="0.75rem" />
+                      </div>
+                      <Squelette largeur="4rem" hauteur="1.9rem" className="flex-shrink-0" />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <AFaire taches={taches} instantane={depuisMemoire} />
+              )}
             </div>
           </div>
         </div>
@@ -313,11 +427,16 @@ const AdminDashboard = () => {
               <h5 className="card-title gstf-section-title mb-0">Inscrits par niveau</h5>
             </div>
             <div className="card-body">
-              <Barres
-                lignes={etudiants.par_niveau.map((n) => ({ label: n.niveau, total: n.total }))}
-                total={etudiants.inscrits}
-                vide="Aucun étudiant inscrit cette année."
-              />
+              {chargement ? (
+                <SqueletteLignes nombre={4} avecBarre />
+              ) : (
+                <Barres
+                  lignes={etudiants.par_niveau.map((n) => ({ label: n.niveau, total: n.total }))}
+                  total={etudiants.inscrits}
+                  vide="Aucun étudiant inscrit cette année."
+                  instantane={depuisMemoire}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -329,7 +448,11 @@ const AdminDashboard = () => {
               <small className="text-muted">Diocèse ou congrégation</small>
             </div>
             <div className="card-body">
-              <Barres lignes={lignesDioceses} total={etudiants.inscrits} vide="Aucune origine renseignée." />
+              {chargement ? (
+                <SqueletteLignes nombre={5} avecBarre />
+              ) : (
+                <Barres lignes={lignesDioceses} total={etudiants.inscrits} vide="Aucune origine renseignée." instantane={depuisMemoire} />
+              )}
             </div>
           </div>
         </div>

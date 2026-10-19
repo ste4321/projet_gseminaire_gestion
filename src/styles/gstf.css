@@ -117,7 +117,13 @@
   color: var(--gstf-primary);
 }
 .gstf-stat__icon--gold { background: var(--gstf-gold-soft); color: #8a6d12; }
-.gstf-stat__value { font-size: 1.6rem; font-weight: 600; color: #384551; line-height: 1.1; }
+.gstf-stat__value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #384551;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums; /* largeur fixe des chiffres : pas de tremblement pendant le comptage */
+}
 .gstf-stat__label { color: var(--gstf-text-muted); font-size: 0.875rem; }
 
 .gstf-bar {
@@ -131,6 +137,36 @@
   height: 100%;
   border-radius: 1rem;
   background: var(--gstf-primary);
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); /* glisse vers la nouvelle valeur */
+}
+
+/* Barres qui se remplissent à l'affichage */
+.gstf-bar--anime > span {
+  transform-origin: left;
+  animation: gstf-bar-remplir 1s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@keyframes gstf-bar-remplir {
+  from { transform: scaleX(0); }
+}
+
+/* Squelette de chargement */
+.gstf-squelette {
+  display: block;
+  max-width: 100%;
+  border-radius: 0.375rem;
+  background: linear-gradient(90deg, #eceef1 25%, #f6f7f9 50%, #eceef1 75%);
+  background-size: 200% 100%;
+  animation: gstf-squelette 1.4s linear infinite;
+}
+@keyframes gstf-squelette {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gstf-bar > span,
+  .gstf-bar--anime > span { animation: none; transition: none; }
+  .gstf-squelette { animation: none; }
 }
 
 /* Liens d'accès rapide */

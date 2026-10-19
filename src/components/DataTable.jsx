@@ -9,8 +9,49 @@ const DataTable = ({
   showActions = true,
   role,
   actionLabel, // bouton explicite qui déclenche onRowClick (ex : « Notes »)
-  renderCell // fonction pour personnaliser le rendu des cellules
+  renderCell, // fonction pour personnaliser le rendu des cellules
+  loading = false, // premier chargement : lignes squelette à la place des données
+  skeletonRows = 8
 }) => {
+  const avecActions = showActions && role === 'admin';
+
+  if (loading) {
+    return (
+      <div className="card">
+        <div className="table-responsive text-nowrap">
+          <table className="table" aria-busy="true">
+            <thead>
+              <tr>
+                {headers.map((header, index) => (
+                  <th key={index}>{header.label}</th>
+                ))}
+                {avecActions && <th>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: skeletonRows }, (_, ligne) => (
+                <tr key={ligne}>
+                  {headers.map((header, colonne) => (
+                    <td key={colonne}>
+                      {/* largeurs variées pour un rendu proche du vrai tableau */}
+                      <span className="gstf-squelette" style={{ width: `${55 + ((ligne * 3 + colonne * 7) % 5) * 9}%`, height: '0.875rem' }} />
+                    </td>
+                  ))}
+                  {avecActions && (
+                    <td className="text-nowrap">
+                      <span className="gstf-squelette d-inline-block me-2" style={{ width: '2rem', height: '1.9rem' }} />
+                      <span className="gstf-squelette d-inline-block" style={{ width: '2rem', height: '1.9rem' }} />
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <div className="table-responsive text-nowrap">

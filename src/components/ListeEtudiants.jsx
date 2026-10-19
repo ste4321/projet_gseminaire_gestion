@@ -19,8 +19,10 @@ import { telechargerIdentifiants } from '../utils/identifiants';
 
 const ListeEtudiant = () => {
   const { notify, confirm } = useFeedback();
-  const { etudiantParcours, refetchParcours } = useEtudiantParcours();
-  const { etudiants, setEtudiants, loading } = useEtudiant();
+  const { etudiantParcours, refetchParcours, loading: loadingParcours } = useEtudiantParcours();
+  const { etudiants, setEtudiants } = useEtudiant();
+  // Squelette seulement au premier chargement : les rechargements (ajout, import) gardent le tableau affiché
+  const chargement = loadingParcours && etudiantParcours.length === 0;
 
   // États pour les filtres
   const [selectedAnnee, setSelectedAnnee] = useState('');
@@ -360,33 +362,29 @@ const ListeEtudiant = () => {
     modal.show();
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement des étudiants...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
         <span className="text-muted fw-light text-capitalize">{role} /</span> Étudiants
       </h4>
+      {chargement && <span className="visually-hidden" role="status">Chargement des étudiants…</span>}
 
       {/* 🔹 Filtre année académique */}
       <div className="mb-3">
         <label className="form-label">Année académique:</label>
-        <select
-          className="form-select w-auto d-inline ms-2"
-          value={selectedAnnee || ''}
-          onChange={e => handleAnneeChange(e.target.value)}
-        >
-          {annees.map(a => (
-            <option key={a.id} value={a.id}>{a.annee_aca}</option>
-          ))}
-        </select>
+        {chargement ? (
+          <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '9rem', height: '2.4rem' }} />
+        ) : (
+          <select
+            className="form-select w-auto d-inline ms-2"
+            value={selectedAnnee || ''}
+            onChange={e => handleAnneeChange(e.target.value)}
+          >
+            {annees.map(a => (
+              <option key={a.id} value={a.id}>{a.annee_aca}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* 🔹 Sélecteur de niveau (L1–L3) */}
@@ -439,6 +437,7 @@ const ListeEtudiant = () => {
           onEdit={openEditModal}
           onDelete={openDeleteModal}
           role={role}
+          loading={chargement}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
@@ -458,7 +457,7 @@ const ListeEtudiant = () => {
           }}
         />
 
-        {currentEtudiants.length === 0 && (
+        {!chargement && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
             Aucun étudiant trouvé pour L{niveau}
             {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
@@ -549,4 +548,4 @@ const ListeEtudiant = () => {
   );
 };
 
-export default ListeEtudiant;
+export default ListeEtudiant;
