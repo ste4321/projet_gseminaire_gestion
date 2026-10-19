@@ -11,7 +11,8 @@ const DataTable = ({
   actionLabel, // bouton explicite qui déclenche onRowClick (ex : « Notes »)
   renderCell, // fonction pour personnaliser le rendu des cellules
   loading = false, // premier chargement : lignes squelette à la place des données
-  skeletonRows = 8
+  skeletonRows = 8,
+  refreshing = false // nouvelles données en route : lignes actuelles estompées
 }) => {
   const avecActions = showActions && role === 'admin';
 
@@ -53,7 +54,7 @@ const DataTable = ({
   }
 
   return (
-    <div className="card">
+    <div className={`card gstf-table ${refreshing ? 'is-refreshing' : ''}`} aria-busy={refreshing}>
       <div className="table-responsive text-nowrap">
         <table className="table table-hover">
           <thead>

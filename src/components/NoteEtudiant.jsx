@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useEtudiant } from '../contexts/EtudiantContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { ouvrirEspace } from '../auth/consultation';
-import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
+import { useAnnee } from '../contexts/AnneeContext';
+import useParcoursPagines from '../hooks/useParcoursPagines';
 import { useNiveau } from '../contexts/NiveauContext';
 
 // Import des composants modulaires
@@ -15,11 +15,46 @@ import StatutResultat from './StatutResultat';
 
 import { telechargerBulletin } from '../utils/bulletin';
 
+/** Relevé en cours de chargement : même structure que les semestres affichés ensuite */
+const SqueletteReleve = () => (
+  <div>
+    <span className="visually-hidden" role="status">Chargement des notes…</span>
+    {[0, 1].map((s) => (
+      <section className="mb-4" key={s} aria-hidden="true">
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <span className="gstf-squelette" style={{ width: '7rem', height: '1.1rem' }} />
+          <span className="gstf-squelette" style={{ width: '4.5rem', height: '1.1rem' }} />
+          <span className="gstf-squelette ms-auto" style={{ width: '10rem', height: '0.9rem' }} />
+        </div>
+        <table className="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Matière</th>
+              <th scope="col" className="text-center">Coef.</th>
+              <th scope="col" className="text-center text-nowrap">Note /20</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[0, 1, 2, 3].map((m) => (
+              <tr key={m}>
+                <td><span className="gstf-squelette" style={{ width: '3rem', height: '0.8rem' }} /></td>
+                <td><span className="gstf-squelette" style={{ width: `${45 + ((s + m * 3) % 4) * 12}%`, height: '0.9rem' }} /></td>
+                <td><span className="gstf-squelette mx-auto" style={{ width: '1.5rem', height: '0.9rem' }} /></td>
+                <td><span className="gstf-squelette mx-auto" style={{ width: '90px', height: '1.9rem' }} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))}
+  </div>
+);
+
 const NoteEtudiant = () => {
   const { notify, confirm } = useFeedback();
   const { niveaux } = useNiveau();
-  const { etudiantParcours } = useEtudiantParcours();
-  const { loading } = useEtudiant();
+  const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -63,64 +98,32 @@ const NoteEtudiant = () => {
     return () => el.removeEventListener('hidden.bs.modal', reinitialiser);
   });
 
-  // Effet pour initialiser les valeurs par défaut
-  // Effet pour initialiser les valeurs par défaut
+  // Année affichée par défaut : la plus récente
+  const annees = [...anneesListe].sort((a, b) => b.id - a.id);
   useEffect(() => {
-    if (etudiantParcours.length > 0) {
-      // Trouver l'année académique actuelle (la plus récente)
-      const anneeIds = etudiantParcours
-        .map(p => p.annee_academique?.id)
-        .filter(Boolean);
+    if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
+  }, [annees, selectedAnnee]);
 
-      if (anneeIds.length > 0) {
-        const maxAnneeId = Math.max(...anneeIds);
-        setSelectedAnnee(String(maxAnneeId));
-      }
-    }
-  }, [etudiantParcours]);
+  // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
+  const { lignes, total, pages: totalPages, premierChargement, actualisation, erreur: erreurListe, recharger } =
+    useParcoursPagines({ annee: selectedAnnee, niveau: `L${niveau}`, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
+  const chargement = premierChargement && !erreurListe && (loadingAnnees || anneesListe.length > 0);
 
-  // Obtenir les années académiques uniques
-  const annees = etudiantParcours
-    .map(p => p.annee_academique)
-    .filter((annee, index, self) =>
-      annee && self.findIndex(a => a?.id === annee.id) === index
-    )
-    .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
-
-  // Filtrage des étudiants basé sur l'année et le niveau
-  const filteredParcours = etudiantParcours.filter(p => {
-    const matchAnnee = !selectedAnnee || String(p.annee_academique?.id) === String(selectedAnnee);
-    const matchNiveau = p.niveau?.niveau === `L${niveau}`;
-    return matchAnnee && matchNiveau;
+  const currentEtudiants = lignes.map(parcours => {
+    const etu = parcours.etudiant;
+    return {
+      id: etu?.id,
+      nom_prenom: etu?.nom_prenom,
+      matricule: etu?.matricule,
+      id_user_cession: etu?.id_user_cession,
+      email: etu?.email,
+      telephone: etu?.telephone,
+      diocese: etu?.diocese,
+      niveau: parcours?.niveau?.niveau,
+      parcours_id: parcours?.id,
+      original: parcours
+    };
   });
-
-  const filteredEtudiants = filteredParcours
-    .map(parcours => {
-      const etu = parcours.etudiant;
-      return {
-        id: etu?.id,
-        nom_prenom: etu?.nom_prenom,
-        matricule: etu?.matricule,
-        id_user_cession: etu?.id_user_cession,
-        email: etu?.email,
-        telephone: etu?.telephone,
-        diocese: etu?.diocese,
-        niveau: parcours?.niveau?.niveau,
-        parcours_id: parcours?.id,
-        original: parcours
-      };
-    })
-    .filter(etudiant =>
-      Object.values(etudiant).some(val =>
-        typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-
-  const totalPages = Math.ceil(filteredEtudiants.length / itemsPerPage);
-  const currentEtudiants = filteredEtudiants.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
 
   // Configuration des en-têtes du tableau
   const tableHeaders = [
@@ -299,14 +302,6 @@ const NoteEtudiant = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement des notes...</p>
-      </div>
-    );
-  }
   // Bulletin PDF : relevé calculé par le serveur (moyenne pondérée, notes de 0 incluses),
   // même format que le bulletin téléchargé par l'étudiant.
   const generatePDF = async () => {
@@ -330,19 +325,24 @@ const NoteEtudiant = () => {
       <h4 className="fw-bold py-3 mb-4">
         <span className="text-muted fw-light text-capitalize">{role} /</span> Gestion des Notes
       </h4>
+      {chargement && <span className="visually-hidden" role="status">Chargement des étudiants…</span>}
 
       {/* 🔹 Filtre année académique */}
       <div className="mb-3">
         <label className="form-label">Année académique:</label>
-        <select
-          className="form-select w-auto d-inline ms-2"
-          value={selectedAnnee || ''}
-          onChange={e => handleAnneeChange(e.target.value)}
-        >
-          {annees.map(a => (
-            <option key={a.id} value={a.id}>{a.annee_aca}</option>
-          ))}
-        </select>
+        {chargement ? (
+          <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '9rem', height: '2.4rem' }} />
+        ) : (
+          <select
+            className="form-select w-auto d-inline ms-2"
+            value={selectedAnnee || ''}
+            onChange={e => handleAnneeChange(e.target.value)}
+          >
+            {annees.map(a => (
+              <option key={a.id} value={a.id}>{a.annee_aca}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* 🔹 Sélecteur de niveau (L1–L3) */}
@@ -370,6 +370,9 @@ const NoteEtudiant = () => {
             <span className="text-muted ms-2">
               - {annees.find(a => String(a.id) === String(selectedAnnee))?.annee_aca}
             </span>
+          )}
+          {!chargement && !erreurListe && (
+            <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
           )}
         </h5>
         {role === 'admin' && (
@@ -535,6 +538,8 @@ const NoteEtudiant = () => {
           data={currentEtudiants}
           onRowClick={openNotesModal}
           role={role}
+          loading={chargement}
+          refreshing={actualisation}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
@@ -555,7 +560,14 @@ const NoteEtudiant = () => {
           actionLabel="Notes"
         />
 
-        {currentEtudiants.length === 0 && (
+        {erreurListe && (
+          <div className="alert alert-danger d-flex justify-content-between align-items-center m-3" role="alert">
+            <span>{erreurListe}</span>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={recharger}>Réessayer</button>
+          </div>
+        )}
+
+        {!chargement && !erreurListe && !actualisation && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
             Aucun étudiant trouvé pour L{niveau}
             {selectedAnnee && annees.find(a => String(a.id) === String(selectedAnnee)) && (
@@ -587,10 +599,7 @@ const NoteEtudiant = () => {
 
             <div className="modal-body">
               {loadingNotes ? (
-                <div className="text-center py-5" role="status">
-                  <div className="spinner-border text-primary"></div>
-                  <p className="mt-2 text-muted mb-0">Chargement des notes…</p>
-                </div>
+                <SqueletteReleve />
               ) : erreurNotes ? (
                 <div className="alert alert-danger mb-0">{erreurNotes}</div>
               ) : releve && (releve.semestres.length === 0 ? (
@@ -699,4 +708,4 @@ const NoteEtudiant = () => {
   );
 };
 
-export default NoteEtudiant;
+export default NoteEtudiant;

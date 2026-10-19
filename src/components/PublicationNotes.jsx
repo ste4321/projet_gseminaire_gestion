@@ -10,12 +10,13 @@ const dateCourte = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { d
 const PublicationNotes = ({ anneeId, niveau, version }) => {
   const { notify, confirm } = useFeedback();
   const [semestres, setSemestres] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // squelette dès le premier affichage
   const [enCours, setEnCours] = useState(null);
 
   const charger = useCallback(async () => {
     if (!anneeId || !niveau?.id) {
       setSemestres([]);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -92,7 +93,26 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
       </div>
       <div className="card-body">
         {loading && semestres.length === 0 ? (
-          <div className="text-center py-2"><span className="spinner-border spinner-border-sm text-primary" role="status"></span></div>
+          <div className="gstf-publication__liste">
+            <span className="visually-hidden" role="status">Chargement de l'état de publication…</span>
+            {[0, 1].map((i) => (
+              <div className="gstf-publication__item" key={i} aria-hidden="true">
+                <div className="d-flex justify-content-between align-items-start gap-2">
+                  <div className="flex-grow-1">
+                    <span className="gstf-squelette mb-2" style={{ width: '6rem', height: '1rem' }} />
+                    <span className="gstf-squelette" style={{ width: '70%', height: '0.75rem' }} />
+                  </div>
+                  <span className="gstf-squelette" style={{ width: '4.5rem', height: '1.2rem' }} />
+                </div>
+                <div className="d-flex justify-content-between mt-3">
+                  <span className="gstf-squelette" style={{ width: '6rem', height: '0.75rem' }} />
+                  <span className="gstf-squelette" style={{ width: '3rem', height: '0.75rem' }} />
+                </div>
+                <span className="gstf-squelette mt-2" style={{ height: '0.5rem' }} />
+                <span className="gstf-squelette mt-4" style={{ height: '1.9rem' }} />
+              </div>
+            ))}
+          </div>
         ) : semestres.length === 0 ? (
           <p className="text-muted mb-0">Aucune matière de ce niveau n'est rattachée à un semestre.</p>
         ) : (

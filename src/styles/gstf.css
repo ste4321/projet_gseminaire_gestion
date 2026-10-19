@@ -158,6 +158,10 @@
   background-size: 200% 100%;
   animation: gstf-squelette 1.4s linear infinite;
 }
+/* Tableau en cours d'actualisation (filtre, page, recherche) : les lignes actuelles restent visibles, estompées */
+.gstf-table tbody { transition: opacity 0.2s ease; }
+.gstf-table.is-refreshing tbody { opacity: 0.5; }
+
 @keyframes gstf-squelette {
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
