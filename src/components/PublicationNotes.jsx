@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import api, { errorMessage } from '../api/client';
+import api, { errorMessage, estAnnulee } from '../api/client';
+import useDerniereRequete from '../hooks/useDerniereRequete';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { confirmerAvecCode } from '../utils/confirmation';
 
@@ -13,7 +14,10 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
   const [loading, setLoading] = useState(true); // squelette dès le premier affichage
   const [enCours, setEnCours] = useState(null);
 
+  const nouvelleRequete = useDerniereRequete();
+
   const charger = useCallback(async () => {
+    const signal = nouvelleRequete(); // changement de niveau rapide : seule la dernière réponse compte
     if (!anneeId || !niveau?.id) {
       setSemestres([]);
       setLoading(false);
@@ -21,15 +25,16 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
     }
     setLoading(true);
     try {
-      const res = await api.get('/notes/publications', { params: { annee: anneeId, niveau: niveau.id } });
+      const res = await api.get('/notes/publications', { params: { annee: anneeId, niveau: niveau.id }, signal });
       setSemestres(res.data);
     } catch (error) {
+      if (estAnnulee(error)) return;
       setSemestres([]);
       notify.error(errorMessage(error, "L'état de publication des notes est indisponible."));
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, [anneeId, niveau?.id, notify]);
+  }, [anneeId, niveau?.id, notify, nouvelleRequete]);
 
   useEffect(() => {
     charger();

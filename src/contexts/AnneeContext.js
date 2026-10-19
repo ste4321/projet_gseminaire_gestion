@@ -1,33 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const AnneeContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/annee_aca', nom: 'les années académiques' });
 
-export const useAnnee = () => useContext(AnneeContext);
+export const AnneeProvider = Provider;
 
-export const AnneeProvider = ({ children }) => {
-  const [annees, setAnnees] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchAnnees = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/annee_aca');
-      setAnnees(res.data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des années :", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAnnees();
-  }, []);
-
-  return (
-    <AnneeContext.Provider value={{ annees, setAnnees, loading, fetchAnnees }}>
-      {children}
-    </AnneeContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useAnnee = () => {
+  const { data, setData, loading, erreur, recharger } = useRessource();
+  return { annees: data, setAnnees: setData, loading, erreur, fetchAnnees: recharger };
 };

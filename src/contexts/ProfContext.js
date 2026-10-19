@@ -1,33 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const ProfContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/enseignants', nom: 'les enseignants' });
 
-export const useProf = () => useContext(ProfContext);
+export const ProfProvider = Provider;
 
-export const ProfProvider = ({ children }) => {
-  const [profs, setProfs] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchProfs = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/enseignants');
-      setProfs(response.data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des enseignants :", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfs();
-  }, []);
-
-  return (
-    <ProfContext.Provider value={{ profs, setProfs, loading, fetchProfs }}>
-      {children}
-    </ProfContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useProf = () => {
+  const { data, setData, loading, erreur, recharger } = useRessource();
+  return { profs: data, setProfs: setData, loading, erreur, fetchProfs: recharger };
 };

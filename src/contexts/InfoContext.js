@@ -1,33 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const InfoContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/infos', nom: 'les actualités' });
 
-export const useInfo = () => useContext(InfoContext);
+export const InfoProvider = Provider;
 
-export const InfoProvider = ({ children }) => {
-  const [infos, setInfos] = useState([]);
-  const [loading, setLoading] = useState(true); // renommé pour être cohérent avec les autres
-
-  const fetchInfos = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/infos');
-      setInfos(response.data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des infos :", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchInfos();
-  }, []);
-
-  return (
-    <InfoContext.Provider value={{ infos, setInfos, fetchInfos, loading }}>
-      {children}
-    </InfoContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useInfo = () => {
+  const { data, setData, loading, erreur, recharger } = useRessource();
+  return { infos: data, setInfos: setData, loading, erreur, fetchInfos: recharger };
 };

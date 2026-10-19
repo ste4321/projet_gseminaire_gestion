@@ -54,6 +54,9 @@ api.interceptors.response.use(
 
 export default api;
 
+// Requête annulée volontairement (filtre changé, page quittée) : ce n'est pas une erreur à afficher
+export const estAnnulee = (error) => error?.code === 'ERR_CANCELED';
+
 // Message lisible à afficher à l'utilisateur : celui renvoyé par l'API, sinon un message par défaut
 export const errorMessage = (error, fallback = 'Une erreur est survenue.') =>
   error?.response?.data?.message || fallback;

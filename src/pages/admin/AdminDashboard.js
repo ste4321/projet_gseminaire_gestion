@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api, { errorMessage } from '../../api/client';
+import api, { errorMessage, estAnnulee } from '../../api/client';
+import useDerniereRequete from '../../hooks/useDerniereRequete';
 
 const nombre = (n) => new Intl.NumberFormat('fr-FR').format(n ?? 0);
 const pourcent = (part, total) => (total > 0 ? Math.round((part / total) * 100) : 0);
@@ -207,19 +208,23 @@ const AdminDashboard = () => {
   const [erreur, setErreur] = useState(null);
   const nomPrenom = localStorage.getItem('nom_prenom') || '';
 
+  const nouvelleRequete = useDerniereRequete();
+
   const charger = useCallback(async (annee) => {
+    const signal = nouvelleRequete(); // changement d'année rapide : seule la dernière réponse compte
     setLoading(true);
     setErreur(null);
     try {
-      const res = await api.get('/dashboard/stats', { params: annee ? { annee } : {} });
+      const res = await api.get('/dashboard/stats', { params: annee ? { annee } : {}, signal });
       setStats(res.data);
       memoire = { jeton: localStorage.getItem('token'), anneeId: annee, stats: res.data };
     } catch (err) {
+      if (estAnnulee(err)) return;
       setErreur(errorMessage(err, 'Impossible de charger le tableau de bord.'));
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [nouvelleRequete]);
 
   useEffect(() => {
     charger(anneeId);
