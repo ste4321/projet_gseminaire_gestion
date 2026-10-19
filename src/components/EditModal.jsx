@@ -20,7 +20,7 @@ const EditModal = ({
           <div className="modal-body">
             {fields.map((field, index) => (
               <div key={index} className="mb-2">
-                <label className="form-label" htmlFor={`${modalId}-${field.name}`}>{field.label}</label>
+                <label className="form-label" htmlFor={`${modalId}-${field.name}`}>{field.label}{field.optional && <span className="text-muted fw-normal"> (facultatif)</span>}</label>
                 
                 {/* Gestion des différents types de champs */}
                 {field.type === 'textarea' ? (
@@ -65,11 +65,13 @@ const EditModal = ({
                     name={field.name}
                     type={field.type || 'text'}
                     className="form-control"
+                    placeholder={field.placeholder}
                     value={formData[field.name] || ''}
                     onChange={(e) => onFormChange(field.name, e.target.value)}
                     required={field.required}
                   />
                 )}
+                {field.help && <div className="form-text">{field.help}</div>}
               </div>
             ))}
           </div>

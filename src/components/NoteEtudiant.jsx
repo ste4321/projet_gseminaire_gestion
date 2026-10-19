@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { ouvrirEspace } from '../auth/consultation';
@@ -14,6 +14,7 @@ import PublicationNotes from './PublicationNotes';
 import StatutResultat from './StatutResultat';
 
 import { telechargerBulletin } from '../utils/bulletin';
+import { releveEnDirect } from '../utils/moyenne';
 
 /** Relevé en cours de chargement : même structure que les semestres affichés ensuite */
 const SqueletteReleve = () => (
@@ -178,6 +179,11 @@ const NoteEtudiant = () => {
     }
   };
 
+  // Moyennes et résultats recalculés à chaque frappe, sans attendre l'enregistrement
+  const direct = useMemo(() => (releve ? releveEnDirect(releve, saisie) : null), [releve, saisie]);
+  const notesInvalides = direct?.invalides.size > 0;
+  const moyenneTexte = (moyenne) => (moyenne === null ? '—' : `${moyenne.toFixed(2)} / 20`);
+
   const handleNoteChange = (matiereId, valeur) => {
     setSaisie((prev) => ({ ...prev, [matiereId]: valeur }));
     setModifie(true);
@@ -257,10 +263,16 @@ const NoteEtudiant = () => {
     if (!selectedFile) return;
 
     // Vérifier le format du nom de fichier
-    // Même règle que le serveur : NOTES_<CODE>_<NIVEAU>_<ANNEE>.xlsx (L1…L3, M1, M2)
-    const match = selectedFile.name.match(/^NOTES_([A-Z0-9]+)_([A-Z]?[0-9])_([0-9]{4}-[0-9]{4})\.(xlsx|xls|csv)$/i);
+    // Même règle que le serveur : NOTES_<CODE>_<NIVEAU>_<SEMESTRE>_<ANNEE>.xlsx (L1…L3, M1, M2 ; S1, S2)
+    // Le serveur vérifie en plus que le niveau et le semestre sont bien ceux de la matière.
+    const match = selectedFile.name.match(/^NOTES_([^_]+)_([A-Z]?[0-9])_(S[0-9]+)_([0-9]{4}-[0-9]{4})\.(xlsx|xls|csv)$/i);
     if (!match) {
-      notify.error("Nom de fichier invalide. Format attendu : NOTES_<CODE_MATIERE>_<NIVEAU>_<ANNÉE>.xlsx\nExemple : NOTES_FRS_L1_2025-2026.xlsx", { title: 'Fichier refusé' });
+      const ancienFormat = /^NOTES_[^_]+_[A-Z]?[0-9]_[0-9]{4}-[0-9]{4}\.(xlsx|xls|csv)$/i.test(selectedFile.name);
+      notify.error(
+        "Nom de fichier invalide. Format attendu NOTES_FRS_L1_S1_2025-2026.xlsx"
+          + (ancienFormat ? '\nLe semestre (S1, S2…) est désormais obligatoire dans le nom.' : ''),
+        { title: 'Fichier refusé' }
+      );
       return;
     }
 
@@ -396,7 +408,7 @@ const NoteEtudiant = () => {
             <form onSubmit={handleImportSubmit}>
               <div className="modal-body">
                 {/* <div className="alert alert-info">
-                  Le fichier doit être nommé <strong>NOTES_FRS_L1_2025-2026.xlsx</strong><br />
+                  Le fichier doit être nommé <strong>NOTES_FRS_L1_S1_2025-2026.xlsx</strong><br />
                   Doit contenir les colonnes : <strong>matricule</strong> et <strong>note</strong>
                 </div> */}
 
@@ -475,7 +487,10 @@ const NoteEtudiant = () => {
                 <div className="mt-4">
                   <h6>Instructions :</h6>
                   <ul className="small text-muted">
-                    <li>Le nom du fichier doit être comme par exemple : <strong>NOTES_FRS_L1_2022-2023.xlsx</strong></li>
+                    <li>
+                      Nom du fichier doit être comme suit : <strong>NOTES_FRS_L1_S1_2025-2026.xlsx</strong>
+                    </li>
+                    <li>Le niveau et le semestre doivent être ceux de la matière (voir le module Matières)</li>
                     <li>Colonnes obligatoires : <strong>matricule</strong>, <strong>note</strong></li>
                     <li>Taille maximale : 10 MB</li>
                     <li>Un fichier lourd peut nécessiter plusieurs minutes de traitement</li>
@@ -604,7 +619,7 @@ const NoteEtudiant = () => {
                 <div className="alert alert-danger mb-0">{erreurNotes}</div>
               ) : releve && (releve.semestres.length === 0 ? (
                 <p className="text-muted text-center py-4 mb-0">Aucune matière n'est enregistrée pour ce niveau.</p>
-              ) : releve.semestres.map((s) => (
+              ) : releve.semestres.map((s, indexSemestre) => (
                 <section className="mb-4" key={s.id ?? 'hors'}>
                   <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
                     <h6 className="gstf-section-title mb-0">{s.semestre}</h6>
@@ -612,8 +627,8 @@ const NoteEtudiant = () => {
                       ? <span className="badge bg-label-success">Publié</span>
                       : <span className="badge bg-label-secondary">Non publié</span>}
                     <span className="ms-auto small text-muted d-flex align-items-center gap-2">
-                      Moyenne : <strong className="text-body">{s.moyenne === null ? '—' : `${Number(s.moyenne).toFixed(2)} / 20`}</strong>
-                      <StatutResultat statut={s.statut} attente="Notes incomplètes" />
+                      Moyenne : <strong className="text-body">{moyenneTexte(direct.semestres[indexSemestre].moyenne)}</strong>
+                      <StatutResultat statut={direct.semestres[indexSemestre].statut} attente="Notes incomplètes" />
                     </span>
                   </div>
                   {s.publie && (
@@ -641,7 +656,7 @@ const NoteEtudiant = () => {
                             <td className="text-center">
                               <input
                                 type="number"
-                                className="form-control form-control-sm mx-auto"
+                                className={`form-control form-control-sm mx-auto ${direct.invalides.has(m.id) ? 'is-invalid' : ''}`}
                                 min="0"
                                 max="20"
                                 step="0.25"
@@ -649,6 +664,8 @@ const NoteEtudiant = () => {
                                 onChange={(e) => handleNoteChange(m.id, e.target.value)}
                                 placeholder="—"
                                 aria-label={`Note de ${m.matiere}`}
+                                aria-invalid={direct.invalides.has(m.id) || undefined}
+                                title={direct.invalides.has(m.id) ? 'Note attendue entre 0 et 20' : undefined}
                                 disabled={savingNotes}
                                 style={{ width: '90px' }}
                               />
@@ -666,19 +683,23 @@ const NoteEtudiant = () => {
               <div className="gstf-notes-bilan">
                 <div>
                   <span>Notes saisies</span>
-                  <strong>{releve.general.notes_saisies} / {releve.general.matieres_total}</strong>
+                  <strong>{direct.general.notes_saisies} / {direct.general.matieres_total}</strong>
                 </div>
                 <div>
                   <span>Moyenne générale</span>
-                  <strong>{releve.general.moyenne === null ? '—' : `${Number(releve.general.moyenne).toFixed(2)} / 20`}</strong>
+                  <strong>{moyenneTexte(direct.general.moyenne)}</strong>
                 </div>
                 <div>
                   <span>Résultat</span>
-                  <strong><StatutResultat statut={releve.general.statut} attente="En attente de toutes les notes" /></strong>
+                  <strong><StatutResultat statut={direct.general.statut} attente="En attente de toutes les notes" /></strong>
                 </div>
-                {modifie && (
+                {notesInvalides ? (
+                  <p className="gstf-notes-bilan__note text-danger">
+                    Une note doit être comprise entre 0 et 20 : corrigez les champs en rouge pour enregistrer.
+                  </p>
+                ) : modifie && (
                   <p className="gstf-notes-bilan__note">
-                    Modifications non enregistrées : la moyenne et le résultat seront recalculés à l'enregistrement.
+                    Moyenne et résultat mis à jour avec vos saisies. Pensez à enregistrer pour les conserver.
                   </p>
                 )}
               </div>
@@ -692,7 +713,7 @@ const NoteEtudiant = () => {
               <button type="button" className="btn btn-outline-secondary" onClick={fermerNotes} disabled={savingNotes}>
                 Fermer
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleSaveNotes} disabled={savingNotes || loadingNotes || !modifie}>
+              <button type="button" className="btn btn-primary" onClick={handleSaveNotes} disabled={savingNotes || loadingNotes || !modifie || notesInvalides}>
                 {savingNotes ? (
                   <>
                     <span className="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -708,4 +729,4 @@ const NoteEtudiant = () => {
   );
 };
 
-export default NoteEtudiant;
+export default NoteEtudiant;
