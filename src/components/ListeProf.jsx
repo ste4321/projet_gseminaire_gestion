@@ -13,6 +13,7 @@ import DataTable from './DataTable';
 import Pagination from './Pagination';
 import DetailModal from './DetailModal';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
+import { plusRecentsDabord } from '../utils/tri';
 
 const ListeProf = () => {
   const { notify, confirm } = useFeedback();
@@ -51,7 +52,7 @@ const ListeProf = () => {
   ];
 
   // Filtrage et pagination
-  const filteredProfs = profs.filter(prof =>
+  const filteredProfs = plusRecentsDabord(profs).filter(prof =>
     Object.values(prof).some(val =>
       typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
     )

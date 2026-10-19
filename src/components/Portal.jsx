@@ -8,6 +8,7 @@ import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { getUser } from '../auth/session';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
+import { plusRecentsDabord } from '../utils/tri';
 
 const roles = ['admin', 'prof', 'etudiant'];
 const ROLE_TABS = { admin: 'Administrateurs', prof: 'Enseignants', etudiant: 'Étudiants' };
@@ -34,7 +35,7 @@ const Portal = () => {
 
   // Optimisation: mémorisation du filtrage
   const filtered = useMemo(() => {
-    const usersForRole = usersByRole[selectedRole] || [];
+    const usersForRole = plusRecentsDabord(usersByRole[selectedRole]);
     const term = searchTerm.trim().toLowerCase();
     if (!term) return usersForRole;
 

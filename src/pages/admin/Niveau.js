@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNiveau } from '../../contexts/NiveauContext';
 import api, { errorMessage } from '../../api/client';
 import { useFeedback } from '../../contexts/FeedbackContext';
+import { plusRecentsDabord } from '../../utils/tri';
 
 const Niveau = () => {
   const { notify } = useFeedback();
@@ -54,7 +55,7 @@ const Niveau = () => {
     }
   };
 
-  const filtered = niveaux.filter(n => n.niveau.toLowerCase().includes(search.toLowerCase()));
+  const filtered = plusRecentsDabord(niveaux).filter(n => n.niveau.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">

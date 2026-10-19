@@ -11,12 +11,17 @@ import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
 import DetailModal from './DetailModal';
 import Pagination from './Pagination';
+import { plusRecentsDabord } from '../utils/tri';
 
 const Matiere = () => {
-  const { matieres, fetchMatieres } = useMatiere();
+  const { matieres, fetchMatieres, loading } = useMatiere();
   const { niveaux } = useNiveau();
   const { semestres } = useSemestre();
-  const [niveauFilter, setNiveauFilter] = useState('');
+  // Un onglet par niveau (L1, L2, L3…), comme dans la gestion des notes
+  const onglets = [...niveaux].sort((a, b) => a.niveau.localeCompare(b.niveau));
+  const [niveauActif, setNiveauActif] = useState(null);
+  const niveauFilter = niveauActif ?? onglets[0]?.id ?? null;
+  const niveauCourant = onglets.find(n => n.id === niveauFilter);
   const [semestreFilter, setSemestreFilter] = useState('');
 
   const [search, setSearch] = useState('');
@@ -40,6 +45,7 @@ const Matiere = () => {
   useEffect(() => {
     setCurrentPage(0);
   }, [search, niveauFilter, semestreFilter]);
+
     const openModal = (id) => {
       const modal = new window.bootstrap.Modal(document.getElementById(id));
       modal.show();
@@ -97,9 +103,9 @@ const Matiere = () => {
     }
   };
 
-  const filtered = matieres
+  const filtered = plusRecentsDabord(matieres)
     .filter(m => m.matiere.toLowerCase().includes(search.toLowerCase()))
-    .filter(m => !niveauFilter || m.id_niveau === parseInt(niveauFilter))
+    .filter(m => m.id_niveau === niveauFilter)
     .filter(m => !semestreFilter || m.id_semestre === parseInt(semestreFilter));
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice(
@@ -143,7 +149,7 @@ const Matiere = () => {
         <button
           className="btn btn-primary"
           onClick={() => {
-            setForm({ matiere: '', heures: '', id_niveau: '', id_semestre: '', code_matiere: '', coefficient: '' });
+            setForm({ matiere: '', heures: '', id_niveau: niveauFilter ?? '', id_semestre: '', code_matiere: '', coefficient: '' });
             setSelected(null);
             openModal('addModal');
           }}
@@ -152,8 +158,33 @@ const Matiere = () => {
         </button>
       </div>
 
+      {/* 🔹 Sélecteur de niveau */}
+      <ul className="nav nav-pills mb-3">
+        {onglets.length === 0
+          ? [0, 1, 2].map(i => (
+              <li className="nav-item me-2" key={i}>
+                <span className="gstf-squelette" style={{ width: '7.5rem', height: '2.4rem' }} />
+              </li>
+            ))
+          : onglets.map(n => (
+              <li className="nav-item" key={n.id}>
+                <button
+                  className={`nav-link ${niveauFilter === n.id ? 'active' : ''}`}
+                  onClick={() => setNiveauActif(n.id)}
+                >
+                  Matières {n.niveau}
+                </button>
+              </li>
+            ))}
+      </ul>
+
       <div className="card">
-        <h5 className="card-header">Liste des matières</h5>
+        <h5 className="card-header">
+          Liste des matières{niveauCourant && ` - ${niveauCourant.niveau}`}
+          {!loading && (
+            <small className="text-muted fw-normal ms-2">· {filtered.length} matière{filtered.length > 1 ? 's' : ''}</small>
+          )}
+        </h5>
         <div className="card-body pb-0">
           <SearchBar
           searchTerm={search}
@@ -162,18 +193,6 @@ const Matiere = () => {
         />
         </div>
         <div className="row px-3 py-2">
-          <div className="col-md-6 mb-2">
-            <select
-              className="form-control"
-              value={niveauFilter}
-              onChange={(e) => setNiveauFilter(e.target.value)}
-            >
-              <option value="">-- Filtrer par niveau --</option>
-              {niveaux.map(n => (
-                <option key={n.id} value={n.id}>{n.niveau}</option>
-              ))}
-            </select>
-          </div>
           <div className="col-md-6 mb-2">
             <select
               className="form-control"
@@ -191,6 +210,7 @@ const Matiere = () => {
           headers={tableHeaders}
           data={paginated}
           role="admin"
+          loading={loading || onglets.length === 0}
           onRowClick={(matiere) => {
             setDetail(matiere);
             openModal('detailModal');
@@ -205,6 +225,11 @@ const Matiere = () => {
             return value || '--';
           }}
         />
+        {!loading && onglets.length > 0 && filtered.length === 0 && (
+          <div className="text-center py-4 text-warning">
+            Aucune matière trouvée pour {niveauCourant?.niveau}
+          </div>
+        )}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

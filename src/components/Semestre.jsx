@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSemestre } from '../contexts/SemestreContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
+import { plusRecentsDabord } from '../utils/tri';
 
 const Semestre = () => {
   const { semestres, fetchSemestres, loading } = useSemestre();
@@ -17,7 +18,7 @@ const Semestre = () => {
   // Pagination
   const itemsPerPage = 5;
   const [currentPage, setCurrentPage] = useState(1);
-  const filtered = semestres.filter((s) =>
+  const filtered = plusRecentsDabord(semestres).filter((s) =>
     s.semestre.toLowerCase().includes(search.toLowerCase())
   );
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
