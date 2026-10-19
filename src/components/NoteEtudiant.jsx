@@ -377,7 +377,7 @@ const NoteEtudiant = () => {
         </h5>
         {role === 'admin' && (
         <div className="mb-3 ms-4">
-          <button className="btn btn-success ms-3" onClick={() => {
+          <button className="btn btn-outline-primary" onClick={() => {
             const modal = new window.bootstrap.Modal(document.getElementById('importNotesModal'));
             modal.show();
           }}>

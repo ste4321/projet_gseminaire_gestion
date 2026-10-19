@@ -391,7 +391,7 @@ const ListeEtudiant = () => {
           </button>
           <button className="btn btn-outline-primary" onClick={openImportModal}>
             <i className="bx bx-import me-1"></i>
-            Importer un fichier Excel
+            Importer fichier
           </button>
         </div>
       )}
@@ -530,4 +530,4 @@ const ListeEtudiant = () => {
   );
 };
 
-export default ListeEtudiant;
+export default ListeEtudiant;
