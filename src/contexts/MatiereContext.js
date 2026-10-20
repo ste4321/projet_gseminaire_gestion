@@ -1,33 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const MatiereContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/matieres', nom: 'les matières' });
 
-export const useMatiere = () => useContext(MatiereContext);
+export const MatiereProvider = Provider;
 
-export const MatiereProvider = ({ children }) => {
-  const [matieres, setMatieres] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchMatieres = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get('/matieres');
-      setMatieres(response.data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des matières :", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchMatieres();
-  }, []);
-
-  return (
-    <MatiereContext.Provider value={{ matieres, setMatieres, loading, fetchMatieres }}>
-      {children}
-    </MatiereContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useMatiere = () => {
+  const { data, setData, loading, erreur, recharger } = useRessource();
+  return { matieres: data, setMatieres: setData, loading, erreur, fetchMatieres: recharger };
 };

@@ -5,6 +5,7 @@ import { useProf } from '../contexts/ProfContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
 import { useNiveau  } from '../contexts/NiveauContext';
 import { useAnnee } from '../contexts/AnneeContext';
+import { plusRecentsDabord } from '../utils/tri';
 
 const AnnonceAdminProf = () => {
   const { notify } = useFeedback();
@@ -142,7 +143,7 @@ const AnnonceAdminProf = () => {
               </tr>
             </thead>
             <tbody>
-              {annonces.map((a) => (
+              {plusRecentsDabord(annonces).map((a) => (
                 <tr key={a.id} onClick={() => openDetailModal(a)} style={{ cursor: 'pointer' }}>
                   <td>{a.titre}</td>
                   <td>{a.expediteur}</td>

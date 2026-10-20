@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useEtudiant } from '../contexts/EtudiantContext';
 import api, { errorMessage as messageErreur } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
-import { ouvrirEspace } from '../auth/consultation';
-import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
+import { useAnnee } from '../contexts/AnneeContext';
+import useParcoursPagines from '../hooks/useParcoursPagines';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -12,15 +11,16 @@ import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
-import DetailModal from './DetailModal';
+import FicheEtudiant from './FicheEtudiant';
 import ImportModal from './ImportModal';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { telechargerIdentifiants } from '../utils/identifiants';
+import BoutonCopier from './BoutonCopier';
+import { ouvrirEspace } from '../auth/consultation';
 
 const ListeEtudiant = () => {
   const { notify, confirm } = useFeedback();
-  const { etudiantParcours, refetchParcours } = useEtudiantParcours();
-  const { etudiants, setEtudiants, loading } = useEtudiant();
+  const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
 
   // États pour les filtres
   const [selectedAnnee, setSelectedAnnee] = useState('');
@@ -54,62 +54,36 @@ const ListeEtudiant = () => {
   // État pour le rôle
   const [role, setRole] = useState(localStorage.getItem('role'));
 
-  // Effet pour initialiser les valeurs par défaut
+  // Année affichée par défaut : la plus récente
+  const annees = [...anneesListe].sort((a, b) => b.id - a.id);
   useEffect(() => {
-    if (etudiantParcours.length > 0) {
-      // Trouver l'année académique actuelle (la plus récente)
-      const anneeIds = etudiantParcours
-        .map(p => p.annee_academique?.id)
-        .filter(Boolean);
+    if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
+  }, [annees, selectedAnnee]);
 
-      if (anneeIds.length > 0) {
-        const maxAnneeId = Math.max(...anneeIds);
-        setSelectedAnnee(String(maxAnneeId));
-      }
-    }
-  }, [etudiantParcours]);
+  // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
+  const { lignes, total, pages: totalPages, premierChargement, actualisation, erreur: erreurListe, recharger } =
+    useParcoursPagines({ annee: selectedAnnee, niveau: `L${niveau}`, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
+  const chargement = premierChargement && !erreurListe && (loadingAnnees || anneesListe.length > 0);
 
-  // Obtenir les années académiques uniques
-  const annees = etudiantParcours
-    .map(p => p.annee_academique)
-    .filter((annee, index, self) =>
-      annee && self.findIndex(a => a?.id === annee.id) === index
-    )
-    .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
+  // Page devenue vide (suppression du dernier étudiant de la page) : retour à la dernière page existante
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages - 1) setCurrentPage(totalPages - 1);
+  }, [totalPages, currentPage]);
 
-  // Filtrage des étudiants basé sur l'année et le niveau
-  const filteredParcours = etudiantParcours.filter(p => {
-    const matchAnnee = !selectedAnnee || p.annee_academique?.id == selectedAnnee;
-    const matchNiveau = p.niveau?.niveau === `L${niveau}`;
-    return matchAnnee && matchNiveau;
+  const currentEtudiants = lignes.map(parcours => {
+    const etu = parcours.etudiant;
+    return {
+      id: etu?.id,
+      nom_prenom: etu?.nom_prenom,
+      matricule: etu?.matricule,
+      id_user_cession: etu?.id_user_cession,
+      email: etu?.email,
+      telephone: etu?.telephone,
+      diocese: etu?.diocese,
+      niveau: parcours?.niveau?.niveau,
+      original: parcours
+    };
   });
-
-  const filteredEtudiants = filteredParcours
-    .map(parcours => {
-      const etu = parcours.etudiant;
-      return {
-        id: etu?.id,
-        nom_prenom: etu?.nom_prenom,
-        matricule: etu?.matricule,
-        id_user_cession: etu?.id_user_cession,
-        email: etu?.email,
-        telephone: etu?.telephone,
-        diocese: etu?.diocese,
-        niveau: parcours?.niveau?.niveau,
-        original: parcours
-      };
-    })
-    .filter(etudiant =>
-      Object.values(etudiant).some(val =>
-        typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-
-  const totalPages = Math.ceil(filteredEtudiants.length / itemsPerPage);
-  const currentEtudiants = filteredEtudiants.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
 
   // Configuration des champs pour les modales
   const etudiantFields = [
@@ -184,7 +158,7 @@ const ListeEtudiant = () => {
       });
 
       // 🔹 Recharger les données du contexte
-      await refetchParcours();
+      recharger();
 
       console.log("Étudiant ajouté avec succès et données rechargées");
 
@@ -215,7 +189,7 @@ const ListeEtudiant = () => {
       setEditEtudiant(null);
 
       // 🔹 Recharger les données du contexte
-      await refetchParcours();
+      recharger();
 
       notify.success('Étudiant modifié.');
     } catch (error) {
@@ -235,7 +209,7 @@ const ListeEtudiant = () => {
       if (modal) modal.hide();
 
       // 🔹 Recharger les données du contexte
-      await refetchParcours();
+      recharger();
 
       notify.success('Étudiant et compte associé supprimés.');
     } catch (error) {
@@ -300,7 +274,7 @@ const ListeEtudiant = () => {
       if (modal) modal.hide();
 
       // 🔹 Recharger les données du contexte
-      await refetchParcours();
+      recharger();
 
       console.log("Import terminé et données rechargées");
 
@@ -351,8 +325,14 @@ const ListeEtudiant = () => {
 
   const openDetailModal = (etudiant) => {
     setDetailEtudiant(etudiant);
-    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
-    modal.show();
+    window.bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
+  };
+
+  // Action lancée depuis la fiche : la fiche se ferme d'abord, pour ne pas empiler deux fenêtres
+  const depuisFiche = (action) => {
+    const el = document.getElementById('detailModal');
+    el.addEventListener('hidden.bs.modal', () => action(), { once: true });
+    window.bootstrap.Modal.getOrCreateInstance(el).hide();
   };
 
   const openImportModal = () => {
@@ -360,33 +340,29 @@ const ListeEtudiant = () => {
     modal.show();
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement des étudiants...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
         <span className="text-muted fw-light text-capitalize">{role} /</span> Étudiants
       </h4>
+      {chargement && <span className="visually-hidden" role="status">Chargement des étudiants…</span>}
 
       {/* 🔹 Filtre année académique */}
       <div className="mb-3">
         <label className="form-label">Année académique:</label>
-        <select
-          className="form-select w-auto d-inline ms-2"
-          value={selectedAnnee || ''}
-          onChange={e => handleAnneeChange(e.target.value)}
-        >
-          {annees.map(a => (
-            <option key={a.id} value={a.id}>{a.annee_aca}</option>
-          ))}
-        </select>
+        {chargement ? (
+          <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '9rem', height: '2.4rem' }} />
+        ) : (
+          <select
+            className="form-select w-auto d-inline ms-2"
+            value={selectedAnnee || ''}
+            onChange={e => handleAnneeChange(e.target.value)}
+          >
+            {annees.map(a => (
+              <option key={a.id} value={a.id}>{a.annee_aca}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* 🔹 Sélecteur de niveau (L1–L3) */}
@@ -411,6 +387,9 @@ const ListeEtudiant = () => {
               - {annees.find(a => a.id == selectedAnnee)?.annee_aca}
             </span>
           )}
+          {!chargement && !erreurListe && (
+            <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
+          )}
         </h5>
         {role === 'admin' && (
         <div className="mb-3 ms-4">
@@ -419,7 +398,7 @@ const ListeEtudiant = () => {
           </button>
           <button className="btn btn-outline-primary" onClick={openImportModal}>
             <i className="bx bx-import me-1"></i>
-            Importer un fichier Excel
+            Importer fichier
           </button>
         </div>
       )}
@@ -439,26 +418,40 @@ const ListeEtudiant = () => {
           onEdit={openEditModal}
           onDelete={openDeleteModal}
           role={role}
+          loading={chargement}
+          refreshing={actualisation}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
-            if (field === 'matricule' && value && role === 'admin') {
+            if (field === 'matricule' && value) {
               return (
-                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
-                  title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
-                  }}>
-                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
-                </button>
+                <span className="d-inline-flex align-items-center gap-1">
+                  {role === 'admin' ? (
+                    <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                      title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
+                      }}>
+                      {value}
+                    </button>
+                  ) : value}
+                  <BoutonCopier texte={value} libelle={`Copier le matricule ${value}`} />
+                </span>
               );
             }
             return value ? value : '--';
           }}
         />
 
-        {currentEtudiants.length === 0 && (
+        {erreurListe && (
+          <div className="alert alert-danger d-flex justify-content-between align-items-center m-3" role="alert">
+            <span>{erreurListe}</span>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={recharger}>Réessayer</button>
+          </div>
+        )}
+
+        {!chargement && !erreurListe && !actualisation && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
             Aucun étudiant trouvé pour L{niveau}
             {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
@@ -505,35 +498,11 @@ const ListeEtudiant = () => {
         loading={loadingDeleteId === confirmDeleteId}
       />
 
-      <DetailModal
+      <FicheEtudiant
         modalId="detailModal"
-        title={detailEtudiant?.nom_prenom || 'Détail de l\'étudiant'}
-        data={detailEtudiant}
-        fields={etudiantFields}
-        customRender={(data) => (
-          <div className="row">
-            {/* <div className="mb-3">
-              <strong>Nom Prénom:</strong> {data?.nom_prenom || '--'}
-            </div> */}
-            <div className="mb-3">
-              <strong>Matricule:</strong> {data?.matricule || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Email:</strong> {data?.email || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Téléphone:</strong> {data?.telephone || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Diocese:</strong> {data?.diocese || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Niveau:</strong> {data?.niveau || '--'}
-            </div>
-            <div className="mb-3">
-            </div>
-          </div>
-        )}
+        etudiant={detailEtudiant}
+        role={role}
+        onModifier={() => depuisFiche(() => openEditModal(detailEtudiant))}
       />
 
       <ImportModal

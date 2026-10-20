@@ -11,6 +11,7 @@ import EditModal from '../../components/EditModal';
 import DeleteModal from '../../components/DeleteModal';
 import DataTable from '../../components/DataTable';
 import DetailModal from '../../components/DetailModal';
+import { plusRecentsDabord } from '../../utils/tri';
 
 const Info = () => {
   const { notify, confirm } = useFeedback();
@@ -53,7 +54,7 @@ const Info = () => {
   };
 
   // Filtrage des infos selon le terme de recherche
-  const filteredInfos = infos.filter(info =>
+  const filteredInfos = plusRecentsDabord(infos).filter(info =>
     Object.values(info).some(val =>
       typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
     )

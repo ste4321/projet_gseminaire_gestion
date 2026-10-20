@@ -1,28 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const NiveauContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/niveaux', nom: 'les niveaux' });
 
-export const useNiveau = () => useContext(NiveauContext);
+export const NiveauProvider = Provider;
 
-export const NiveauProvider = ({ children }) => {
-  const [niveaux, setNiveaux] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchNiveaux = async () => {
-    setLoading(true);
-    const res = await api.get('/niveaux');
-    setNiveaux(res.data);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchNiveaux();
-  }, []);
-
-  return (
-    <NiveauContext.Provider value={{ niveaux, setNiveaux, loading, fetchNiveaux }}>
-      {children}
-    </NiveauContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useNiveau = () => {
+  const { data, setData, loading, erreur, recharger } = useRessource();
+  return { niveaux: data, setNiveaux: setData, loading, erreur, fetchNiveaux: recharger };
 };

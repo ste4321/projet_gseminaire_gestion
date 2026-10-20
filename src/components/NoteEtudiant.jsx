@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useEtudiant } from '../contexts/EtudiantContext';
+import React, { useEffect, useMemo, useState } from 'react';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
-import { ouvrirEspace } from '../auth/consultation';
-import { useEtudiantParcours } from '../contexts/EtudiantParcoursContext';
+import { useAnnee } from '../contexts/AnneeContext';
+import useParcoursPagines from '../hooks/useParcoursPagines';
 import { useNiveau } from '../contexts/NiveauContext';
 
 // Import des composants modulaires
@@ -14,12 +13,50 @@ import PublicationNotes from './PublicationNotes';
 import StatutResultat from './StatutResultat';
 
 import { telechargerBulletin } from '../utils/bulletin';
+import { releveEnDirect } from '../utils/moyenne';
+import BoutonCopier from './BoutonCopier';
+import { ouvrirEspace } from '../auth/consultation';
+
+/** Relevé en cours de chargement : même structure que les semestres affichés ensuite */
+const SqueletteReleve = () => (
+  <div>
+    <span className="visually-hidden" role="status">Chargement des notes…</span>
+    {[0, 1].map((s) => (
+      <section className="mb-4" key={s} aria-hidden="true">
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <span className="gstf-squelette" style={{ width: '7rem', height: '1.1rem' }} />
+          <span className="gstf-squelette" style={{ width: '4.5rem', height: '1.1rem' }} />
+          <span className="gstf-squelette ms-auto" style={{ width: '10rem', height: '0.9rem' }} />
+        </div>
+        <table className="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Code</th>
+              <th scope="col">Matière</th>
+              <th scope="col" className="text-center">Coef.</th>
+              <th scope="col" className="text-center text-nowrap">Note /20</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[0, 1, 2, 3].map((m) => (
+              <tr key={m}>
+                <td><span className="gstf-squelette" style={{ width: '3rem', height: '0.8rem' }} /></td>
+                <td><span className="gstf-squelette" style={{ width: `${45 + ((s + m * 3) % 4) * 12}%`, height: '0.9rem' }} /></td>
+                <td><span className="gstf-squelette mx-auto" style={{ width: '1.5rem', height: '0.9rem' }} /></td>
+                <td><span className="gstf-squelette mx-auto" style={{ width: '90px', height: '1.9rem' }} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    ))}
+  </div>
+);
 
 const NoteEtudiant = () => {
   const { notify, confirm } = useFeedback();
   const { niveaux } = useNiveau();
-  const { etudiantParcours } = useEtudiantParcours();
-  const { loading } = useEtudiant();
+  const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -63,64 +100,32 @@ const NoteEtudiant = () => {
     return () => el.removeEventListener('hidden.bs.modal', reinitialiser);
   });
 
-  // Effet pour initialiser les valeurs par défaut
-  // Effet pour initialiser les valeurs par défaut
+  // Année affichée par défaut : la plus récente
+  const annees = [...anneesListe].sort((a, b) => b.id - a.id);
   useEffect(() => {
-    if (etudiantParcours.length > 0) {
-      // Trouver l'année académique actuelle (la plus récente)
-      const anneeIds = etudiantParcours
-        .map(p => p.annee_academique?.id)
-        .filter(Boolean);
+    if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
+  }, [annees, selectedAnnee]);
 
-      if (anneeIds.length > 0) {
-        const maxAnneeId = Math.max(...anneeIds);
-        setSelectedAnnee(String(maxAnneeId));
-      }
-    }
-  }, [etudiantParcours]);
+  // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
+  const { lignes, total, pages: totalPages, premierChargement, actualisation, erreur: erreurListe, recharger } =
+    useParcoursPagines({ annee: selectedAnnee, niveau: `L${niveau}`, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
+  const chargement = premierChargement && !erreurListe && (loadingAnnees || anneesListe.length > 0);
 
-  // Obtenir les années académiques uniques
-  const annees = etudiantParcours
-    .map(p => p.annee_academique)
-    .filter((annee, index, self) =>
-      annee && self.findIndex(a => a?.id === annee.id) === index
-    )
-    .sort((a, b) => b.id - a.id); // Trier par ID décroissant (plus récent en premier)
-
-  // Filtrage des étudiants basé sur l'année et le niveau
-  const filteredParcours = etudiantParcours.filter(p => {
-    const matchAnnee = !selectedAnnee || String(p.annee_academique?.id) === String(selectedAnnee);
-    const matchNiveau = p.niveau?.niveau === `L${niveau}`;
-    return matchAnnee && matchNiveau;
+  const currentEtudiants = lignes.map(parcours => {
+    const etu = parcours.etudiant;
+    return {
+      id: etu?.id,
+      nom_prenom: etu?.nom_prenom,
+      matricule: etu?.matricule,
+      id_user_cession: etu?.id_user_cession,
+      email: etu?.email,
+      telephone: etu?.telephone,
+      diocese: etu?.diocese,
+      niveau: parcours?.niveau?.niveau,
+      parcours_id: parcours?.id,
+      original: parcours
+    };
   });
-
-  const filteredEtudiants = filteredParcours
-    .map(parcours => {
-      const etu = parcours.etudiant;
-      return {
-        id: etu?.id,
-        nom_prenom: etu?.nom_prenom,
-        matricule: etu?.matricule,
-        id_user_cession: etu?.id_user_cession,
-        email: etu?.email,
-        telephone: etu?.telephone,
-        diocese: etu?.diocese,
-        niveau: parcours?.niveau?.niveau,
-        parcours_id: parcours?.id,
-        original: parcours
-      };
-    })
-    .filter(etudiant =>
-      Object.values(etudiant).some(val =>
-        typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    );
-
-  const totalPages = Math.ceil(filteredEtudiants.length / itemsPerPage);
-  const currentEtudiants = filteredEtudiants.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
 
   // Configuration des en-têtes du tableau
   const tableHeaders = [
@@ -174,6 +179,11 @@ const NoteEtudiant = () => {
       setLoadingNotes(false);
     }
   };
+
+  // Moyennes et résultats recalculés à chaque frappe, sans attendre l'enregistrement
+  const direct = useMemo(() => (releve ? releveEnDirect(releve, saisie) : null), [releve, saisie]);
+  const notesInvalides = direct?.invalides.size > 0;
+  const moyenneTexte = (moyenne) => (moyenne === null ? '—' : `${moyenne.toFixed(2)} / 20`);
 
   const handleNoteChange = (matiereId, valeur) => {
     setSaisie((prev) => ({ ...prev, [matiereId]: valeur }));
@@ -254,10 +264,16 @@ const NoteEtudiant = () => {
     if (!selectedFile) return;
 
     // Vérifier le format du nom de fichier
-    // Même règle que le serveur : NOTES_<CODE>_<NIVEAU>_<ANNEE>.xlsx (L1…L3, M1, M2)
-    const match = selectedFile.name.match(/^NOTES_([A-Z0-9]+)_([A-Z]?[0-9])_([0-9]{4}-[0-9]{4})\.(xlsx|xls|csv)$/i);
+    // Même règle que le serveur : NOTES_<CODE>_<NIVEAU>_<SEMESTRE>_<ANNEE>.xlsx (L1…L3, M1, M2 ; S1, S2)
+    // Le serveur vérifie en plus que le niveau et le semestre sont bien ceux de la matière.
+    const match = selectedFile.name.match(/^NOTES_([^_]+)_([A-Z]?[0-9])_(S[0-9]+)_([0-9]{4}-[0-9]{4})\.(xlsx|xls|csv)$/i);
     if (!match) {
-      notify.error("Nom de fichier invalide. Format attendu : NOTES_<CODE_MATIERE>_<NIVEAU>_<ANNÉE>.xlsx\nExemple : NOTES_FRS_L1_2025-2026.xlsx", { title: 'Fichier refusé' });
+      const ancienFormat = /^NOTES_[^_]+_[A-Z]?[0-9]_[0-9]{4}-[0-9]{4}\.(xlsx|xls|csv)$/i.test(selectedFile.name);
+      notify.error(
+        "Nom de fichier invalide. Format attendu NOTES_FRS_L1_S1_2025-2026.xlsx"
+          + (ancienFormat ? '\nLe semestre (S1, S2…) est désormais obligatoire dans le nom.' : ''),
+        { title: 'Fichier refusé' }
+      );
       return;
     }
 
@@ -299,14 +315,6 @@ const NoteEtudiant = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement des notes...</p>
-      </div>
-    );
-  }
   // Bulletin PDF : relevé calculé par le serveur (moyenne pondérée, notes de 0 incluses),
   // même format que le bulletin téléchargé par l'étudiant.
   const generatePDF = async () => {
@@ -330,19 +338,24 @@ const NoteEtudiant = () => {
       <h4 className="fw-bold py-3 mb-4">
         <span className="text-muted fw-light text-capitalize">{role} /</span> Gestion des Notes
       </h4>
+      {chargement && <span className="visually-hidden" role="status">Chargement des étudiants…</span>}
 
       {/* 🔹 Filtre année académique */}
       <div className="mb-3">
         <label className="form-label">Année académique:</label>
-        <select
-          className="form-select w-auto d-inline ms-2"
-          value={selectedAnnee || ''}
-          onChange={e => handleAnneeChange(e.target.value)}
-        >
-          {annees.map(a => (
-            <option key={a.id} value={a.id}>{a.annee_aca}</option>
-          ))}
-        </select>
+        {chargement ? (
+          <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '9rem', height: '2.4rem' }} />
+        ) : (
+          <select
+            className="form-select w-auto d-inline ms-2"
+            value={selectedAnnee || ''}
+            onChange={e => handleAnneeChange(e.target.value)}
+          >
+            {annees.map(a => (
+              <option key={a.id} value={a.id}>{a.annee_aca}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* 🔹 Sélecteur de niveau (L1–L3) */}
@@ -353,7 +366,7 @@ const NoteEtudiant = () => {
               className={`nav-link ${niveau === i ? 'active' : ''}`}
               onClick={() => handleNiveauChange(i)}
             >
-              Notes L{i}
+              L{i}
             </button>
           </li>
         ))}
@@ -371,10 +384,13 @@ const NoteEtudiant = () => {
               - {annees.find(a => String(a.id) === String(selectedAnnee))?.annee_aca}
             </span>
           )}
+          {!chargement && !erreurListe && (
+            <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
+          )}
         </h5>
         {role === 'admin' && (
         <div className="mb-3 ms-4">
-          <button className="btn btn-success ms-3" onClick={() => {
+          <button className="btn btn-outline-primary" onClick={() => {
             const modal = new window.bootstrap.Modal(document.getElementById('importNotesModal'));
             modal.show();
           }}>
@@ -393,7 +409,7 @@ const NoteEtudiant = () => {
             <form onSubmit={handleImportSubmit}>
               <div className="modal-body">
                 {/* <div className="alert alert-info">
-                  Le fichier doit être nommé <strong>NOTES_FRS_L1_2025-2026.xlsx</strong><br />
+                  Le fichier doit être nommé <strong>NOTES_FRS_L1_S1_2025-2026.xlsx</strong><br />
                   Doit contenir les colonnes : <strong>matricule</strong> et <strong>note</strong>
                 </div> */}
 
@@ -472,7 +488,10 @@ const NoteEtudiant = () => {
                 <div className="mt-4">
                   <h6>Instructions :</h6>
                   <ul className="small text-muted">
-                    <li>Le nom du fichier doit être comme par exemple : <strong>NOTES_FRS_L1_2022-2023.xlsx</strong></li>
+                    <li>
+                      Nom du fichier doit être comme suit : <strong>NOTES_FRS_L1_S1_2025-2026.xlsx</strong>
+                    </li>
+                    <li>Le niveau et le semestre doivent être ceux de la matière (voir le module Matières)</li>
                     <li>Colonnes obligatoires : <strong>matricule</strong>, <strong>note</strong></li>
                     <li>Taille maximale : 10 MB</li>
                     <li>Un fichier lourd peut nécessiter plusieurs minutes de traitement</li>
@@ -535,19 +554,26 @@ const NoteEtudiant = () => {
           data={currentEtudiants}
           onRowClick={openNotesModal}
           role={role}
+          loading={chargement}
+          refreshing={actualisation}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
-            if (field === 'matricule' && value && role === 'admin') {
+            if (field === 'matricule' && value) {
               return (
-                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
-                  title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
-                  }}>
-                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
-                </button>
+                <span className="d-inline-flex align-items-center gap-1">
+                  {role === 'admin' ? (
+                    <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                      title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
+                      }}>
+                      {value}
+                    </button>
+                  ) : value}
+                  <BoutonCopier texte={value} libelle={`Copier le matricule ${value}`} />
+                </span>
               );
             }
             return value ? value : '--';
@@ -555,7 +581,14 @@ const NoteEtudiant = () => {
           actionLabel="Notes"
         />
 
-        {currentEtudiants.length === 0 && (
+        {erreurListe && (
+          <div className="alert alert-danger d-flex justify-content-between align-items-center m-3" role="alert">
+            <span>{erreurListe}</span>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={recharger}>Réessayer</button>
+          </div>
+        )}
+
+        {!chargement && !erreurListe && !actualisation && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
             Aucun étudiant trouvé pour L{niveau}
             {selectedAnnee && annees.find(a => String(a.id) === String(selectedAnnee)) && (
@@ -587,15 +620,12 @@ const NoteEtudiant = () => {
 
             <div className="modal-body">
               {loadingNotes ? (
-                <div className="text-center py-5" role="status">
-                  <div className="spinner-border text-primary"></div>
-                  <p className="mt-2 text-muted mb-0">Chargement des notes…</p>
-                </div>
+                <SqueletteReleve />
               ) : erreurNotes ? (
                 <div className="alert alert-danger mb-0">{erreurNotes}</div>
               ) : releve && (releve.semestres.length === 0 ? (
                 <p className="text-muted text-center py-4 mb-0">Aucune matière n'est enregistrée pour ce niveau.</p>
-              ) : releve.semestres.map((s) => (
+              ) : releve.semestres.map((s, indexSemestre) => (
                 <section className="mb-4" key={s.id ?? 'hors'}>
                   <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
                     <h6 className="gstf-section-title mb-0">{s.semestre}</h6>
@@ -603,8 +633,8 @@ const NoteEtudiant = () => {
                       ? <span className="badge bg-label-success">Publié</span>
                       : <span className="badge bg-label-secondary">Non publié</span>}
                     <span className="ms-auto small text-muted d-flex align-items-center gap-2">
-                      Moyenne : <strong className="text-body">{s.moyenne === null ? '—' : `${Number(s.moyenne).toFixed(2)} / 20`}</strong>
-                      <StatutResultat statut={s.statut} attente="Notes incomplètes" />
+                      Moyenne : <strong className="text-body">{moyenneTexte(direct.semestres[indexSemestre].moyenne)}</strong>
+                      <StatutResultat statut={direct.semestres[indexSemestre].statut} attente="Notes incomplètes" />
                     </span>
                   </div>
                   {s.publie && (
@@ -632,7 +662,7 @@ const NoteEtudiant = () => {
                             <td className="text-center">
                               <input
                                 type="number"
-                                className="form-control form-control-sm mx-auto"
+                                className={`form-control form-control-sm mx-auto ${direct.invalides.has(m.id) ? 'is-invalid' : ''}`}
                                 min="0"
                                 max="20"
                                 step="0.25"
@@ -640,6 +670,8 @@ const NoteEtudiant = () => {
                                 onChange={(e) => handleNoteChange(m.id, e.target.value)}
                                 placeholder="—"
                                 aria-label={`Note de ${m.matiere}`}
+                                aria-invalid={direct.invalides.has(m.id) || undefined}
+                                title={direct.invalides.has(m.id) ? 'Note attendue entre 0 et 20' : undefined}
                                 disabled={savingNotes}
                                 style={{ width: '90px' }}
                               />
@@ -657,19 +689,23 @@ const NoteEtudiant = () => {
               <div className="gstf-notes-bilan">
                 <div>
                   <span>Notes saisies</span>
-                  <strong>{releve.general.notes_saisies} / {releve.general.matieres_total}</strong>
+                  <strong>{direct.general.notes_saisies} / {direct.general.matieres_total}</strong>
                 </div>
                 <div>
                   <span>Moyenne générale</span>
-                  <strong>{releve.general.moyenne === null ? '—' : `${Number(releve.general.moyenne).toFixed(2)} / 20`}</strong>
+                  <strong>{moyenneTexte(direct.general.moyenne)}</strong>
                 </div>
                 <div>
                   <span>Résultat</span>
-                  <strong><StatutResultat statut={releve.general.statut} attente="En attente de toutes les notes" /></strong>
+                  <strong><StatutResultat statut={direct.general.statut} attente="En attente de toutes les notes" /></strong>
                 </div>
-                {modifie && (
+                {notesInvalides ? (
+                  <p className="gstf-notes-bilan__note text-danger">
+                    Une note doit être comprise entre 0 et 20 : corrigez les champs en rouge pour enregistrer.
+                  </p>
+                ) : modifie && (
                   <p className="gstf-notes-bilan__note">
-                    Modifications non enregistrées : la moyenne et le résultat seront recalculés à l'enregistrement.
+                    Moyenne et résultat mis à jour avec vos saisies. Pensez à enregistrer pour les conserver.
                   </p>
                 )}
               </div>
@@ -683,7 +719,7 @@ const NoteEtudiant = () => {
               <button type="button" className="btn btn-outline-secondary" onClick={fermerNotes} disabled={savingNotes}>
                 Fermer
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleSaveNotes} disabled={savingNotes || loadingNotes || !modifie}>
+              <button type="button" className="btn btn-primary" onClick={handleSaveNotes} disabled={savingNotes || loadingNotes || !modifie || notesInvalides}>
                 {savingNotes ? (
                   <>
                     <span className="spinner-border spinner-border-sm me-2" role="status"></span>

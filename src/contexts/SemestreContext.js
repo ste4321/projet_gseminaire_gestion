@@ -1,32 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const SemestreContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/semestres', nom: 'les semestres' });
 
-export const useSemestre = () => useContext(SemestreContext);
+export const SemestreProvider = Provider;
 
-export const SemestreProvider = ({ children }) => {
-  const [semestres, setSemestres] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchSemestres = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/semestres');
-      setSemestres(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchSemestres();
-  }, []);
-
-  return (
-    <SemestreContext.Provider value={{ semestres, fetchSemestres, loading }}>
-      {children}
-    </SemestreContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useSemestre = () => {
+  const { data, loading, erreur, recharger } = useRessource();
+  return { semestres: data, loading, erreur, fetchSemestres: recharger };
 };

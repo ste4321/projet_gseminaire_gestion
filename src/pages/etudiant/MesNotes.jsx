@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import api, { errorMessage } from '../../api/client';
+import api, { errorMessage, estAnnulee } from '../../api/client';
+import useDerniereRequete from '../../hooks/useDerniereRequete';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import { telechargerBulletin } from '../../utils/bulletin';
 import StatutResultat from '../../components/StatutResultat';
@@ -24,22 +25,30 @@ const MesNotes = () => {
   const [pdfEnCours, setPdfEnCours] = useState(false);
 
   useEffect(() => {
-    api.get('/etudiant/parcours').then((res) => setParcours(res.data)).catch(() => setParcours([]));
+    const controle = new AbortController();
+    api.get('/etudiant/parcours', { signal: controle.signal })
+      .then((res) => setParcours(res.data))
+      .catch(() => setParcours([])); // sans la liste, seul le parcours en cours est proposé
+    return () => controle.abort();
   }, []);
 
+  const nouvelleRequete = useDerniereRequete();
+
   const charger = useCallback(async (id) => {
+    const signal = nouvelleRequete(); // changement de parcours rapide : seule la dernière réponse compte
     setLoading(true);
     setErreur(null);
     try {
-      const res = await api.get('/etudiant/releve', { params: id ? { parcours: id } : {} });
+      const res = await api.get('/etudiant/releve', { params: id ? { parcours: id } : {}, signal });
       setReleve(res.data);
     } catch (err) {
+      if (estAnnulee(err)) return;
       setReleve(null);
       setErreur(errorMessage(err, 'Impossible de charger vos notes.'));
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [nouvelleRequete]);
 
   useEffect(() => {
     charger(parcoursId);

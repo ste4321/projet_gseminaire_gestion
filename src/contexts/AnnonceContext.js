@@ -1,33 +1,11 @@
-// contexts/AnnonceContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/client';
+import { creerRessource } from '../api/ressource';
 
-const AnnonceContext = createContext();
+const { Provider, useRessource } = creerRessource({ url: '/annonces', nom: 'les annonces' });
 
-export const AnnonceProvider = ({ children }) => {
-  const [annonces, setAnnonces] = useState([]);
-  const [loading, setLoading] = useState(false);
+export const AnnonceProvider = Provider;
 
-  const fetchAnnonces = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/annonces');
-      setAnnonces(res.data);
-    } catch (err) {
-      console.error('Erreur fetch annonces:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => {
-    fetchAnnonces();
-  }, []);
-
-  return (
-    <AnnonceContext.Provider value={{ annonces, loading, fetchAnnonces }}>
-      {children}
-    </AnnonceContext.Provider>
-  );
+// Chargé à la première utilisation, puis gardé en mémoire (voir api/ressource.js)
+export const useAnnonce = () => {
+  const { data, loading, erreur, recharger } = useRessource();
+  return { annonces: data, loading, erreur, fetchAnnonces: recharger };
 };
-
-export const useAnnonce = () => useContext(AnnonceContext);

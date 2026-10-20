@@ -391,7 +391,7 @@ const EmploiDuTemps = () => {
                 className={`nav-link ${semestre === 1 ? 'active' : ''}`}
                 onClick={() => handleChangeSemestre(1)}
               >
-                Premier semestre
+                Semestre 1
               </button>
             </li>
             <li className="nav-item">
@@ -399,7 +399,7 @@ const EmploiDuTemps = () => {
                 className={`nav-link ${semestre === 2 ? 'active' : ''}`}
                 onClick={() => handleChangeSemestre(2)}
               >
-                Deuxième semestre
+                Semestre 2
               </button>
             </li>
           </ul>
