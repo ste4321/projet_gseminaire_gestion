@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
-import { ouvrirEspace } from '../auth/consultation';
 import { useAnnee } from '../contexts/AnneeContext';
 import useParcoursPagines from '../hooks/useParcoursPagines';
 import { useNiveau } from '../contexts/NiveauContext';
@@ -15,6 +14,8 @@ import StatutResultat from './StatutResultat';
 
 import { telechargerBulletin } from '../utils/bulletin';
 import { releveEnDirect } from '../utils/moyenne';
+import BoutonCopier from './BoutonCopier';
+import { ouvrirEspace } from '../auth/consultation';
 
 /** Relevé en cours de chargement : même structure que les semestres affichés ensuite */
 const SqueletteReleve = () => (
@@ -365,7 +366,7 @@ const NoteEtudiant = () => {
               className={`nav-link ${niveau === i ? 'active' : ''}`}
               onClick={() => handleNiveauChange(i)}
             >
-              Notes L{i}
+              L{i}
             </button>
           </li>
         ))}
@@ -558,16 +559,21 @@ const NoteEtudiant = () => {
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
-            if (field === 'matricule' && value && role === 'admin') {
+            if (field === 'matricule' && value) {
               return (
-                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
-                  title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
-                  }}>
-                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
-                </button>
+                <span className="d-inline-flex align-items-center gap-1">
+                  {role === 'admin' ? (
+                    <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                      title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
+                      }}>
+                      {value}
+                    </button>
+                  ) : value}
+                  <BoutonCopier texte={value} libelle={`Copier le matricule ${value}`} />
+                </span>
               );
             }
             return value ? value : '--';

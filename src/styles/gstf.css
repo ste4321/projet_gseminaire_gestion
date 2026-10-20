@@ -590,3 +590,56 @@
 }
 .gstf-fiche__ligne:hover { background: #f5f5f9; }
 .gstf-fiche__ligne.is-active { background: var(--gstf-primary-soft); color: var(--gstf-primary); font-weight: 600; }
+
+/* ─── Fiche étudiant ─────────────────────────────────────── */
+.gstf-fiche-etudiant__avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+  font-weight: 600;
+}
+
+.gstf-fiche-etudiant__infos li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.4rem 0;
+}
+.gstf-fiche-etudiant__infos .bx { flex-shrink: 0; font-size: 1.15rem; color: var(--gstf-text-muted); }
+
+.gstf-fiche-etudiant__bilan {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #f5f5f9;
+}
+.gstf-fiche-etudiant__bilan strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* Bouton « copier » (matricule…) */
+.gstf-copier {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--gstf-text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.gstf-copier:hover,
+.gstf-copier:focus-visible { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+.gstf-copier.is-ok { color: #2e7d32; }
+.gstf-copier.is-erreur { color: #c62828; }

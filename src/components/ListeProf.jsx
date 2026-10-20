@@ -11,7 +11,7 @@ import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
-import DetailModal from './DetailModal';
+import FicheEnseignant from './FicheEnseignant';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { plusRecentsDabord } from '../utils/tri';
 
@@ -155,8 +155,14 @@ const ListeProf = () => {
 
   const openDetailModal = (prof) => {
     setDetailProf(prof);
-    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
-    modal.show();
+    window.bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
+  };
+
+  // « Modifier » depuis la fiche : la fiche se ferme d'abord, pour ne pas empiler deux fenêtres
+  const modifierDepuisFiche = () => {
+    const el = document.getElementById('detailModal');
+    el.addEventListener('hidden.bs.modal', () => openEditModal(detailProf), { once: true });
+    window.bootstrap.Modal.getOrCreateInstance(el).hide();
   };
 
   if (loading) {
@@ -212,7 +218,7 @@ const ListeProf = () => {
                     e.stopPropagation();
                     ouvrirEspace({ userId: prof.id_user_cession, nom: prof.nom_prenom, role: 'prof', confirm, notify });
                   }}>
-                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
+                  {value}
                 </button>
               );
             }
@@ -257,11 +263,11 @@ const ListeProf = () => {
         loading={loadingDeleteId === confirmDeleteId}
       />
 
-      <DetailModal
+      <FicheEnseignant
         modalId="detailModal"
-        title={detailProf?.nom_prenom || 'Détail du professeur'}
-        data={detailProf}
-        fields={profFields}
+        enseignant={detailProf}
+        role={role}
+        onModifier={modifierDepuisFiche}
       />
       <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>

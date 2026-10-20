@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api, { errorMessage as messageErreur } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
-import { ouvrirEspace } from '../auth/consultation';
 import { useAnnee } from '../contexts/AnneeContext';
 import useParcoursPagines from '../hooks/useParcoursPagines';
 
@@ -12,10 +11,12 @@ import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
-import DetailModal from './DetailModal';
+import FicheEtudiant from './FicheEtudiant';
 import ImportModal from './ImportModal';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { telechargerIdentifiants } from '../utils/identifiants';
+import BoutonCopier from './BoutonCopier';
+import { ouvrirEspace } from '../auth/consultation';
 
 const ListeEtudiant = () => {
   const { notify, confirm } = useFeedback();
@@ -324,8 +325,14 @@ const ListeEtudiant = () => {
 
   const openDetailModal = (etudiant) => {
     setDetailEtudiant(etudiant);
-    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
-    modal.show();
+    window.bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
+  };
+
+  // Action lancée depuis la fiche : la fiche se ferme d'abord, pour ne pas empiler deux fenêtres
+  const depuisFiche = (action) => {
+    const el = document.getElementById('detailModal');
+    el.addEventListener('hidden.bs.modal', () => action(), { once: true });
+    window.bootstrap.Modal.getOrCreateInstance(el).hide();
   };
 
   const openImportModal = () => {
@@ -416,16 +423,21 @@ const ListeEtudiant = () => {
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
-            if (field === 'matricule' && value && role === 'admin') {
+            if (field === 'matricule' && value) {
               return (
-                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
-                  title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
-                  }}>
-                  {value}<i className="bx bx-log-in-circle ms-1" aria-hidden="true"></i>
-                </button>
+                <span className="d-inline-flex align-items-center gap-1">
+                  {role === 'admin' ? (
+                    <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                      title={`Ouvrir l'espace de ${etudiant.nom_prenom}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        ouvrirEspace({ userId: etudiant.id_user_cession, nom: etudiant.nom_prenom, role: 'etudiant', confirm, notify });
+                      }}>
+                      {value}
+                    </button>
+                  ) : value}
+                  <BoutonCopier texte={value} libelle={`Copier le matricule ${value}`} />
+                </span>
               );
             }
             return value ? value : '--';
@@ -486,35 +498,11 @@ const ListeEtudiant = () => {
         loading={loadingDeleteId === confirmDeleteId}
       />
 
-      <DetailModal
+      <FicheEtudiant
         modalId="detailModal"
-        title={detailEtudiant?.nom_prenom || 'Détail de l\'étudiant'}
-        data={detailEtudiant}
-        fields={etudiantFields}
-        customRender={(data) => (
-          <div className="row">
-            {/* <div className="mb-3">
-              <strong>Nom Prénom:</strong> {data?.nom_prenom || '--'}
-            </div> */}
-            <div className="mb-3">
-              <strong>Matricule:</strong> {data?.matricule || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Email:</strong> {data?.email || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Téléphone:</strong> {data?.telephone || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Diocese:</strong> {data?.diocese || '--'}
-            </div>
-            <div className="mb-3">
-              <strong>Niveau:</strong> {data?.niveau || '--'}
-            </div>
-            <div className="mb-3">
-            </div>
-          </div>
-        )}
+        etudiant={detailEtudiant}
+        role={role}
+        onModifier={() => depuisFiche(() => openEditModal(detailEtudiant))}
       />
 
       <ImportModal

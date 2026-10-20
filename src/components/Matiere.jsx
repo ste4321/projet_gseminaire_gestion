@@ -211,7 +211,7 @@ const Matiere = () => {
           : onglets.map((n) => (
               <li className="nav-item" key={n.id}>
                 <button className={`nav-link ${niveauFilter === n.id ? 'active' : ''}`} onClick={() => setNiveauActif(n.id)}>
-                  Matières {n.niveau}
+                  {n.niveau}
                 </button>
               </li>
             ))}
