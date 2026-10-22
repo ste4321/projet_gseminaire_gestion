@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useProf } from '../contexts/ProfContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
@@ -8,84 +8,75 @@ import { ouvrirEspace } from '../auth/consultation';
 import SearchBar from './SearchBar';
 import AddModal from './AddModal';
 import EditModal from './EditModal';
-import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
 import FicheEnseignant from './FicheEnseignant';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
+import BoutonCopier from './BoutonCopier';
 import { plusRecentsDabord } from '../utils/tri';
+
+const FORMULAIRE_VIDE = { nom_prenom: '', adresse: '', email: '', telephone: '' };
+
+// Recherche sans tenir compte des majuscules ni des accents, sur les champs visibles seulement
+// (pas sur les dates ou identifiants : « 2026 » ne doit pas trouver tout le monde)
+const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const CHAMPS_RECHERCHE = ['nom_prenom', 'email', 'telephone', 'adresse'];
+
+const modal = (id) => window.bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
 
 const ListeProf = () => {
   const { notify, confirm } = useFeedback();
   const { profs, setProfs, loading } = useProf();
+  const role = localStorage.getItem('role');
+  const admin = role === 'admin';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [editProf, setEditProf] = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [role, setRole] = useState(localStorage.getItem('role'));
   const [detailProf, setDetailProf] = useState(null);
-  const [newProf, setNewProf] = useState({
-    nom_prenom: '',
-    adresse: '',
-    email: '',
-    telephone: '',
-  });
-
+  const [newProf, setNewProf] = useState(FORMULAIRE_VIDE);
   const [loadingCreate, setLoadingCreate] = useState(false);
-  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   const [loadingUpdate, setLoadingUpdate] = useState(false);
-  const [loadingDeleteId, setLoadingDeleteId] = useState(null);
+  const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
 
-  // Configuration des champs pour les modales
+  // Seul le nom est obligatoire (comme côté serveur) ; sans email, un identifiant de connexion est généré
   const profFields = [
-    { name: 'nom_prenom', label: 'Nom Prénom', type: 'text', placeholder: 'Entrer le nom et prénom', required: true },
-    { name: 'adresse', label: 'Adresse', type: 'text', placeholder: 'Entrer l\'adresse', required: true },
-    { name: 'email', label: 'Email', type: 'email', placeholder: 'Entrer l\'email', required: true },
-    { name: 'telephone', label: 'Téléphone', type: 'text', placeholder: 'Entrer le numéro de téléphone', required: true }
+    { name: 'nom_prenom', label: 'Nom et prénom', type: 'text', placeholder: 'ex. Père Jean Rakoto', required: true },
+    { name: 'email', label: 'Email', type: 'email', placeholder: 'ex. jean.rakoto@exemple.mg', optional: true,
+      help: "Sert d'identifiant de connexion. Sans email, un identifiant est généré et affiché après l'ajout." },
+    { name: 'telephone', label: 'Téléphone', type: 'text', placeholder: 'ex. 034 12 345 67', optional: true },
+    { name: 'adresse', label: 'Adresse', type: 'text', placeholder: 'ex. Ambatoroka, Antananarivo', optional: true },
   ];
 
-  // Configuration des en-têtes du tableau
   const tableHeaders = [
     { label: 'Nom', field: 'nom_prenom' },
-    { label: 'Email', field: 'email' }
+    { label: 'Email', field: 'email' },
+    { label: 'Téléphone', field: 'telephone' },
   ];
 
   // Filtrage et pagination
-  const filteredProfs = plusRecentsDabord(profs).filter(prof =>
-    Object.values(prof).some(val =>
-      typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+  const terme = normaliser(searchTerm);
+  const filteredProfs = useMemo(
+    () => plusRecentsDabord(profs).filter((p) => !terme || CHAMPS_RECHERCHE.some((c) => normaliser(p[c]).includes(terme))),
+    [profs, terme]
   );
-
   const totalPages = Math.ceil(filteredProfs.length / itemsPerPage);
-  const currentProfs = filteredProfs.slice(
-    currentPage * itemsPerPage,
-    (currentPage + 1) * itemsPerPage
-  );
+  const currentProfs = filteredProfs.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
 
-  // Handlers
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     setCurrentPage(0);
   };
 
-  const handleFormChange = (field, value, isEdit = false) => {
-    if (isEdit) {
-      setEditProf(prev => ({ ...prev, [field]: value }));
-    } else {
-      setNewProf(prev => ({ ...prev, [field]: value }));
-    }
-  };
-
   const handleCreate = async () => {
     setLoadingCreate(true);
     try {
-      const response = await api.post(`/enseignants`, newProf);
+      const response = await api.post('/enseignants', newProf);
       setProfs([...profs, response.data.enseignant]);
-      setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('addModal'));
-      modal.hide();
+      setNewProf(FORMULAIRE_VIDE);
+      modal('addModal').hide();
+      // Identifiant (email ou identifiant généré) et mot de passe provisoire : affichés une seule fois
       setIdentifiants({
         nom: response.data.enseignant?.nom_prenom,
         email: response.data.user?.email,
@@ -101,16 +92,9 @@ const ListeProf = () => {
   const handleUpdate = async () => {
     setLoadingUpdate(true);
     try {
-      await api.put(
-        `/enseignants/${editProf.id}`,
-        editProf
-      );
-      const updatedList = profs.map((prof) =>
-        prof.id === editProf.id ? { ...prof, ...editProf } : prof
-      );
-      setProfs(updatedList);
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('editModal'));
-      if (modal) modal.hide();
+      await api.put(`/enseignants/${editProf.id}`, editProf);
+      setProfs(profs.map((prof) => (prof.id === editProf.id ? { ...prof, ...editProf } : prof)));
+      modal('editModal').hide();
       setEditProf(null);
       notify.success('Enseignant modifié.');
     } catch (error) {
@@ -120,83 +104,81 @@ const ListeProf = () => {
     }
   };
 
-  const handleDelete = async () => {
-    setLoadingDeleteId(confirmDeleteId);
+  // Confirmation qui nomme l'enseignant et dit ce qui disparaît avec lui
+  const handleDelete = async (id) => {
+    const prof = profs.find((p) => p.id === id);
+    const ok = await confirm({
+      title: `Supprimer ${prof?.nom_prenom ?? 'cet enseignant'} ?`,
+      message: prof?.id_user_cession
+        ? 'Sa fiche et son compte de connexion seront supprimés. Cette action est définitive.'
+        : 'Sa fiche sera supprimée. Cette action est définitive.',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/enseignants/${confirmDeleteId}`);
-      setProfs(profs.filter(prof => prof.id !== confirmDeleteId));
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-      if (modal) modal.hide();
-      notify.success('Enseignant et compte associé supprimés.');
+      await api.delete(`/enseignants/${id}`);
+      setProfs(profs.filter((p) => p.id !== id));
+      notify.success(prof?.id_user_cession ? 'Enseignant et compte associé supprimés.' : 'Enseignant supprimé.');
     } catch (error) {
       notify.error(errorMessage(error, "Erreur lors de la suppression de l'enseignant."));
-    } finally {
-      setLoadingDeleteId(null);
     }
   };
 
   const openAddModal = () => {
-    setNewProf({ nom_prenom: '', adresse: '', email: '', telephone: '' });
-    const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
-    modal.show();
+    setNewProf(FORMULAIRE_VIDE);
+    modal('addModal').show();
   };
 
   const openEditModal = (prof) => {
     setEditProf({ ...prof });
-    const modal = new window.bootstrap.Modal(document.getElementById('editModal'));
-    modal.show();
-  };
-
-  const openDeleteModal = (id) => {
-    setConfirmDeleteId(id);
-    const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
+    modal('editModal').show();
   };
 
   const openDetailModal = (prof) => {
     setDetailProf(prof);
-    window.bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
+    modal('detailModal').show();
   };
 
-  // « Modifier » depuis la fiche : la fiche se ferme d'abord, pour ne pas empiler deux fenêtres
-  const modifierDepuisFiche = () => {
+  // Action lancée depuis la fiche : la fiche se ferme d'abord, pour ne pas empiler deux fenêtres
+  const depuisFiche = (action) => {
     const el = document.getElementById('detailModal');
-    el.addEventListener('hidden.bs.modal', () => openEditModal(detailProf), { once: true });
-    window.bootstrap.Modal.getOrCreateInstance(el).hide();
+    el.addEventListener('hidden.bs.modal', () => action(), { once: true });
+    modal('detailModal').hide();
   };
-
-  if (loading) {
-    return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status"></div>
-        <p className="mt-3">Chargement des enseignants...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
         <span className="text-muted fw-light text-capitalize">{role} /</span> Enseignants
       </h4>
-
-      {role === 'admin' && (
-        <div className="mb-3">
-          <button className="btn btn-primary" onClick={openAddModal}>
-            Nouveau
-          </button>
-        </div>
-      )}
+      {loading && <span className="visually-hidden" role="status">Chargement des enseignants…</span>}
 
       <div className="card">
-        <h5 className="card-header">Liste des enseignants</h5>
+        <h5 className="card-header">
+          Liste des enseignants
+          {loading ? (
+            <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '7rem', height: '1rem' }} aria-hidden="true" />
+          ) : (
+            <small className="text-muted fw-normal ms-2">
+              · {terme ? `${filteredProfs.length} sur ${profs.length}` : profs.length} enseignant{profs.length > 1 ? 's' : ''}
+            </small>
+          )}
+        </h5>
 
-        {/* Barre de recherche dans la carte */}
+        {admin && (
+          <div className="mb-3 ms-4">
+            <button className="btn btn-primary" onClick={openAddModal} disabled={loading}>
+              <i className="bx bx-plus me-1"></i>Nouvel enseignant
+            </button>
+          </div>
+        )}
+
         <div className="card-body pb-0">
           <SearchBar
             searchTerm={searchTerm}
             onSearchChange={handleSearchChange}
-            placeholder="Rechercher un professeur..."
+            placeholder="Rechercher par nom, email, téléphone…"
           />
         </div>
 
@@ -205,40 +187,70 @@ const ListeProf = () => {
           data={currentProfs}
           onRowClick={openDetailModal}
           onEdit={openEditModal}
-          onDelete={openDeleteModal}
+          onDelete={handleDelete}
           role={role}
+          loading={loading}
+          skeletonRows={6}
           renderCell={(prof, field) => {
             const value = prof[field];
-            // Email : ouvre l'espace de l'enseignant (lecture seule), administration uniquement
-            if (field === 'email' && value && role === 'admin') {
+            if (field === 'nom_prenom') return <span className="fw-semibold">{value}</span>;
+            if (field === 'email') {
+              if (!value) return <span className="text-muted">—</span>;
               return (
-                <button type="button" className="btn btn-link p-0 gstf-lien-espace"
-                  title={`Ouvrir l'espace de ${prof.nom_prenom}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    ouvrirEspace({ userId: prof.id_user_cession, nom: prof.nom_prenom, role: 'prof', confirm, notify });
-                  }}>
-                  {value}
-                </button>
+                <span className="d-inline-flex align-items-center gap-1">
+                  {/* Administration : ouvre l'espace de l'enseignant en lecture seule, sans ouvrir la fiche */}
+                  {admin && prof.id_user_cession ? (
+                    <button type="button" className="btn btn-link p-0 gstf-lien-espace"
+                      title={`Ouvrir l'espace de ${prof.nom_prenom}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        ouvrirEspace({ userId: prof.id_user_cession, nom: prof.nom_prenom, role: 'prof', confirm, notify });
+                      }}>
+                      {value}
+                    </button>
+                  ) : value}
+                  <BoutonCopier texte={value} libelle={`Copier l'email de ${prof.nom_prenom}`} />
+                </span>
               );
             }
-            return value || '--';
+            return value || <span className="text-muted">—</span>;
           }}
         />
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
+
+        {!loading && filteredProfs.length === 0 && (
+          <div className="gstf-empty">
+            {terme ? (
+              <>
+                <i className="bx bx-search-alt d-block"></i>
+                Aucun enseignant ne correspond à « {searchTerm.trim()} ».
+                <div className="mt-3">
+                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleSearchChange('')}>Effacer la recherche</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <i className="bx bx-user-voice d-block"></i>
+                Aucun enseignant n'est encore enregistré.
+                {admin && (
+                  <div className="mt-3">
+                    <button type="button" className="btn btn-sm btn-primary" onClick={openAddModal}>Ajouter un enseignant</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </div>
 
       {/* Modales */}
       <AddModal
         modalId="addModal"
-        title="Ajouter un professeur"
+        title="Nouvel enseignant"
         fields={profFields}
         formData={newProf}
-        onFormChange={(field, value) => handleFormChange(field, value, false)}
+        onFormChange={(field, value) => setNewProf((prev) => ({ ...prev, [field]: value }))}
         onSubmit={handleCreate}
         loading={loadingCreate}
         buttonText="Ajouter"
@@ -246,28 +258,23 @@ const ListeProf = () => {
 
       <EditModal
         modalId="editModal"
-        title="Modifier un professeur"
+        title="Modifier l'enseignant"
         fields={profFields}
         formData={editProf || {}}
-        onFormChange={(field, value) => handleFormChange(field, value, true)}
+        onFormChange={(field, value) => setEditProf((prev) => ({ ...prev, [field]: value }))}
         onSubmit={handleUpdate}
         loading={loadingUpdate}
         buttonText="Enregistrer"
-      />
-
-      <DeleteModal
-        modalId="deleteModal"
-        title="Confirmer la suppression"
-        message="Voulez-vous vraiment supprimer ce professeur ?"
-        onConfirm={handleDelete}
-        loading={loadingDeleteId === confirmDeleteId}
       />
 
       <FicheEnseignant
         modalId="detailModal"
         enseignant={detailProf}
         role={role}
-        onModifier={modifierDepuisFiche}
+        onModifier={() => depuisFiche(() => openEditModal(detailProf))}
+        onSupprimer={() => depuisFiche(() => handleDelete(detailProf.id))}
+        onOuvrirEspace={() => depuisFiche(() =>
+          ouvrirEspace({ userId: detailProf.id_user_cession, nom: detailProf.nom_prenom, role: 'prof', confirm, notify }))}
       />
       <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>

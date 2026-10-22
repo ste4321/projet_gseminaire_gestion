@@ -261,10 +261,8 @@ const Matiere = () => {
     : [];
   const coefSemestre = voisines.reduce((s, m) => s + (Number(m.coefficient) || 0), 0);
   const poids = coefSemestre > 0 ? Math.round(((Number(detailAJour?.coefficient) || 0) * 100) / coefSemestre) : 0;
-  const heuresSemestre = voisines.reduce((s, m) => s + (Number(m.heures) || 0), 0);
   const libelleSemestre = detailAJour?.semestre?.semestre || 'Hors semestre';
-  // La matière affichée est déjà détaillée en haut : la liste ne montre que les autres
-  const autres = voisines.filter((m) => m.id !== detailAJour?.id).sort(parNom);
+  const autresAnnees = (detailAJour?.historique || []).filter((h) => String(h.id_annee_aca) !== String(selectedAnnee));
 
   // ---------- Formulaires ----------
   const champsCommuns = [
@@ -648,7 +646,7 @@ const Matiere = () => {
 
       {/* Fiche détail d'une matière */}
       <div className="modal fade" id="detailModal" tabIndex="-1" aria-labelledby="detailMatiereTitre" aria-hidden="true">
-        <div className="modal-dialog modal-dialog-centered modal-lg">
+        <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             {detailAJour && (
               <>
@@ -658,76 +656,38 @@ const Matiere = () => {
                     {/* Niveau, semestre et code : une seule fois, en sous-titre */}
                     <div className="d-flex flex-wrap align-items-center gap-2 small text-muted">
                       <span>{detailAJour.niveau?.niveau} · {libelleSemestre} · {libelleAnnee}</span>
-                      {detailAJour.code_matiere && <span className="badge bg-label-primary">Code {detailAJour.code_matiere}</span>}
+                      {detailAJour.code_matiere
+                        ? <span className="badge bg-label-primary">Code {detailAJour.code_matiere}</span>
+                        : <span className="badge bg-label-warning" title="Notes à saisir à la main : l'import par fichier demande un code">Sans code</span>}
                     </div>
                   </div>
                   <button type="button" className="btn-close align-self-start" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
 
                 <div className="modal-body">
-                  {/* Chaque chiffre porte sa part du semestre : plus besoin d'une ligne de totaux à part */}
+                  {/* L'essentiel : trois chiffres, sans sous-totaux (le tableau liste déjà les autres matières) */}
                   <div className="gstf-fiche__chiffres">
                     <div>
                       <span>Coefficient</span>
                       <strong>{detailAJour.coefficient ?? '—'}</strong>
-                      <small className="text-muted d-block">sur {coefSemestre} au semestre</small>
                     </div>
                     <div>
                       <span>Volume horaire</span>
                       <strong>{detailAJour.heures ? `${detailAJour.heures} h` : '—'}</strong>
-                      <small className="text-muted d-block">sur {heuresSemestre} h au semestre</small>
                     </div>
-                    <div>
-                      <span>Poids dans la moyenne</span>
+                    <div title={`Coefficient ${detailAJour.coefficient} sur ${coefSemestre} pour le semestre`}>
+                      <span>Poids dans le semestre</span>
                       <strong>{poids} %</strong>
                       <div className="gstf-bar mt-2" role="presentation"><span style={{ width: `${poids}%` }}></span></div>
                     </div>
                   </div>
 
-                  {!detailAJour.code_matiere && (
-                    <div className="alert alert-warning small d-flex align-items-start gap-2 mt-3 mb-0 py-2" role="note">
-                      <i className="bx bx-info-circle mt-1"></i>
-                      <span>Pas de code matière : les notes se saisissent à la main, l'import par fichier n'est pas possible.</span>
-                    </div>
-                  )}
-
-                  {/* Années où la matière a été enseignée : un coefficient changé une année n'a pas touché les autres */}
-                  {detailAJour.historique?.length > 1 && (
-                    <>
-                      <h6 className="gstf-section-title mt-4 mb-2">
-                        Enseignée en
-                        <small className="text-muted fw-normal ms-2">{detailAJour.historique.length} années</small>
-                      </h6>
-                      <div className="d-flex flex-wrap gap-2">
-                        {detailAJour.historique.map((h) => (
-                          <span
-                            key={h.id_annee_aca}
-                            className={`badge ${String(h.id_annee_aca) === String(selectedAnnee) ? 'bg-primary' : 'bg-label-secondary'}`}
-                          >
-                            {h.annee_aca} · coef. {h.coefficient}{h.heures ? ` · ${h.heures} h` : ''}
-                          </span>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {autres.length > 0 && (
-                    <>
-                      <h6 className="gstf-section-title mt-4 mb-2">
-                        Autres matières du semestre
-                        <small className="text-muted fw-normal ms-2">{autres.length}</small>
-                      </h6>
-                      <ul className="list-unstyled mb-0 gstf-fiche__liste">
-                        {autres.map((m) => (
-                          <li key={m.id}>
-                            <button type="button" className="gstf-fiche__ligne" onClick={() => setDetail(m)} title={`Voir la fiche de ${m.matiere}`}>
-                              <span className="text-truncate">{m.matiere}</span>
-                              <span className="text-muted small text-nowrap">coef. {m.coefficient}{m.heures ? ` · ${m.heures} h` : ''}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
+                  {/* Autres années : une ligne discrète, seulement si la matière y a été enseignée */}
+                  {autresAnnees.length > 0 && (
+                    <p className="small text-muted mt-3 mb-0">
+                      <i className="bx bx-history me-1"></i>
+                      Aussi enseignée en {autresAnnees.map((h) => `${h.annee_aca} (coef. ${h.coefficient})`).join(', ')}.
+                    </p>
                   )}
                 </div>
 
