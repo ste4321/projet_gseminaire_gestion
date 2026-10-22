@@ -9,6 +9,20 @@
 >
   <head>
     <meta charset="utf-8" />
+    <!-- Mode sombre appliqué avant le premier affichage (pas de flash blanc). Même logique que src/utils/theme.js -->
+    <script>
+      (function () {
+        try {
+          var p = localStorage.getItem('gstf-theme');
+          var sombre = p === 'sombre' || ((!p || p === 'systeme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme-mode', sombre ? 'dark' : 'light');
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* Fond sombre dès la première image, avant le chargement des feuilles de l'application */
+      html[data-theme-mode='dark'], html[data-theme-mode='dark'] body { background-color: #18171d; color: #c9c7d1; color-scheme: dark; }
+    </style>
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1"
