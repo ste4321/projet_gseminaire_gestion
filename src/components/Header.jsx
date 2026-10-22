@@ -4,6 +4,7 @@ import api from '../api/client';
 import { clearSession, getRole } from '../auth/session';
 import { getConsultation, quitterConsultation } from '../auth/consultation';
 import { ROLE_LABELS } from '../navigation';
+import ChoixTheme from './ChoixTheme';
 
 const initiales = (nom) =>
   (nom || '?')
@@ -53,6 +54,9 @@ const Header = () => {
 
       <div className="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
         <ul className="navbar-nav flex-row align-items-center ms-auto">
+          <li className="nav-item me-2">
+            <ChoixTheme />
+          </li>
           <li className="nav-item navbar-dropdown dropdown-user dropdown">
             <button
               className="nav-link dropdown-toggle hide-arrow btn border-0 bg-transparent d-flex align-items-center gap-2"

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import api from './api/client';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { saveSession, isSessionValid, getRole, HOME_BY_ROLE, mustChangePassword, CHANGE_PASSWORD_PATH } from './auth/session';
+import ChoixTheme from './components/ChoixTheme';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
@@ -104,6 +105,8 @@ const Login = () => {
 
   return (
     <div className="container-xxl">
+      {/* Thème choisi avant même de se connecter */}
+      <ChoixTheme className="position-fixed top-0 end-0 m-3" />
       <div className="authentication-wrapper authentication-basic container-p-y">
         <div className="authentication-inner gstf-login">
           <div className="card gstf-login__card">

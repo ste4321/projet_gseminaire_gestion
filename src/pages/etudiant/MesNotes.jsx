@@ -168,7 +168,7 @@ const MesNotes = () => {
             <div className="card">
               <div className="gstf-empty">
                 <i className="bx bx-book d-block"></i>
-                Aucune matière n'est encore enregistrée pour votre niveau.
+                Aucune matière n'est encore au programme de votre niveau pour cette année.
               </div>
             </div>
           ) : (

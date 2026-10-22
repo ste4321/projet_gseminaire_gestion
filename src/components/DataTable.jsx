@@ -12,7 +12,9 @@ const DataTable = ({
   renderCell, // fonction pour personnaliser le rendu des cellules
   loading = false, // premier chargement : lignes squelette à la place des données
   skeletonRows = 8,
-  refreshing = false // nouvelles données en route : lignes actuelles estompées
+  refreshing = false, // nouvelles données en route : lignes actuelles estompées
+  deleteTitle = 'Supprimer', // libellé du bouton onDelete (ex : « Retirer du programme »)
+  deleteIcon = 'bx-trash'
 }) => {
   const avecActions = showActions && role === 'admin';
 
@@ -114,10 +116,10 @@ const DataTable = ({
                           e.stopPropagation();
                           onDelete(item.id);
                         }}
-                        title="Supprimer"
-                        aria-label="Supprimer"
+                        title={deleteTitle}
+                        aria-label={deleteTitle}
                       >
-                        <i className="bx bx-trash"></i>
+                        <i className={`bx ${deleteIcon}`}></i>
                       </button>
                     )}
                   </td>

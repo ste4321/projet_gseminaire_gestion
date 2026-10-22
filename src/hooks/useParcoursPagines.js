@@ -15,6 +15,7 @@ const memoriser = (cle, valeur) => {
 };
 
 const DELAI_RECHERCHE = 300; // ms sans frappe avant d'interroger le serveur
+const DELAI_ESTOMPAGE = 250; // ms d'attente avant d'estomper les anciennes lignes
 
 const useDiffere = (valeur, delai) => {
   const [differee, setDifferee] = useState(valeur);
@@ -35,18 +36,18 @@ const useParcoursPagines = ({ annee, niveau, recherche = '', page = 0, parPage =
   const terme = useDiffere(recherche.trim(), DELAI_RECHERCHE);
   const cle = JSON.stringify([localStorage.getItem('token'), annee, niveau, terme, page, parPage]);
 
-  const [resultat, setResultat] = useState(() => memoire.get(cle) || null);
-  const [loading, setLoading] = useState(false);
+  // Chaque résultat garde la clé de filtres qui l'a produit : on sait ainsi si les lignes affichées
+  // correspondent au choix actuel (rafraîchissement silencieux) ou à l'ancien (lignes estompées).
+  const [resultat, setResultat] = useState(() => (memoire.has(cle) ? { cle, ...memoire.get(cle) } : null));
   const [erreur, setErreur] = useState(null);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!annee) return undefined;
     const enMemoire = memoire.get(cle);
-    if (enMemoire) setResultat(enMemoire);
+    if (enMemoire) setResultat({ cle, ...enMemoire });
 
     const controle = new AbortController(); // une frappe ou un filtre plus récent annule la requête en cours
-    setLoading(true);
     setErreur(null);
     api
       .get('/etudiant_parcours', {
@@ -56,18 +57,32 @@ const useParcoursPagines = ({ annee, niveau, recherche = '', page = 0, parPage =
       .then((res) => {
         const valeur = { lignes: res.data.data, total: res.data.total, pages: res.data.last_page };
         memoriser(cle, valeur);
-        setResultat(valeur);
+        setResultat({ cle, ...valeur });
       })
       .catch((err) => {
         if (err.code !== 'ERR_CANCELED') setErreur(errorMessage(err, 'Impossible de charger la liste des étudiants.'));
-      })
-      .finally(() => {
-        if (!controle.signal.aborted) setLoading(false);
       });
     return () => controle.abort();
     // `cle` regroupe annee, niveau, terme, page et parPage
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cle, version]);
+
+  // Page déjà vue : affichée dès ce rendu, sans attendre l'effet ni le serveur
+  const enMemoire = memoire.get(cle);
+  const affiche = enMemoire || resultat;
+  const aJour = Boolean(enMemoire) || resultat?.cle === cle;
+  const perime = Boolean(affiche) && (!aJour || terme !== recherche.trim());
+
+  // Estompage seulement si l'attente se prolonge : une réponse rapide remplace les lignes sans clignotement
+  const [estompe, setEstompe] = useState(false);
+  useEffect(() => {
+    if (!perime) {
+      setEstompe(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setEstompe(true), DELAI_ESTOMPAGE);
+    return () => clearTimeout(t);
+  }, [perime]);
 
   // Après un ajout, une modification, une suppression ou un import : tout ce qui est en mémoire est périmé
   const recharger = useCallback(() => {
@@ -76,11 +91,12 @@ const useParcoursPagines = ({ annee, niveau, recherche = '', page = 0, parPage =
   }, []);
 
   return {
-    lignes: resultat?.lignes || [],
-    total: resultat?.total ?? 0,
-    pages: resultat?.pages ?? 0,
-    premierChargement: !resultat && !erreur, // rien à montrer encore : squelette
-    actualisation: Boolean(resultat) && (loading || terme !== recherche.trim()), // anciennes lignes estompées
+    lignes: affiche?.lignes || [],
+    total: affiche?.total ?? 0,
+    pages: affiche?.pages ?? 0,
+    premierChargement: !affiche && !erreur, // rien à montrer encore : squelette
+    attente: perime, // nouvelles lignes en route (ne pas conclure à une liste vide)
+    actualisation: perime && estompe, // lignes d'un ancien filtre, attente qui se prolonge : estompées
     erreur,
     recharger,
   };

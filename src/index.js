@@ -2,8 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import './styles/gstf.css';
+import './styles/sombre.css';
 import App from './App';
+import { initialiserTheme } from './utils/theme';
 import reportWebVitals from './reportWebVitals';
+
+// Mode clair / sombre : déjà posé par public/index.html, ici on suit en plus les changements du système
+initialiserTheme();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

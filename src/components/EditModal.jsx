@@ -41,8 +41,9 @@ const EditModal = ({
                     value={formData[field.name] || ''}
                     onChange={(e) => onFormChange(field.name, e.target.value)}
                     required={field.required}
+                    disabled={field.disabled}
                   >
-                    <option value="">Sélectionner...</option>
+                    <option value="">{field.disabled ? 'Chargement…' : field.placeholder || 'Sélectionner...'}</option>
                     {field.options?.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}

@@ -1,4 +1,5 @@
-/* Identité visuelle GSTF — complète le thème Sneat (couleurs appliquées par scripts/theme-gstf.js) */
+/* Identité visuelle GSTF — complète le thème Sneat (couleurs appliquées par scripts/theme-gstf.js).
+   Mode sombre : styles/sombre.css redéfinit les variables ci-dessous. */
 
 :root {
   --gstf-primary: #8c2f39;      /* bordeaux carmélite */
@@ -7,6 +8,29 @@
   --gstf-gold: #c9a227;         /* or du calice */
   --gstf-gold-soft: #f8f1dc;
   --gstf-text-muted: #6f6b7d;
+
+  /* Surfaces et textes : redéfinis par le mode sombre (styles/sombre.css) */
+  --gstf-surface: #fff;             /* cartes, fenêtres, menu */
+  --gstf-surface-2: #f5f5f9;        /* encarts, survol de ligne */
+  --gstf-surface-3: #f1f2f4;        /* fond des segments */
+  --gstf-surface-chaude: #fbf7f2;   /* bilan des notes */
+  --gstf-hover: #fafafc;
+  --gstf-heading: #384551;
+  --gstf-text: #566a7f;
+  --gstf-border: rgba(67, 89, 113, 0.12);
+  --gstf-border-soft: #eceef1;
+  --gstf-track: #eceef1;            /* fond des barres de progression */
+  --gstf-badge: rgba(67, 89, 113, 0.1);
+  --gstf-squelette-a: #eceef1;
+  --gstf-squelette-b: #f6f7f9;
+  --gstf-ombre: rgba(67, 89, 113, 0.2);
+  --gstf-gold-text: #8a6d12;
+  --gstf-ok: #2e7d32;
+  --gstf-erreur: #c62828;
+  --gstf-alerte: #b26a00;
+  --gstf-info: #0277bd;
+  --gstf-login-fond: radial-gradient(circle at 50% 38%, #fffaf2 0%, #f6ead9 55%, #f4e4e6 100%);
+  --gstf-login-texte: #6b5a4a;
 }
 
 /* ─── Marque ─────────────────────────────────────────────── */
@@ -64,20 +88,20 @@
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.85rem 1rem;
-  background: #fff;
+  background: var(--gstf-surface);
   border-radius: 0.5rem;
   border-left: 4px solid currentColor;
-  box-shadow: 0 0.25rem 1rem rgba(67, 89, 113, 0.2);
+  box-shadow: 0 0.25rem 1rem var(--gstf-ombre);
   animation: gstf-toast-in 0.2s ease-out;
 }
 .gstf-toast__icon { font-size: 1.4rem; line-height: 1.2; }
-.gstf-toast__body { flex: 1; color: #566a7f; min-width: 0; }
-.gstf-toast__body strong { color: #384551; }
+.gstf-toast__body { flex: 1; color: var(--gstf-text); min-width: 0; }
+.gstf-toast__body strong { color: var(--gstf-heading); }
 .gstf-toast__message { white-space: pre-line; word-break: break-word; }
-.gstf-toast--success { color: #2e7d32; }
-.gstf-toast--error { color: #c62828; }
-.gstf-toast--warning { color: #b26a00; }
-.gstf-toast--info { color: #0277bd; }
+.gstf-toast--success { color: var(--gstf-ok); }
+.gstf-toast--error { color: var(--gstf-erreur); }
+.gstf-toast--warning { color: var(--gstf-alerte); }
+.gstf-toast--info { color: var(--gstf-info); }
 
 @keyframes gstf-toast-in {
   from { opacity: 0; transform: translateY(-0.5rem); }
@@ -116,11 +140,11 @@
   background: var(--gstf-primary-soft);
   color: var(--gstf-primary);
 }
-.gstf-stat__icon--gold { background: var(--gstf-gold-soft); color: #8a6d12; }
+.gstf-stat__icon--gold { background: var(--gstf-gold-soft); color: var(--gstf-gold-text); }
 .gstf-stat__value {
   font-size: 1.6rem;
   font-weight: 600;
-  color: #384551;
+  color: var(--gstf-heading);
   line-height: 1.1;
   font-variant-numeric: tabular-nums; /* largeur fixe des chiffres : pas de tremblement pendant le comptage */
 }
@@ -129,7 +153,7 @@
 .gstf-bar {
   height: 0.5rem;
   border-radius: 1rem;
-  background: #eceef1;
+  background: var(--gstf-track);
   overflow: hidden;
 }
 .gstf-bar > span {
@@ -154,13 +178,13 @@
   display: block;
   max-width: 100%;
   border-radius: 0.375rem;
-  background: linear-gradient(90deg, #eceef1 25%, #f6f7f9 50%, #eceef1 75%);
+  background: linear-gradient(90deg, var(--gstf-squelette-a) 25%, var(--gstf-squelette-b) 50%, var(--gstf-squelette-a) 75%);
   background-size: 200% 100%;
   animation: gstf-squelette 1.4s linear infinite;
 }
 /* Tableau en cours d'actualisation (filtre, page, recherche) : les lignes actuelles restent visibles, estompées */
 .gstf-table tbody { transition: opacity 0.2s ease; }
-.gstf-table.is-refreshing tbody { opacity: 0.5; }
+.gstf-table.is-refreshing tbody { opacity: 0.6; }
 
 @keyframes gstf-squelette {
   from { background-position: 200% 0; }
@@ -180,8 +204,8 @@
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
-  color: #566a7f;
-  border: 1px solid #eceef1;
+  color: var(--gstf-text);
+  border: 1px solid var(--gstf-border-soft);
   transition: border-color 0.15s, background-color 0.15s;
 }
 .gstf-quick-link:hover,
@@ -223,7 +247,7 @@
     left: 0;
     height: 100vh;
     width: 260px;
-    background-color: #fff;
+    background-color: var(--gstf-surface);
     z-index: 1060;
     transition: transform 0.3s ease-in-out;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
@@ -279,7 +303,7 @@
   gap: 1.25rem;
   padding: 2.5rem 1.5rem;
   text-align: center;
-  background: radial-gradient(circle at 50% 38%, #fffaf2 0%, #f6ead9 55%, #f4e4e6 100%);
+  background: var(--gstf-login-fond);
   border-right: 1px solid rgba(140, 47, 57, 0.12);
 }
 .gstf-login__sainte {
@@ -292,12 +316,12 @@
 }
 .gstf-login__legende {
   margin: 0;
-  color: #6b5a4a;
+  color: var(--gstf-login-texte);
   font-size: 0.9rem;
   line-height: 1.5;
 }
 .gstf-login__legende strong {
-  color: #8c2f39;
+  color: var(--gstf-primary);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.05rem;
   font-weight: 600;
@@ -343,15 +367,15 @@
   border: 1px solid rgba(140, 47, 57, 0.14);
   border-radius: 0.5rem;
   padding: 1rem;
-  background: #fff;
+  background: var(--gstf-surface);
 }
 .gstf-notes-bilan {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem 1.5rem;
   padding: 1rem 1.5rem;
-  border-top: 1px solid rgba(67, 89, 113, 0.12);
-  background: #fbf7f2;
+  border-top: 1px solid var(--gstf-border);
+  background: var(--gstf-surface-chaude);
 }
 .gstf-notes-bilan > div {
   display: flex;
@@ -362,13 +386,13 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #8a8d93;
+  color: var(--gstf-text-muted);
 }
 .gstf-notes-bilan__note {
   grid-column: 1 / -1;
   margin: 0;
   font-size: 0.8rem;
-  color: #b7791f;
+  color: var(--gstf-alerte);
 }
 @media (max-width: 575.98px) {
   .gstf-notes-bilan {
@@ -382,8 +406,8 @@
   padding: 0.6rem 1rem;
   border: 1px dashed rgba(140, 47, 57, 0.45);
   border-radius: 0.5rem;
-  background: #fbf3f4;
-  color: #8c2f39;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
   font: 700 1.6rem/1.2 'Courier New', monospace;
   letter-spacing: 0.45em;
   text-align: center;
@@ -465,7 +489,7 @@
   align-items: center;
   gap: 0.75rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(67, 89, 113, 0.1);
+  border-bottom: 1px solid var(--gstf-border);
 }
 .gstf-tache:last-child {
   padding-bottom: 0;
@@ -524,7 +548,7 @@
   gap: 0.25rem;
   padding: 0.25rem;
   border-radius: 0.5rem;
-  background: #f1f2f4;
+  background: var(--gstf-surface-3);
 }
 .gstf-segments__item {
   display: inline-flex;
@@ -534,7 +558,7 @@
   border: 0;
   border-radius: 0.375rem;
   background: transparent;
-  color: #566a7f;
+  color: var(--gstf-text);
   font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
@@ -542,16 +566,16 @@
 }
 .gstf-segments__item:hover { color: var(--gstf-primary); }
 .gstf-segments__item.is-active {
-  background: #fff;
+  background: var(--gstf-surface);
   color: var(--gstf-primary);
-  box-shadow: 0 1px 3px rgba(67, 89, 113, 0.18);
+  box-shadow: 0 1px 3px var(--gstf-ombre);
 }
 .gstf-segments__item:focus-visible { outline: 2px solid var(--gstf-gold); outline-offset: 1px; }
 .gstf-segments__nombre {
   min-width: 1.4rem;
   padding: 0 0.35rem;
   border-radius: 1rem;
-  background: rgba(67, 89, 113, 0.1);
+  background: var(--gstf-badge);
   font-size: 0.75rem;
   line-height: 1.25rem;
   text-align: center;
@@ -559,7 +583,7 @@
 .gstf-segments__item.is-active .gstf-segments__nombre { background: var(--gstf-primary-soft); }
 
 /* ─── Fiche détail (matière…) ────────────────────────────── */
-.gstf-fiche__entete { border-bottom: 1px solid rgba(67, 89, 113, 0.1); padding-bottom: 1rem; }
+.gstf-fiche__entete { border-bottom: 1px solid var(--gstf-border); padding-bottom: 1rem; }
 
 .gstf-fiche__chiffres {
   display: grid;
@@ -572,7 +596,7 @@
   background: var(--gstf-gold-soft);
 }
 .gstf-fiche__chiffres span { display: block; font-size: 0.8rem; color: var(--gstf-text-muted); }
-.gstf-fiche__chiffres strong { font-size: 1.4rem; color: #384551; font-variant-numeric: tabular-nums; }
+.gstf-fiche__chiffres strong { font-size: 1.4rem; color: var(--gstf-heading); font-variant-numeric: tabular-nums; }
 
 .gstf-fiche__liste { max-height: 16rem; overflow-y: auto; }
 .gstf-fiche__ligne {
@@ -588,7 +612,7 @@
   color: inherit;
   text-align: left;
 }
-.gstf-fiche__ligne:hover { background: #f5f5f9; }
+.gstf-fiche__ligne:hover { background: var(--gstf-surface-2); }
 .gstf-fiche__ligne.is-active { background: var(--gstf-primary-soft); color: var(--gstf-primary); font-weight: 600; }
 
 /* ─── Fiche étudiant ─────────────────────────────────────── */
@@ -620,7 +644,7 @@
   margin-top: 1rem;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
-  background: #f5f5f9;
+  background: var(--gstf-surface-2);
 }
 .gstf-fiche-etudiant__bilan strong { margin-left: auto; font-variant-numeric: tabular-nums; }
 
@@ -641,5 +665,25 @@
 }
 .gstf-copier:hover,
 .gstf-copier:focus-visible { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
-.gstf-copier.is-ok { color: #2e7d32; }
-.gstf-copier.is-erreur { color: #c62828; }
+.gstf-copier.is-ok { color: var(--gstf-ok); }
+.gstf-copier.is-erreur { color: var(--gstf-erreur); }
+
+/* Annonces : liste réduite au titre et à la date ; le reste est dans le détail */
+.gstf-annonce { display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1.5rem; }
+.gstf-annonce__corps {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.gstf-annonce:hover { background: var(--gstf-hover); }
+.gstf-annonce__titre { color: var(--gstf-heading); }
+.gstf-annonce__corps:hover .gstf-annonce__titre,
+.gstf-annonce__corps:focus-visible .gstf-annonce__titre { color: var(--gstf-primary); }
+/* Extrait d'une ligne : le contenu complet est dans le détail */
+.gstf-annonce__extrait { display: block; margin-top: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gstf-text-muted); font-size: 0.875rem; }
+.gstf-annonce__texte { white-space: pre-line; word-break: break-word; line-height: 1.6; }
+@media (max-width: 575.98px) {
+  .gstf-annonce { padding: 0.85rem 1rem; }
+}

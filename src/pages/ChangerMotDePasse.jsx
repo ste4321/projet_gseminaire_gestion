@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api, { errorMessage } from '../api/client';
+import ChoixTheme from '../components/ChoixTheme';
 import { clearSession, getRole, HOME_BY_ROLE, mustChangePassword, setMustChangePassword } from '../auth/session';
 
 // Mêmes règles que le serveur (Password::defaults dans AppServiceProvider)
@@ -93,6 +94,7 @@ const ChangerMotDePasse = () => {
 
   return (
     <div className="container-xxl">
+      <ChoixTheme className="position-fixed top-0 end-0 m-3" />
       <div className="authentication-wrapper authentication-basic container-p-y">
         <div className="authentication-inner">
           <div className="card">
