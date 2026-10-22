@@ -26,7 +26,7 @@ const EmploiDuTemps = () => {
 
   const [semestre, setSemestre] = useState(1);
   const [page, setPage] = useState(0);
-  const [role, setRole] = useState(null);
+  const [role, setRole] = useState(() => localStorage.getItem('role')); // connu dès le premier rendu (titre et squelette)
   const [editEmploi, setEditEmploi] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [newEmploi, setNewEmploi] = useState({
@@ -329,10 +329,10 @@ const EmploiDuTemps = () => {
     return (
       <div className="position-relative">
         {isLoading && (
-          <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-light rounded border" style={{ zIndex: 1 }}>
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Chargement...</span>
-            </div>
+          // Image en cours de téléchargement : squelette de la taille de la zone d'affichage
+          <div className="position-absolute top-0 start-0 w-100 h-100 rounded border overflow-hidden" style={{ zIndex: 1 }}>
+            <span className="visually-hidden" role="status">Chargement de l'image…</span>
+            <span className="gstf-squelette w-100 h-100" style={{ borderRadius: 0 }} aria-hidden="true" />
           </div>
         )}
 
@@ -364,14 +364,39 @@ const EmploiDuTemps = () => {
     );
   }, [currentEmploi, imageLoading, imageErreur, role, semestre, handleImageLoadStart, handleImageLoadEnd]);
 
+  // Premier chargement : la page garde sa structure (onglets, carte, image, pagination) en squelette
   if (loading) {
     return (
-      <div className="container-xxl flex-grow-1 container-p-y">
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Chargement...</span>
+      <div className="container-xxl flex-grow-1 container-p-y" aria-busy="true">
+        <h4 className="fw-bold py-3 mb-4">
+          <span className="text-muted fw-light text-capitalize">{role} /</span> Emploi du temps
+        </h4>
+        <span className="visually-hidden" role="status">Chargement de l'emploi du temps…</span>
+        <div className="row" aria-hidden="true">
+          <div className="col-md-12">
+            <ul className="nav nav-pills flex-column flex-md-row mb-3">
+              {[0, 1].map(i => (
+                <li className="nav-item me-md-2 mb-2 mb-md-0" key={i}>
+                  <span className="gstf-squelette" style={{ width: '7.5rem', height: '2.4rem' }} />
+                </li>
+              ))}
+            </ul>
+            <div className="card mb-4 p-4 pt-5 position-relative">
+              {role === 'admin' && (
+                <>
+                  <span className="gstf-squelette position-absolute top-0 start-0 m-3" style={{ width: '6.5rem', height: '1rem' }} />
+                  <span className="gstf-squelette position-absolute top-0 end-0 m-3" style={{ width: '6.5rem', height: '1.9rem' }} />
+                </>
+              )}
+              <br />
+              <span className="gstf-squelette w-100" style={{ height: '60vh' }} />
+              <div className="d-flex justify-content-center gap-2 mt-4">
+                {[0, 1, 2, 3].map(i => (
+                  <span className="gstf-squelette" key={i} style={{ width: '2.4rem', height: '2.4rem' }} />
+                ))}
+              </div>
+            </div>
           </div>
-          <p className="mt-3">Chargement de l'emploi du temps...</p>
         </div>
       </div>
     );

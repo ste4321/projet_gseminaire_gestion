@@ -160,7 +160,7 @@
 }
 /* Tableau en cours d'actualisation (filtre, page, recherche) : les lignes actuelles restent visibles, estompées */
 .gstf-table tbody { transition: opacity 0.2s ease; }
-.gstf-table.is-refreshing tbody { opacity: 0.5; }
+.gstf-table.is-refreshing tbody { opacity: 0.6; }
 
 @keyframes gstf-squelette {
   from { background-position: 200% 0; }

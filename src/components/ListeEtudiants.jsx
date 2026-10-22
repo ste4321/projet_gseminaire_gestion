@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api, { errorMessage as messageErreur } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { useAnnee } from '../contexts/AnneeContext';
@@ -17,14 +18,20 @@ import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { telechargerIdentifiants } from '../utils/identifiants';
 import BoutonCopier from './BoutonCopier';
 import { ouvrirEspace } from '../auth/consultation';
+import { useNiveau } from '../contexts/NiveauContext';
+import { trierNiveaux, libelleNiveau, optionsNiveaux } from '../utils/niveaux';
 
 const ListeEtudiant = () => {
   const { notify, confirm } = useFeedback();
   const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
+  const { niveaux, loading: loadingNiveaux } = useNiveau();
 
   // États pour les filtres
-  const [selectedAnnee, setSelectedAnnee] = useState('');
-  const [niveau, setNiveau] = useState(1); // Par défaut L1
+  // Année la plus récente choisie dès le premier rendu si les années sont déjà en mémoire (pas de squelette au retour sur la page)
+  const [selectedAnnee, setSelectedAnnee] = useState(() =>
+    anneesListe.length > 0 ? String(Math.max(...anneesListe.map(a => a.id))) : ''
+  );
+  const [niveau, setNiveau] = useState('L1'); // code du niveau (table `niveaux`), L1 par défaut
   const [searchTerm, setSearchTerm] = useState('');
 
   // États pour les modales
@@ -60,9 +67,15 @@ const ListeEtudiant = () => {
     if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
   }, [annees, selectedAnnee]);
 
+  // Niveaux de la base, dans l'ordre (L1, L2, L3, M1…) ; si L1 n'existe pas, le premier niveau est affiché
+  const niveauxTries = trierNiveaux(niveaux);
+  useEffect(() => {
+    if (niveauxTries.length > 0 && !niveauxTries.some(n => n.niveau === niveau)) setNiveau(niveauxTries[0].niveau);
+  }, [niveauxTries, niveau]);
+
   // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
-  const { lignes, total, pages: totalPages, premierChargement, actualisation, erreur: erreurListe, recharger } =
-    useParcoursPagines({ annee: selectedAnnee, niveau: `L${niveau}`, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
+  const { lignes, total, pages: totalPages, premierChargement, attente, actualisation, erreur: erreurListe, recharger } =
+    useParcoursPagines({ annee: selectedAnnee, niveau, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
   const chargement = premierChargement && !erreurListe && (loadingAnnees || anneesListe.length > 0);
 
   // Page devenue vide (suppression du dernier étudiant de la page) : retour à la dernière page existante
@@ -92,13 +105,9 @@ const ListeEtudiant = () => {
     { name: 'email', label: 'Email', type: 'email', placeholder: 'Entrer l\'email', required: true },
     { name: 'telephone', label: 'Téléphone', type: 'text', placeholder: 'Entrer le numéro de téléphone', required: true },
     { name: 'diocese', label: 'Diocese', type: 'text', placeholder: 'Entrer le nom de la diocese ', required: true },
-    { name: 'niveau', label: 'Niveau', type: 'select', placeholder: 'Sélectionner le niveau', required: true, options: [
-      { value: 'L1', label: 'Licence 1' },
-      { value: 'L2', label: 'Licence 2' },
-      { value: 'L3', label: 'Licence 3' },
-      { value: 'M1', label: 'Master 1' },
-      { value: 'M2', label: 'Master 2' }
-    ]}
+    // Niveaux lus en base : le serveur valide le code reçu contre la table `niveaux`
+    { name: 'niveau', label: 'Niveau', type: 'select', placeholder: 'Sélectionner le niveau', required: true,
+      options: optionsNiveaux(niveaux), disabled: loadingNiveaux && niveaux.length === 0 }
   ];
 
   // Configuration des en-têtes du tableau
@@ -305,7 +314,7 @@ const ListeEtudiant = () => {
       email: '',
       telephone: '',
       matricule: '',
-      niveau: ''
+      niveau // niveau de l'onglet affiché, modifiable dans le formulaire
     });
     const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
     modal.show();
@@ -347,6 +356,18 @@ const ListeEtudiant = () => {
       </h4>
       {chargement && <span className="visually-hidden" role="status">Chargement des étudiants…</span>}
 
+      {/* Premier lancement : sans année, l'ajout manuel d'un étudiant est impossible */}
+      {!loadingAnnees && anneesListe.length === 0 && (
+        <div className="alert alert-info d-flex flex-wrap align-items-center gap-2">
+          <i className="bx bx-calendar"></i>
+          <span className="flex-grow-1">
+            Aucune année académique n'est encore enregistrée. Importez un fichier Etudiant_L1_2026-2027.xlsx,
+            ou créez l'année dans le module Matières pour ajouter les étudiants à la main.
+          </span>
+          {role === 'admin' && <Link className="btn btn-sm btn-primary" to="/admin/matiere">Créer l'année académique</Link>}
+        </div>
+      )}
+
       {/* 🔹 Filtre année académique */}
       <div className="mb-3">
         <label className="form-label">Année académique:</label>
@@ -365,30 +386,47 @@ const ListeEtudiant = () => {
         )}
       </div>
 
-      {/* 🔹 Sélecteur de niveau (L1–L3) */}
+      {/* 🔹 Sélecteur de niveau : niveaux enregistrés en base */}
       <ul className="nav nav-pills mb-3">
-        {[1, 2, 3].map(i => (
-          <li className="nav-item" key={i}>
-            <button
-              className={`nav-link ${niveau === i ? 'active' : ''}`}
-              onClick={() => handleNiveauChange(i)}
-            >
-              L{i}
-            </button>
-          </li>
-        ))}
+        {loadingNiveaux && niveauxTries.length === 0
+          ? [0, 1, 2].map(i => (
+              <li className="nav-item me-2" key={i}>
+                <span className="gstf-squelette" style={{ width: '3.5rem', height: '2.4rem' }} />
+              </li>
+            ))
+          : niveauxTries.map(n => (
+              <li className="nav-item" key={n.id}>
+                <button
+                  className={`nav-link ${niveau === n.niveau ? 'active' : ''}`}
+                  title={libelleNiveau(n.niveau)}
+                  onClick={() => handleNiveauChange(n.niveau)}
+                >
+                  {n.niveau}
+                </button>
+              </li>
+            ))}
       </ul>
 
       <div className="card">
         <h5 className="card-header">
-          Liste des étudiants en L{niveau}
-          {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
-            <span className="text-muted ms-2">
-              - {annees.find(a => a.id == selectedAnnee)?.annee_aca}
-            </span>
-          )}
-          {!chargement && !erreurListe && (
-            <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
+          Liste des étudiants en {niveau}
+          {chargement ? (
+            // Année et effectif inconnus au premier chargement : squelette à leur place
+            <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '11rem', height: '1rem' }} aria-hidden="true" />
+          ) : (
+            <>
+              {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
+                <span className="text-muted ms-2">
+                  - {annees.find(a => a.id == selectedAnnee)?.annee_aca}
+                </span>
+              )}
+              {!erreurListe && (actualisation ? (
+                // Effectif d'un autre filtre en attente de la réponse : squelette plutôt qu'un nombre périmé
+                <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '6rem', height: '0.875rem' }} aria-hidden="true" />
+              ) : (
+                <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
+              ))}
+            </>
           )}
         </h5>
         {role === 'admin' && (
@@ -451,9 +489,9 @@ const ListeEtudiant = () => {
           </div>
         )}
 
-        {!chargement && !erreurListe && !actualisation && currentEtudiants.length === 0 && (
+        {!chargement && !erreurListe && !attente && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
-            Aucun étudiant trouvé pour L{niveau}
+            Aucun étudiant trouvé pour {niveau}
             {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
               <span> en {annees.find(a => a.id == selectedAnnee)?.annee_aca}</span>
             )}

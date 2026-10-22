@@ -4,6 +4,7 @@ import { useFeedback } from '../contexts/FeedbackContext';
 import { useAnnee } from '../contexts/AnneeContext';
 import useParcoursPagines from '../hooks/useParcoursPagines';
 import { useNiveau } from '../contexts/NiveauContext';
+import { trierNiveaux, libelleNiveau } from '../utils/niveaux';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -55,15 +56,18 @@ const SqueletteReleve = () => (
 
 const NoteEtudiant = () => {
   const { notify, confirm } = useFeedback();
-  const { niveaux } = useNiveau();
+  const { niveaux, loading: loadingNiveaux } = useNiveau();
   const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importLoading, setImportLoading] = useState(false);
   // États pour les filtres
-  const [selectedAnnee, setSelectedAnnee] = useState('');
-  const [niveau, setNiveau] = useState(1); // Par défaut L1
+  // Année la plus récente choisie dès le premier rendu si les années sont déjà en mémoire (pas de squelette au retour sur la page)
+  const [selectedAnnee, setSelectedAnnee] = useState(() =>
+    anneesListe.length > 0 ? String(Math.max(...anneesListe.map(a => a.id))) : ''
+  );
+  const [niveau, setNiveau] = useState('L1'); // code du niveau (table `niveaux`), L1 par défaut
   const [searchTerm, setSearchTerm] = useState('');
 
   // États de la fenêtre « Notes de … » : relevé calculé par le serveur + valeurs en cours de saisie
@@ -83,7 +87,7 @@ const NoteEtudiant = () => {
 
   // État pour le rôle
   const [role] = useState(localStorage.getItem('role'));
-  const niveauCourant = niveaux.find((n) => n.niveau === `L${niveau}`);
+  const niveauCourant = niveaux.find((n) => n.niveau === niveau);
 
   // Remise à zéro quand la fenêtre des notes se ferme (bouton, Échap désactivé, etc.)
   useEffect(() => {
@@ -106,9 +110,15 @@ const NoteEtudiant = () => {
     if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
   }, [annees, selectedAnnee]);
 
+  // Niveaux de la base, dans l'ordre (L1, L2, L3, M1…) ; si L1 n'existe pas, le premier niveau est affiché
+  const niveauxTries = trierNiveaux(niveaux);
+  useEffect(() => {
+    if (niveauxTries.length > 0 && !niveauxTries.some(n => n.niveau === niveau)) setNiveau(niveauxTries[0].niveau);
+  }, [niveauxTries, niveau]);
+
   // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
-  const { lignes, total, pages: totalPages, premierChargement, actualisation, erreur: erreurListe, recharger } =
-    useParcoursPagines({ annee: selectedAnnee, niveau: `L${niveau}`, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
+  const { lignes, total, pages: totalPages, premierChargement, attente, actualisation, erreur: erreurListe, recharger } =
+    useParcoursPagines({ annee: selectedAnnee, niveau, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
   const chargement = premierChargement && !erreurListe && (loadingAnnees || anneesListe.length > 0);
 
   const currentEtudiants = lignes.map(parcours => {
@@ -358,34 +368,56 @@ const NoteEtudiant = () => {
         )}
       </div>
 
-      {/* 🔹 Sélecteur de niveau (L1–L3) */}
+      {/* 🔹 Sélecteur de niveau : niveaux enregistrés en base */}
       <ul className="nav nav-pills mb-3">
-        {[1, 2, 3].map(i => (
-          <li className="nav-item" key={i}>
-            <button
-              className={`nav-link ${niveau === i ? 'active' : ''}`}
-              onClick={() => handleNiveauChange(i)}
-            >
-              L{i}
-            </button>
-          </li>
-        ))}
+        {loadingNiveaux && niveauxTries.length === 0
+          ? [0, 1, 2].map(i => (
+              <li className="nav-item me-2" key={i}>
+                <span className="gstf-squelette" style={{ width: '3.5rem', height: '2.4rem' }} />
+              </li>
+            ))
+          : niveauxTries.map(n => (
+              <li className="nav-item" key={n.id}>
+                <button
+                  className={`nav-link ${niveau === n.niveau ? 'active' : ''}`}
+                  title={libelleNiveau(n.niveau)}
+                  onClick={() => handleNiveauChange(n.niveau)}
+                >
+                  {n.niveau}
+                </button>
+              </li>
+            ))}
       </ul>
 
       {role === 'admin' && (
-        <PublicationNotes anneeId={selectedAnnee} niveau={niveauCourant} version={versionNotes} />
+        <PublicationNotes
+          anneeId={selectedAnnee}
+          niveau={niveauCourant}
+          version={versionNotes}
+          enAttente={loadingNiveaux || loadingAnnees || (!selectedAnnee && anneesListe.length > 0)}
+        />
       )}
 
       <div className="card">
         <h5 className="card-header">
-          Gestion des notes - L{niveau}
-          {selectedAnnee && annees.find(a => String(a.id) === String(selectedAnnee)) && (
-            <span className="text-muted ms-2">
-              - {annees.find(a => String(a.id) === String(selectedAnnee))?.annee_aca}
-            </span>
-          )}
-          {!chargement && !erreurListe && (
-            <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
+          Gestion des notes - {niveau}
+          {chargement ? (
+            // Année et effectif inconnus au premier chargement : squelette à leur place
+            <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '11rem', height: '1rem' }} aria-hidden="true" />
+          ) : (
+            <>
+              {selectedAnnee && annees.find(a => String(a.id) === String(selectedAnnee)) && (
+                <span className="text-muted ms-2">
+                  - {annees.find(a => String(a.id) === String(selectedAnnee))?.annee_aca}
+                </span>
+              )}
+              {!erreurListe && (actualisation ? (
+                // Effectif d'un autre filtre en attente de la réponse : squelette plutôt qu'un nombre périmé
+                <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '6rem', height: '0.875rem' }} aria-hidden="true" />
+              ) : (
+                <small className="text-muted fw-normal ms-2">· {total} étudiant{total > 1 ? 's' : ''}</small>
+              ))}
+            </>
           )}
         </h5>
         {role === 'admin' && (
@@ -588,9 +620,9 @@ const NoteEtudiant = () => {
           </div>
         )}
 
-        {!chargement && !erreurListe && !actualisation && currentEtudiants.length === 0 && (
+        {!chargement && !erreurListe && !attente && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
-            Aucun étudiant trouvé pour L{niveau}
+            Aucun étudiant trouvé pour {niveau}
             {selectedAnnee && annees.find(a => String(a.id) === String(selectedAnnee)) && (
               <span> en {annees.find(a => String(a.id) === String(selectedAnnee))?.annee_aca}</span>
             )}
@@ -624,7 +656,7 @@ const NoteEtudiant = () => {
               ) : erreurNotes ? (
                 <div className="alert alert-danger mb-0">{erreurNotes}</div>
               ) : releve && (releve.semestres.length === 0 ? (
-                <p className="text-muted text-center py-4 mb-0">Aucune matière n'est enregistrée pour ce niveau.</p>
+                <p className="text-muted text-center py-4 mb-0">Aucune matière n'est au programme de ce niveau pour cette année (module Matières).</p>
               ) : releve.semestres.map((s, indexSemestre) => (
                 <section className="mb-4" key={s.id ?? 'hors'}>
                   <div className="d-flex flex-wrap align-items-center gap-2 mb-2">

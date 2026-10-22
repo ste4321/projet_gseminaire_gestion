@@ -8,10 +8,17 @@ import { confirmerAvecCode } from '../utils/confirmation';
 // Tant qu'un semestre n'est pas publié, le serveur n'envoie pas ses notes aux étudiants.
 const dateCourte = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
 
-const PublicationNotes = ({ anneeId, niveau, version }) => {
+// Mémoire par année + niveau : revenir sur la page ou sur un niveau déjà vu affiche l'état
+// immédiatement, puis il est rafraîchi en arrière-plan sans squelette.
+const memoire = new Map();
+const cleDe = (anneeId, niveauId) => JSON.stringify([localStorage.getItem('token'), String(anneeId), niveauId]);
+
+// enAttente : année ou niveau pas encore connus (premier chargement) → squelette plutôt que rien
+const PublicationNotes = ({ anneeId, niveau, version, enAttente = false }) => {
   const { notify, confirm } = useFeedback();
-  const [semestres, setSemestres] = useState([]);
-  const [loading, setLoading] = useState(true); // squelette dès le premier affichage
+  const cle = anneeId && niveau?.id ? cleDe(anneeId, niveau.id) : null;
+  const [semestres, setSemestres] = useState(() => (cle && memoire.get(cle)) || []);
+  const [loading, setLoading] = useState(() => !(cle && memoire.has(cle))); // squelette seulement si rien en mémoire
   const [enCours, setEnCours] = useState(null);
 
   const nouvelleRequete = useDerniereRequete();
@@ -20,21 +27,26 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
     const signal = nouvelleRequete(); // changement de niveau rapide : seule la dernière réponse compte
     if (!anneeId || !niveau?.id) {
       setSemestres([]);
-      setLoading(false);
+      setLoading(enAttente); // squelette maintenu tant que l'année ou le niveau arrivent
       return;
     }
-    setLoading(true);
+    const cle = cleDe(anneeId, niveau.id);
+    const enMemoire = memoire.get(cle);
+    // Déjà vu : affiché tout de suite, rafraîchi en silence. Sinon : squelette (pas l'état d'un autre niveau)
+    setSemestres(enMemoire || []);
+    setLoading(!enMemoire);
     try {
       const res = await api.get('/notes/publications', { params: { annee: anneeId, niveau: niveau.id }, signal });
+      memoire.set(cle, res.data);
       setSemestres(res.data);
     } catch (error) {
       if (estAnnulee(error)) return;
-      setSemestres([]);
+      if (!enMemoire) setSemestres([]);
       notify.error(errorMessage(error, "L'état de publication des notes est indisponible."));
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, [anneeId, niveau?.id, notify, nouvelleRequete]);
+  }, [anneeId, niveau?.id, enAttente, notify, nouvelleRequete]);
 
   useEffect(() => {
     charger();
@@ -88,16 +100,16 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
     if (ok) await executer(s, () => api.delete('/notes/publications', { data: cibleDe(s) }));
   };
 
-  if (!niveau) return null;
+  if (!niveau && !enAttente) return null;
 
   return (
     <div className="card mb-4 gstf-publication">
       <div className="card-header">
-        <h5 className="card-title mb-1">Publication des notes · {niveau.niveau}</h5>
+        <h5 className="card-title mb-1">Publication des notes{niveau ? ` · ${niveau.niveau}` : ''}</h5>
         <small className="text-muted">Les étudiants ne voient les notes d'un semestre qu'après sa publication.</small>
       </div>
       <div className="card-body">
-        {loading && semestres.length === 0 ? (
+        {(loading || !niveau) && semestres.length === 0 ? (
           <div className="gstf-publication__liste">
             <span className="visually-hidden" role="status">Chargement de l'état de publication…</span>
             {[0, 1].map((i) => (
@@ -119,7 +131,7 @@ const PublicationNotes = ({ anneeId, niveau, version }) => {
             ))}
           </div>
         ) : semestres.length === 0 ? (
-          <p className="text-muted mb-0">Aucune matière de ce niveau n'est rattachée à un semestre.</p>
+          <p className="text-muted mb-0">Aucune matière de ce niveau n'est au programme de cette année (module Matières).</p>
         ) : (
           <div className="gstf-publication__liste">
             {semestres.map((s) => {

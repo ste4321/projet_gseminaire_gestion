@@ -4,14 +4,13 @@ import { ProfProvider } from '../contexts/ProfContext';
 import { AnnonceProvider } from '../contexts/AnnonceContext';
 import { InfoProvider } from '../contexts/InfoContext';
 import { NiveauProvider } from '../contexts/NiveauContext';
-import { MatiereProvider } from '../contexts/MatiereContext';
 import { SemestreProvider } from '../contexts/SemestreContext';
 import { AnneeProvider } from '../contexts/AnneeContext';
 import { UserCessionProvider } from '../contexts/UserCessionContext';
 
 // Données partagées par les pages d'administration
 const providers = [
-  AnneeProvider, SemestreProvider, MatiereProvider, NiveauProvider,
+  AnneeProvider, SemestreProvider, NiveauProvider,
   AnnonceProvider, ProfProvider, EmploiProvider,
   UserCessionProvider, InfoProvider,
 ];
