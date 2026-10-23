@@ -5,6 +5,8 @@ import { clearSession, getRole } from '../auth/session';
 import { getConsultation, quitterConsultation } from '../auth/consultation';
 import { ROLE_LABELS } from '../navigation';
 import ChoixTheme from './ChoixTheme';
+import ClocheAnnonces from './ClocheAnnonces';
+import { fermerConnexion } from '../realtime';
 
 const initiales = (nom) =>
   (nom || '?')
@@ -19,6 +21,7 @@ const Header = () => {
   const nomPrenom = localStorage.getItem('nom_prenom') || '';
 
   const handleLogout = async () => {
+    fermerConnexion();
     if (getConsultation()) {
       quitterConsultation();
       return;
@@ -56,6 +59,9 @@ const Header = () => {
         <ul className="navbar-nav flex-row align-items-center ms-auto">
           <li className="nav-item me-2">
             <ChoixTheme />
+          </li>
+          <li className="nav-item me-2">
+            <ClocheAnnonces />
           </li>
           <li className="nav-item navbar-dropdown dropdown-user dropdown">
             <button

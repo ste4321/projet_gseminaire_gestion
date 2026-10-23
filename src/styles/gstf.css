@@ -73,7 +73,6 @@
 /* ─── Notifications ──────────────────────────────────────── */
 .gstf-toasts {
   position: fixed;
-  top: 1rem;
   right: 1rem;
   z-index: 1100;
   display: flex;
@@ -102,13 +101,27 @@
 .gstf-toast--error { color: var(--gstf-erreur); }
 .gstf-toast--warning { color: var(--gstf-alerte); }
 .gstf-toast--info { color: var(--gstf-info); }
+/* En haut : résultat d'une action. En bas : notification reçue (la plus récente au plus près du bord) */
+.gstf-toasts--haut { top: 1rem; }
+.gstf-toasts--bas { bottom: 1rem; }
+.gstf-toasts--bas .gstf-toast { animation-name: gstf-toast-in-bas; }
+
+/* Cloche de l'en-tête : annonces non lues */
+.gstf-cloche { width: min(340px, calc(100vw - 2rem)); }
+.gstf-cloche__item { white-space: normal; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.gstf-cloche__compteur { font-size: 0.65rem; margin-top: 0.1rem; }
 
 @keyframes gstf-toast-in {
   from { opacity: 0; transform: translateY(-0.5rem); }
   to { opacity: 1; transform: none; }
 }
+@keyframes gstf-toast-in-bas {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: none; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .gstf-toast { animation: none; }
+  .gstf-toast,
+  .gstf-toasts--bas .gstf-toast { animation: none; }
 }
 
 /* ─── États vides et chargement ──────────────────────────── */

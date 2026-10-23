@@ -4,6 +4,9 @@
 //   const { notify, confirm } = useFeedback();
 //   notify.success('Étudiant ajouté.');
 //   notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
+//   notify.info('…', { title: 'Nouvelle annonce', action: { label: 'Lire', onClick: () => … }, position: 'bas' });
+//   Position : en haut à droite (défaut) pour le résultat d'une action de l'utilisateur ;
+//   'bas' (en bas à droite) pour ce qui arrive sans qu'il ait rien fait (notification reçue en direct).
 //   if (await confirm({ title: 'Supprimer ?', message: '…', confirmLabel: 'Supprimer', danger: true })) { … }
 //   Avec `code: 'K7M2QX'`, le bouton ne s'active qu'une fois le code recopié (voir utils/confirmation.js).
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
@@ -31,7 +34,7 @@ export const FeedbackProvider = ({ children }) => {
 
   const push = useCallback((type, message, options = {}) => {
     const id = ++nextId.current;
-    setToasts((list) => [...list.slice(-4), { id, type, message, title: options.title }]);
+    setToasts((list) => [...list.slice(-4), { id, type, message, title: options.title, action: options.action, position: options.position === 'bas' ? 'bas' : 'haut' }]);
     setTimeout(() => dismiss(id), options.duration ?? DUREE[type]);
     return id;
   }, [dismiss]);
@@ -61,21 +64,30 @@ export const FeedbackProvider = ({ children }) => {
     <FeedbackContext.Provider value={value}>
       {children}
 
-      <div className="gstf-toasts" role="region" aria-live="polite" aria-label="Notifications">
-        {toasts.map((t) => {
-          const style = STYLES[t.type];
-          return (
-            <div key={t.id} className={`gstf-toast ${style.className}`} role={t.type === 'error' ? 'alert' : 'status'}>
-              <i className={`bx ${style.icon} gstf-toast__icon`} aria-hidden="true"></i>
-              <div className="gstf-toast__body">
-                <strong>{t.title || style.title}</strong>
-                <div className="gstf-toast__message">{t.message}</div>
+      {['haut', 'bas'].map((position) => (
+        <div key={position} className={`gstf-toasts gstf-toasts--${position}`} role="region" aria-live="polite"
+          aria-label={position === 'bas' ? 'Notifications reçues' : 'Notifications'}>
+          {toasts.filter((t) => t.position === position).map((t) => {
+            const style = STYLES[t.type];
+            return (
+              <div key={t.id} className={`gstf-toast ${style.className}`} role={t.type === 'error' ? 'alert' : 'status'}>
+                <i className={`bx ${style.icon} gstf-toast__icon`} aria-hidden="true"></i>
+                <div className="gstf-toast__body">
+                  <strong>{t.title || style.title}</strong>
+                  <div className="gstf-toast__message">{t.message}</div>
+                  {t.action && (
+                    <button type="button" className="btn btn-sm btn-primary mt-2"
+                      onClick={() => { dismiss(t.id); t.action.onClick(); }}>
+                      {t.action.label}
+                    </button>
+                  )}
+                </div>
+                <button type="button" className="btn-close" aria-label="Fermer" onClick={() => dismiss(t.id)}></button>
               </div>
-              <button type="button" className="btn-close" aria-label="Fermer" onClick={() => dismiss(t.id)}></button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ))}
 
       {dialog && (
         <>
