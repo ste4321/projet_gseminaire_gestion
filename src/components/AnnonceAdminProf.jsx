@@ -1,23 +1,38 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PhotoProvider, PhotoView } from 'react-photo-view';
+import 'react-photo-view/dist/react-photo-view.css';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { useAnnonce } from '../contexts/AnnonceContext';
 import { useNiveau } from '../contexts/NiveauContext';
 import { useAnnee } from '../contexts/AnneeContext';
+import { useNotificationsAnnonces } from '../contexts/NotificationAnnonceContext';
 import SearchBar from './SearchBar';
 import Pagination from './Pagination';
 import { plusRecentsDabord } from '../utils/tri';
 import { trierNiveaux } from '../utils/niveaux';
+import LigneAnnonce, { ETUDIANTS, ENSEIGNANTS, TOUS, libelleDestinataires, iconeDestinataires, LignesAnnonceChargement } from './LigneAnnonce';
+import { ROLE_LABELS } from '../navigation';
 
-// Annonces : publiées par l'administration, lues par les enseignants et les étudiants
-// (le serveur ne renvoie à un étudiant que celles de son année et de son niveau).
+// Annonces : publiées par l'administration, lues par leurs destinataires
+// (le serveur ne renvoie à chacun que les siennes : à un étudiant, celles des étudiants de son année et de son niveau ;
+// à un enseignant, celles des enseignants). À la publication, les destinataires sont prévenus en direct.
+
+// Destinataires (ETUDIANTS, ENSEIGNANTS, TOUS : voir LigneAnnonce) : étudiants d'un niveau ou de tous,
+// enseignants, ou tout le monde (étudiants de l'année + enseignants)
 
 // Pas d'année dans le formulaire : le serveur rattache l'annonce à l'année en cours (celle des étudiants inscrits)
-const FORMULAIRE_VIDE = { titre: '', description: '', id_niveau: '', fichier: null, supprimer_fichier: false };
+const FORMULAIRE_VIDE = { titre: '', description: '', destinataires: ETUDIANTS, id_niveau: '', fichier: null, supprimer_fichier: false };
 const TAILLE_MAX = 10 * 1024 * 1024; // 10 Mo, comme le serveur
 const EXTENSIONS = ['pdf', 'doc', 'docx', 'xlsx', 'zip', 'jpg', 'jpeg', 'png'];
 const PAR_PAGE = 8;
-const TOUS_NIVEAUX = 'tous';
+
+// Une seule liste de choix pour les destinataires et le niveau : 'tous', 'enseignants', 'etudiants' (tous niveaux) ou 'niveau:<id>'
+const choixDestinataires = ({ destinataires, id_niveau }) =>
+  (destinataires || ETUDIANTS) === ETUDIANTS && id_niveau ? `niveau:${id_niveau}` : destinataires || ETUDIANTS;
+const depuisChoix = (choix) =>
+  choix.startsWith('niveau:') ? { destinataires: ETUDIANTS, id_niveau: choix.slice(7) } : { destinataires: choix, id_niveau: '' };
 
 const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const extension = (nom) => String(nom ?? '').split('?')[0].split('.').pop().toLowerCase();
@@ -31,7 +46,23 @@ const iconeFichier = (url) => {
   if (estImage(url)) return 'bx-image';
   return 'bx-file';
 };
-const dateLongue = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+// « jeudi 23 octobre 2026 à 10 h 15 »
+const dateHeure = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const jour = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return `${jour.charAt(0).toUpperCase()}${jour.slice(1)} à ${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`;
+};
+// Modifiée après sa publication (au-delà d'une minute : pas l'enregistrement initial)
+const estModifiee = (a) => Boolean(a?.updated_at && a?.created_at) && new Date(a.updated_at) - new Date(a.created_at) > 60000;
+const TYPES_FICHIER = { pdf: 'Document PDF', doc: 'Document Word', docx: 'Document Word', xlsx: 'Tableur Excel', zip: 'Archive ZIP', jpg: 'Image', jpeg: 'Image', png: 'Image' };
+const initiales = (nom) => String(nom || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0].toUpperCase()).join('');
+// Liens du texte cliquables (sans interpréter de HTML : le texte reste du texte)
+const LIEN = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"»])/g;
+const avecLiens = (texte) =>
+  String(texte ?? '').split(LIEN).map((morceau, i) =>
+    i % 2 ? <a key={i} href={morceau} target="_blank" rel="noreferrer noopener">{morceau}</a> : morceau
+  );
 // « Nouveau » : publiée aujourd'hui (même jour du calendrier, heure locale)
 const estNouvelle = (iso) => Boolean(iso) && new Date(iso).toDateString() === new Date().toDateString();
 
@@ -45,12 +76,17 @@ const AnnonceAdminProf = () => {
   const { annonces, loading, fetchAnnonces } = useAnnonce();
   const { niveaux } = useNiveau();
   const { annees: anneesListe } = useAnnee();
+  const { nonLues, marquerLues } = useNotificationsAnnonces();
+  // Annonces arrivées depuis la dernière visite : signalées dans la liste tant que la page reste ouverte
+  const [nouvelles, setNouvelles] = useState(() => new Set());
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const annees = useMemo(() => [...anneesListe].sort((a, b) => b.id - a.id), [anneesListe]);
   const onglets = trierNiveaux(niveaux);
 
   const [recherche, setRecherche] = useState('');
-  const [filtreNiveau, setFiltreNiveau] = useState(''); // '' = toutes, TOUS_NIVEAUX, ou id
+  const [filtreNiveau, setFiltreNiveau] = useState(''); // '' = toutes, sinon un choix de destinataires (voir choixDestinataires)
   const [filtreAnnee, setFiltreAnnee] = useState(''); // '' = toutes
   const [page, setPage] = useState(0);
   const [form, setForm] = useState(FORMULAIRE_VIDE);
@@ -60,19 +96,62 @@ const AnnonceAdminProf = () => {
 
   useEffect(() => setPage(0), [recherche, filtreNiveau, filtreAnnee]);
 
+  // Page consultée : les annonces affichées ne comptent plus comme non lues (cloche de l'en-tête)
+  useEffect(() => {
+    if (loading) return;
+    if (nonLues.length) setNouvelles((avant) => new Set([...avant, ...nonLues.map((a) => a.id)]));
+    marquerLues();
+  }, [loading, nonLues, marquerLues]);
+
+  // Liste mise à jour (en direct ou après une action) : l'annonce ouverte suit ;
+  // si elle a été supprimée (ou ne concerne plus ce lecteur), sa fenêtre se ferme
+  useEffect(() => {
+    if (!detail || loading) return;
+    const aJour = annonces.find((a) => a.id === detail.id);
+    if (aJour) {
+      if (aJour !== detail) setDetail(aJour);
+      return;
+    }
+    const fenetre = document.getElementById('detailAnnonceModal');
+    if (fenetre?.classList.contains('show')) {
+      modal('detailAnnonceModal').hide();
+      if (!admin) notify.info(`« ${detail.titre} » a été retirée.`);
+    }
+    setDetail(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annonces]);
+
+  // Arrivée depuis une notification : ouvre directement l'annonce
+  const annonceDemandee = location.state?.annonce;
+  useEffect(() => {
+    if (!annonceDemandee || loading || !window.bootstrap) return;
+    const annonce = annonces.find((a) => a.id === annonceDemandee);
+    if (annonce) ouvrirDetail(annonce);
+    navigate('.', { replace: true, state: null }); // une seule fois, pas à chaque retour sur la page
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [annonceDemandee, loading, annonces]);
+
   // ---------- Filtres ----------
   const terme = normaliser(recherche);
   const filtrees = useMemo(
     () =>
       plusRecentsDabord(annonces).filter((a) => {
-        if (filtreNiveau === TOUS_NIVEAUX && a.id_niveau) return false;
-        if (filtreNiveau && filtreNiveau !== TOUS_NIVEAUX && String(a.id_niveau) !== filtreNiveau) return false;
+        if (filtreNiveau && choixDestinataires(a) !== filtreNiveau) return false;
         if (filtreAnnee && String(a.id_annee_aca) !== filtreAnnee) return false;
         return !terme || [a.titre, a.description, a.expediteur].some((v) => normaliser(v).includes(terme));
       }),
     [annonces, filtreNiveau, filtreAnnee, terme]
   );
   const totalPages = Math.ceil(filtrees.length / PAR_PAGE);
+  // Détail : annonces voisines dans la liste affichée (plus récente / plus ancienne)
+  const rang = detail ? filtrees.findIndex((a) => a.id === detail.id) : -1;
+  const plusRecente = rang > 0 ? filtrees[rang - 1] : null;
+  const plusAncienne = rang >= 0 && rang < filtrees.length - 1 ? filtrees[rang + 1] : null;
+  const naviguer = (e) => {
+    if (e.target.closest('input, textarea, select')) return;
+    if (e.key === 'ArrowLeft' && plusRecente) setDetail(plusRecente);
+    if (e.key === 'ArrowRight' && plusAncienne) setDetail(plusAncienne);
+  };
   const visibles = filtrees.slice(page * PAR_PAGE, (page + 1) * PAR_PAGE);
   const filtresActifs = Boolean(terme || filtreNiveau || filtreAnnee);
   const effacerFiltres = () => {
@@ -93,6 +172,7 @@ const AnnonceAdminProf = () => {
     setForm({
       titre: annonce.titre ?? '',
       description: annonce.description ?? '',
+      destinataires: annonce.destinataires || ETUDIANTS,
       id_niveau: annonce.id_niveau ? String(annonce.id_niveau) : '',
       fichier: null,
       supprimer_fichier: false,
@@ -124,7 +204,8 @@ const AnnonceAdminProf = () => {
     const donnees = new FormData();
     donnees.append('titre', form.titre.trim());
     donnees.append('description', form.description.trim());
-    donnees.append('id_niveau', form.id_niveau); // vide = tous les niveaux
+    donnees.append('destinataires', form.destinataires);
+    donnees.append('id_niveau', form.id_niveau); // vide = tous les niveaux (étudiants)
     if (form.fichier) donnees.append('fichier', form.fichier);
     if (enEdition && form.supprimer_fichier) donnees.append('supprimer_fichier', '1');
 
@@ -170,13 +251,17 @@ const AnnonceAdminProf = () => {
     modal('detailAnnonceModal').hide();
   };
 
-  const destinataires = (a) => a.niveau?.niveau || 'Tous les niveaux';
+  const choixForm = choixDestinataires(form);
+  const aideDestinataires = {
+    [TOUS]: "Tous les étudiants de l'année et tous les enseignants",
+    [ENSEIGNANTS]: 'Les enseignants, et eux seuls',
+  }[choixForm] || "Les étudiants de l'année";
   const formulaireValide = form.titre.trim() && form.description.trim();
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light text-capitalize">{role} /</span> Annonces
+        <span className="text-muted fw-light">{ROLE_LABELS[role]} /</span> Annonces
       </h4>
       {loading && <span className="visually-hidden" role="status">Chargement des annonces…</span>}
 
@@ -211,11 +296,15 @@ const AnnonceAdminProf = () => {
             />
             {!etudiant && (
               <div className="d-flex flex-wrap gap-2">
-                <select className="form-select w-auto" value={filtreNiveau} onChange={(e) => setFiltreNiveau(e.target.value)} aria-label="Filtrer par destinataires">
-                  <option value="">Tous les destinataires</option>
-                  <option value={TOUS_NIVEAUX}>Tous les niveaux</option>
-                  {onglets.map((n) => <option key={n.id} value={String(n.id)}>{n.niveau}</option>)}
-                </select>
+                {admin && (
+                  <select className="form-select w-auto" value={filtreNiveau} onChange={(e) => setFiltreNiveau(e.target.value)} aria-label="Filtrer par destinataires">
+                    <option value="">Tous les destinataires</option>
+                    <option value={TOUS}>Tout le monde</option>
+                    <option value={ENSEIGNANTS}>Enseignants</option>
+                    <option value={ETUDIANTS}>Tous les étudiants</option>
+                    {onglets.map((n) => <option key={n.id} value={`niveau:${n.id}`}>Étudiants {n.niveau}</option>)}
+                  </select>
+                )}
                 <select className="form-select w-auto" value={filtreAnnee} onChange={(e) => setFiltreAnnee(e.target.value)} aria-label="Filtrer par année">
                   <option value="">Toutes les années</option>
                   {annees.map((a) => <option key={a.id} value={String(a.id)}>{a.annee_aca}</option>)}
@@ -227,32 +316,13 @@ const AnnonceAdminProf = () => {
 
         {/* Liste */}
         <ul className="list-group list-group-flush gstf-annonces" aria-busy={loading}>
-          {loading
-            ? [0, 1, 2, 3].map((i) => (
-                <li className="list-group-item gstf-annonce" key={i} aria-hidden="true">
-                  <span className="d-block flex-grow-1">
-                    <span className="gstf-squelette mb-2" style={{ width: `${40 + (i % 3) * 12}%`, height: '1rem' }} />
-                    <span className="gstf-squelette" style={{ width: '80%', height: '0.75rem' }} />
-                  </span>
-                  <span className="gstf-squelette" style={{ width: '5.5rem', height: '1.3rem' }} />
-                </li>
-              ))
-            : visibles.map((a) => (
-                // Liste : titre, extrait et destinataires ; le reste (date, expéditeur, fichier, actions) est dans le détail
-                <li className="list-group-item p-0" key={a.id}>
-                  <button type="button" className="gstf-annonce gstf-annonce__corps w-100" onClick={() => ouvrirDetail(a)}>
-                    <span className="d-block min-w-0 flex-grow-1">
-                      <span className="d-flex align-items-center gap-2 min-w-0">
-                        <strong className="gstf-annonce__titre text-truncate">{a.titre}</strong>
-                        {estNouvelle(a.created_at) && <span className="badge bg-label-success">Nouveau</span>}
-                        {a.fichier && <i className="bx bx-paperclip text-muted" title="Fichier joint" aria-label="Fichier joint"></i>}
-                      </span>
-                      <span className="gstf-annonce__extrait">{a.description}</span>
-                    </span>
-                    <span className={`badge text-nowrap ${a.niveau ? 'bg-label-primary' : 'bg-label-secondary'}`}>{destinataires(a)}</span>
-                  </button>
-                </li>
-              ))}
+          {loading ? (
+            <LignesAnnonceChargement />
+          ) : (
+            visibles.map((a) => (
+              <LigneAnnonce key={a.id} annonce={a} nouvelle={nouvelles.has(a.id)} avecDestinataires={!etudiant} onClick={() => ouvrirDetail(a)} />
+            ))
+          )}
         </ul>
 
         {!loading && filtrees.length === 0 && (
@@ -268,7 +338,7 @@ const AnnonceAdminProf = () => {
             ) : (
               <>
                 <i className="bx bx-bell-off d-block"></i>
-                {etudiant ? "Aucune annonce pour l'instant." : "Aucune annonce n'a encore été publiée."}
+                {admin ? "Aucune annonce n'a encore été publiée." : "Aucune annonce pour l'instant."}
                 {admin && (
                   <div className="mt-3">
                     <button type="button" className="btn btn-sm btn-primary" onClick={ouvrirAjout}>Publier une annonce</button>
@@ -306,15 +376,21 @@ const AnnonceAdminProf = () => {
               </div>
 
               <div className="mb-3">
-                <label className="form-label" htmlFor="annonce-niveau">Destinataires</label>
-                <select id="annonce-niveau" className="form-select" value={form.id_niveau} onChange={(e) => changer('id_niveau', e.target.value)}>
-                  <option value="">Tous les niveaux</option>
-                  {onglets.map((n) => <option key={n.id} value={String(n.id)}>{n.niveau} uniquement</option>)}
+                <label className="form-label" htmlFor="annonce-destinataires">Destinataires</label>
+                <select id="annonce-destinataires" className="form-select" value={choixForm}
+                  onChange={(e) => setForm((f) => ({ ...f, ...depuisChoix(e.target.value) }))}>
+                  <option value={TOUS}>Tout le monde (étudiants et enseignants)</option>
+                  <option value={ENSEIGNANTS}>Enseignants uniquement</option>
+                  <optgroup label="Étudiants">
+                    <option value={ETUDIANTS}>Tous les niveaux</option>
+                    {onglets.map((n) => <option key={n.id} value={`niveau:${n.id}`}>{n.niveau} uniquement</option>)}
+                  </optgroup>
                 </select>
                 <div className="form-text">
+                  {aideDestinataires}
                   {enEdition
-                    ? `Annonce de l'année ${enEdition.annee_aca?.annee_aca ?? 'en cours'}.`
-                    : "Envoyée aux étudiants de l'année en cours."}
+                    ? ` · annonce de l'année ${enEdition.annee_aca?.annee_aca ?? 'en cours'}.`
+                    : ' · année en cours. Ils sont prévenus dès la publication.'}
                 </div>
               </div>
 
@@ -353,44 +429,91 @@ const AnnonceAdminProf = () => {
       {/* Détail */}
       <div className="modal fade" id="detailAnnonceModal" tabIndex="-1" aria-labelledby="detailAnnonceTitre" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
-          <div className="modal-content">
+          <div className="modal-content gstf-annonce-detail" onKeyDown={naviguer}>
             {detail && (
               <>
-                <div className="modal-header gstf-fiche__entete">
-                  <div className="min-w-0">
-                    <h5 className="modal-title mb-1" id="detailAnnonceTitre">{detail.titre}</h5>
-                    <div className="small text-muted">
-                      {detail.expediteur} · {dateLongue(detail.created_at)}
-                      {!etudiant && ` · ${destinataires(detail)}${detail.annee_aca?.annee_aca ? ` · ${detail.annee_aca.annee_aca}` : ''}`}
+                <div className="modal-header gstf-annonce-detail__entete">
+                  <span className="gstf-pastille-annonce" aria-hidden="true"><i className="bx bxs-megaphone"></i></span>
+                  <div className="min-w-0 flex-grow-1">
+                    <div className="d-flex flex-wrap gap-1 mb-2">
+                      <span className="badge gstf-badge-neutre"><i className={`bx ${iconeDestinataires(detail)} me-1`} aria-hidden="true"></i>{libelleDestinataires(detail)}</span>
+                      {estNouvelle(detail.created_at) && <span className="badge bg-label-primary">Nouveau</span>}
+                      {estModifiee(detail) && (
+                        <span className="badge gstf-badge-neutre" title={`Modifiée le ${dateHeure(detail.updated_at)}`}>Modifiée</span>
+                      )}
                     </div>
+                    <h4 className="modal-title gstf-annonce-detail__titre" id="detailAnnonceTitre">{detail.titre}</h4>
                   </div>
                   <button type="button" className="btn-close align-self-start" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
+
                 <div className="modal-body">
-                  <p className="gstf-annonce__texte mb-0">{detail.description}</p>
+                  <div className="gstf-annonce-detail__meta">
+                    <span className="d-inline-flex align-items-center gap-2">
+                      <span className="avatar avatar-sm">
+                        <span className="avatar-initial rounded-circle bg-label-primary">{initiales(detail.expediteur)}</span>
+                      </span>
+                      <strong className="text-body">{detail.expediteur}</strong>
+                    </span>
+                    <span><i className="bx bx-calendar me-1" aria-hidden="true"></i>{dateHeure(detail.created_at)}</span>
+                    {!etudiant && detail.annee_aca?.annee_aca && (
+                      <span><i className="bx bx-book-bookmark me-1" aria-hidden="true"></i>Année {detail.annee_aca.annee_aca}</span>
+                    )}
+                  </div>
+
+                  <div className="gstf-annonce-detail__texte">{avecLiens(detail.description)}</div>
+
                   {detail.fichier && (
-                    <div className="mt-4">
+                    <div className="gstf-piece-jointe">
                       {estImage(detail.fichier) && (
-                        <img src={detail.fichier} alt={`Fichier joint à « ${detail.titre} »`} className="img-fluid rounded border mb-2" style={{ maxHeight: '22rem' }} />
+                        <PhotoProvider>
+                          <PhotoView src={detail.fichier}>
+                            <button type="button" className="gstf-piece-jointe__apercu" aria-label="Agrandir l'image jointe">
+                              <img src={detail.fichier} alt={`Pièce jointe de « ${detail.titre} »`} />
+                              <span className="gstf-piece-jointe__zoom"><i className="bx bx-zoom-in" aria-hidden="true"></i></span>
+                            </button>
+                          </PhotoView>
+                        </PhotoProvider>
                       )}
-                      <a href={detail.fichier} target="_blank" rel="noreferrer" className="btn btn-outline-primary btn-sm">
-                        <i className={`bx ${iconeFichier(detail.fichier)} me-1`}></i>
-                        Ouvrir le fichier joint ({extension(detail.fichier).toUpperCase()})
-                      </a>
+                      <div className="gstf-piece-jointe__ligne">
+                        <span className="gstf-piece-jointe__icone" aria-hidden="true"><i className={`bx ${iconeFichier(detail.fichier)}`}></i></span>
+                        <span className="min-w-0 flex-grow-1">
+                          <strong className="d-block">Pièce jointe</strong>
+                          <small className="text-muted">{TYPES_FICHIER[extension(detail.fichier)] || 'Fichier'} · {extension(detail.fichier).toUpperCase()}</small>
+                        </span>
+                        <a href={detail.fichier} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary">
+                          <i className="bx bx-link-external me-1"></i>Ouvrir
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>
-                <div className="modal-footer">
-                  {admin && (
-                    <button type="button" className="btn btn-outline-danger me-auto" onClick={() => depuisDetail(() => supprimer(detail))}>
-                      <i className="bx bx-trash me-1"></i>Supprimer
-                    </button>
+
+                <div className="modal-footer gstf-annonce-detail__pied">
+                  {filtrees.length > 1 && rang >= 0 && (
+                    <div className="btn-group me-auto" role="group" aria-label="Autres annonces">
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusRecente}
+                        onClick={() => setDetail(plusRecente)} title="Annonce plus récente (←)">
+                        <i className="bx bx-chevron-left"></i><span className="d-none d-sm-inline">Plus récente</span>
+                      </button>
+                      <span className="btn btn-sm btn-outline-secondary disabled gstf-annonce-detail__position">{rang + 1} / {filtrees.length}</span>
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusAncienne}
+                        onClick={() => setDetail(plusAncienne)} title="Annonce plus ancienne (→)">
+                        <span className="d-none d-sm-inline">Plus ancienne</span><i className="bx bx-chevron-right"></i>
+                      </button>
+                    </div>
                   )}
-                  <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
-                  {admin && (
-                    <button type="button" className="btn btn-primary" onClick={() => depuisDetail(() => ouvrirModification(detail))}>
-                      <i className="bx bx-edit me-1"></i>Modifier
-                    </button>
+                  {admin ? (
+                    <>
+                      <button type="button" className="btn btn-outline-danger" onClick={() => depuisDetail(() => supprimer(detail))}>
+                        <i className="bx bx-trash me-1"></i>Supprimer
+                      </button>
+                      <button type="button" className="btn btn-primary" onClick={() => depuisDetail(() => ouvrirModification(detail))}>
+                        <i className="bx bx-edit me-1"></i>Modifier
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
                   )}
                 </div>
               </>

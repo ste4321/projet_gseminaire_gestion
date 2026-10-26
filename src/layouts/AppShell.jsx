@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import Sidebar, { closeSidebar } from '../components/Sidebar';
 import Footer from '../components/Footer';
 import BandeauConsultation from '../components/BandeauConsultation';
+import { NotificationAnnonceProvider } from '../contexts/NotificationAnnonceContext';
 import useScripts from '../hooks/useScripts';
 import { getRole } from '../auth/session';
 import { pageTitle } from '../navigation';
@@ -31,22 +32,25 @@ const AppShell = () => {
   }, [pathname]);
 
   return (
-    <div className="layout-wrapper layout-content-navbar">
-      <div className="layout-container">
-        <Sidebar />
-        <div className="layout-page">
-          <BandeauConsultation />
-          <Header />
-          <div className="content-wrapper">
-            <main className="flex-grow-1">
-              <Outlet />
-            </main>
-            <Footer />
+    // Notifications d'annonces en direct (enseignants et étudiants)
+    <NotificationAnnonceProvider>
+      <div className="layout-wrapper layout-content-navbar">
+        <div className="layout-container">
+          <Sidebar />
+          <div className="layout-page">
+            <BandeauConsultation />
+            <Header />
+            <div className="content-wrapper">
+              <main className="flex-grow-1">
+                <Outlet />
+              </main>
+              <Footer />
+            </div>
           </div>
+          <div className="layout-overlay layout-menu-toggle" onClick={closeSidebar} aria-hidden="true" />
         </div>
-        <div className="layout-overlay layout-menu-toggle" onClick={closeSidebar} aria-hidden="true" />
       </div>
-    </div>
+    </NotificationAnnonceProvider>
   );
 };
 

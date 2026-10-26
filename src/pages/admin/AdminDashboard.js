@@ -367,7 +367,9 @@ const AdminDashboard = () => {
                     <li key={a.id} className="py-2 border-bottom">
                       <div className="d-flex justify-content-between align-items-start gap-2">
                         <strong className="text-truncate">{a.titre}</strong>
-                        <span className="badge bg-label-primary">{a.niveau?.niveau || 'Tous'}</span>
+                        <span className="badge bg-label-primary">
+                          {{ tous: 'Tout le monde', enseignants: 'Enseignants' }[a.destinataires] || a.niveau?.niveau || 'Étudiants'}
+                        </span>
                       </div>
                       {a.description && (
                         <p className="mb-1 text-muted small gstf-extrait-2">{a.description}</p>
