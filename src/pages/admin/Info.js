@@ -1,274 +1,350 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useInfo } from '../../contexts/InfoContext';
 import api, { errorMessage } from '../../api/client';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import { confirmerAvecCode } from '../../utils/confirmation';
-
-// Import des composants modulaires
 import SearchBar from '../../components/SearchBar';
-import AddModal from '../../components/AddModal';
-import EditModal from '../../components/EditModal';
-import DeleteModal from '../../components/DeleteModal';
-import DataTable from '../../components/DataTable';
-import DetailModal from '../../components/DetailModal';
+import Pagination from '../../components/Pagination';
+import LigneAnnonce, { LignesAnnonceChargement } from '../../components/LigneAnnonce';
 import { plusRecentsDabord } from '../../utils/tri';
+
+// Actualités du site vitrine (projet_gseminaire_frontend) : publiées ici, visibles par tous les visiteurs.
+// Publication : code de confirmation à recopier (vérifié aussi par le serveur). Le site se met à jour en direct.
+// Après un ajout, une modification ou une suppression, la liste est mise à jour avec la réponse du serveur
+// (pas de rechargement complet).
+
+const FORMULAIRE_VIDE = { titre: '', auteur: '', description: '' };
+const MAX_TITRE = 255; // mêmes limites que le serveur
+const MAX_TEXTE = 20000;
+const PAR_PAGE = 8;
+
+const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+// « Jeudi 23 octobre 2026 à 10 h 15 »
+const dateHeure = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const jour = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return `${jour.charAt(0).toUpperCase()}${jour.slice(1)} à ${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`;
+};
+const estModifiee = (a) => Boolean(a?.updated_at && a?.created_at) && new Date(a.updated_at) - new Date(a.created_at) > 60000;
+const initiales = (nom) => String(nom || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0].toUpperCase()).join('');
+// Liens du texte cliquables (sans interpréter de HTML)
+const LIEN = /(https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"»])/g;
+const avecLiens = (texte) =>
+  String(texte ?? '').split(LIEN).map((morceau, i) =>
+    i % 2 ? <a key={i} href={morceau} target="_blank" rel="noreferrer noopener">{morceau}</a> : morceau
+  );
+
+const modal = (id) => window.bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
 
 const Info = () => {
   const { notify, confirm } = useFeedback();
-  const { infos, fetchInfos } = useInfo();
-  const [newInfo, setNewInfo] = useState({ auteur: '', titre: '', description: '' });
-  const [editInfo, setEditInfo] = useState({ id: null, auteur: '', titre: '', description: '' });
-  const [selectedInfo, setSelectedInfo] = useState(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loadingCreate, setLoadingCreate] = useState(false);
-  const [loadingUpdate, setLoadingUpdate] = useState(false);
-  const [loadingDelete, setLoadingDelete] = useState(false);
+  const { infos, setInfos, loading } = useInfo();
+  const nomAdmin = localStorage.getItem('nom_prenom') || '';
 
-  // Configuration des champs pour les modales
-  const infoFields = [
-    { name: 'titre', label: 'Titre', type: 'text', required: true },
-    { name: 'auteur', label: 'Auteur', type: 'text', required: true },
-    { name: 'description', label: 'Description', type: 'textarea', rows: 5, required: true }
-  ];
+  const [recherche, setRecherche] = useState('');
+  const [page, setPage] = useState(0);
+  const [form, setForm] = useState(FORMULAIRE_VIDE);
+  const [enEdition, setEnEdition] = useState(null); // actualité modifiée (null = nouvelle)
+  const [enregistrement, setEnregistrement] = useState(false);
+  const [detail, setDetail] = useState(null);
 
-  // Configuration des en-têtes du tableau
-  const tableHeaders = [
-    { label: 'Titre', field: 'titre' },
-    { label: 'Auteur', field: 'auteur' },
-    { label: 'Description', field: 'description' },
-    { label: 'Date', field: 'created_at' }
-  ];
+  useEffect(() => setPage(0), [recherche]);
 
-  // Fonction pour tronquer le texte
-  const truncate = (text, length = 60) =>
-    text?.length > length ? text.slice(0, length) + '…' : text;
-
-  // Fonction pour formater la date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Date inconnue';
-    return new Date(dateString).toLocaleString('fr-FR', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  };
-
-  // Filtrage des infos selon le terme de recherche
-  const filteredInfos = plusRecentsDabord(infos).filter(info =>
-    Object.values(info).some(val =>
-      typeof val === 'string' && val.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+  // ---------- Liste ----------
+  const terme = normaliser(recherche);
+  const filtrees = useMemo(
+    () => plusRecentsDabord(infos).filter((a) => !terme || [a.titre, a.description, a.auteur].some((v) => normaliser(v).includes(terme))),
+    [infos, terme]
   );
+  const totalPages = Math.ceil(filtrees.length / PAR_PAGE);
+  const visibles = filtrees.slice(page * PAR_PAGE, (page + 1) * PAR_PAGE);
+  // Auteurs déjà utilisés : proposés à la saisie
+  const auteurs = useMemo(() => [...new Set(infos.map((a) => a.auteur).filter(Boolean))].sort(), [infos]);
 
-  // Fonction personnalisée pour le rendu des cellules
-  const renderCell = (item, field) => {
-    switch (field) {
-      case 'description':
-        return truncate(item[field]);
-      case 'created_at':
-        return formatDate(item[field]);
-      default:
-        return item[field];
-    }
+  // Détail : actualités voisines dans la liste affichée
+  const rang = detail ? filtrees.findIndex((a) => a.id === detail.id) : -1;
+  const plusRecente = rang > 0 ? filtrees[rang - 1] : null;
+  const plusAncienne = rang >= 0 && rang < filtrees.length - 1 ? filtrees[rang + 1] : null;
+  const naviguer = (e) => {
+    if (e.target.closest('input, textarea, select')) return;
+    if (e.key === 'ArrowLeft' && plusRecente) setDetail(plusRecente);
+    if (e.key === 'ArrowRight' && plusAncienne) setDetail(plusAncienne);
   };
 
-  // Handlers
-  const handleSearchChange = (value) => {
-    setSearchTerm(value);
+  // Mise à jour locale avec l'actualité renvoyée par le serveur
+  const remplacer = (info) => setInfos((liste) => {
+    const existe = liste.some((a) => a.id === info.id);
+    return existe ? liste.map((a) => (a.id === info.id ? info : a)) : [info, ...liste];
+  });
+
+  // ---------- Formulaire (ajout et modification) ----------
+  const ouvrirAjout = () => {
+    setEnEdition(null);
+    setForm({ ...FORMULAIRE_VIDE, auteur: nomAdmin });
+    modal('infoModal').show();
   };
 
-  const handleFormChange = (field, value, isEdit = false) => {
-    if (isEdit) {
-      setEditInfo(prev => ({ ...prev, [field]: value }));
-    } else {
-      setNewInfo(prev => ({ ...prev, [field]: value }));
-    }
+  const ouvrirModification = (info) => {
+    setEnEdition(info);
+    setForm({ titre: info.titre ?? '', auteur: info.auteur ?? '', description: info.description ?? '' });
+    modal('infoModal').show();
   };
 
-  // Publication sur le site public : code de confirmation à recopier (vérifié aussi par le serveur).
-  // La fenêtre d'ajout est masquée pendant la confirmation, puis rouverte si on annule ou en cas d'erreur.
-  const handleCreate = async () => {
-    if (!newInfo.auteur?.trim() || !newInfo.titre?.trim()) {
-      notify.warning("Renseignez l'auteur et le titre de l'actualité.");
-      return;
-    }
-    const fenetreAjout = window.bootstrap.Modal.getOrCreateInstance(document.getElementById('addModal'));
-    setLoadingCreate(true);
+  const changer = (champ, valeur) => setForm((f) => ({ ...f, [champ]: valeur }));
+  const donnees = () => ({ titre: form.titre.trim(), auteur: form.auteur.trim(), description: form.description.trim() });
+  const formulaireValide = form.titre.trim() && form.auteur.trim(); // contenu facultatif, comme côté serveur
+
+  const enregistrer = async (e) => {
+    e.preventDefault();
+    if (!formulaireValide) return;
+    setEnregistrement(true);
+
+    // Nouvelle actualité : publiée sur le site public, après le code de confirmation.
+    // La fenêtre est masquée pendant la confirmation, puis rouverte si on annule.
     let code;
-    try {
-      fenetreAjout.hide();
-      code = await confirmerAvecCode(confirm, 'publier_actualite', {
-        title: 'Publier cette actualité sur le site ?',
-        message: `« ${newInfo.titre.trim()} » sera visible immédiatement par tous les visiteurs du site du séminaire.`,
-        confirmLabel: 'Publier sur le site',
-      });
-    } catch (err) {
-      notify.error(errorMessage(err, "Impossible d'obtenir un code de confirmation."));
+    if (!enEdition) {
+      modal('infoModal').hide();
+      try {
+        code = await confirmerAvecCode(confirm, 'publier_actualite', {
+          title: 'Publier cette actualité sur le site ?',
+          message: `« ${form.titre.trim()} » sera visible immédiatement par tous les visiteurs du site du séminaire.`,
+          confirmLabel: 'Publier sur le site',
+        });
+      } catch (err) {
+        notify.error(errorMessage(err, "Impossible d'obtenir un code de confirmation."));
+      }
+      if (!code) {
+        setEnregistrement(false);
+        modal('infoModal').show();
+        return;
+      }
     }
-    if (!code) {
-      setLoadingCreate(false);
-      fenetreAjout.show();
-      return;
-    }
+
     try {
-      await api.post('/infos', { ...newInfo, code_confirmation: code });
-      setNewInfo({ auteur: '', titre: '', description: '' });
-      fetchInfos();
-      window.bootstrap.Modal.getInstance(document.getElementById('addModal'))?.hide();
-      notify.success('Actualité publiée sur le site.');
+      const res = enEdition
+        ? await api.put(`/infos/${enEdition.id}`, donnees())
+        : await api.post('/infos', { ...donnees(), code_confirmation: code });
+      remplacer(res.data);
+      if (detail?.id === res.data.id) setDetail(res.data);
+      modal('infoModal').hide();
+      notify.success(enEdition ? 'Actualité modifiée : le site est à jour.' : 'Actualité publiée sur le site.');
     } catch (err) {
-      notify.error(errorMessage(err, "Erreur lors de la publication."));
-      fenetreAjout.show();
+      notify.error(errorMessage(err, enEdition ? 'Erreur lors de la modification.' : 'Erreur lors de la publication.'));
+      modal('infoModal').show();
     } finally {
-      setLoadingCreate(false);
+      setEnregistrement(false);
     }
   };
 
-  const handleUpdate = async () => {
-    setLoadingUpdate(true);
+  const supprimer = async (info) => {
+    const ok = await confirm({
+      title: `Supprimer « ${info.titre} » ?`,
+      message: "Elle disparaîtra aussitôt du site du séminaire. Cette action est définitive.",
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await api.put(`/infos/${editInfo.id}`, editInfo);
-      setEditInfo({ id: null, auteur: '', titre: '', description: '' });
-      fetchInfos();
-      window.bootstrap.Modal.getInstance(document.getElementById('editModal'))?.hide();
-      notify.success('Actualité modifiée.');
+      await api.delete(`/infos/${info.id}`);
+      setInfos((liste) => liste.filter((a) => a.id !== info.id));
+      notify.success('Actualité supprimée du site.');
     } catch (err) {
-      notify.error(errorMessage(err, "Erreur lors de la modification."));
-    } finally {
-      setLoadingUpdate(false);
+      notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
     }
   };
 
-  const handleDelete = async () => {
-    setLoadingDelete(true);
-    try {
-      await api.delete(`/infos/${confirmDeleteId}`);
-      fetchInfos();
-      window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'))?.hide();
-      notify.success('Actualité supprimée.');
-    } catch (err) {
-      notify.error(errorMessage(err, "Erreur lors de la suppression."));
-    } finally {
-      setLoadingDelete(false);
-    }
+  // ---------- Détail ----------
+  const ouvrirDetail = (info) => {
+    setDetail(info);
+    modal('detailInfoModal').show();
   };
 
-  const openAddModal = () => {
-    const modal = new window.bootstrap.Modal(document.getElementById('addModal'));
-    modal.show();
-  };
-
-  const openEditModal = (info) => {
-    setEditInfo({ ...info });
-    const modal = new window.bootstrap.Modal(document.getElementById('editModal'));
-    modal.show();
-  };
-
-  const openDeleteModal = (id) => {
-    setConfirmDeleteId(id);
-    const modal = new window.bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-  };
-
-  const openDetailModal = (info) => {
-    setSelectedInfo(info);
-    const modal = new window.bootstrap.Modal(document.getElementById('detailModal'));
-    modal.show();
-  };
-
-  // Rendu personnalisé pour les détails
-  const renderDetailContent = (info) => {
-    if (!info) return <p>Aucune information disponible.</p>;
-
-    return (
-      <>
-        <p className="fst-italic text-muted mb-3">
-          <i className="bx bx-user" /> {info.auteur}
-        </p>
-        <div className="mb-4">
-          <h6 className="fw-semibold text-decoration-underline text-dark">Description</h6>
-          <p style={{ whiteSpace: 'pre-line' }}>{info.description}</p>
-        </div>
-        <div className="text-end">
-          <small className="text-muted fst-italic">
-            Publié le : {formatDate(info.created_at)}
-          </small>
-        </div>
-      </>
-    );
+  // Action lancée depuis le détail : il se ferme d'abord, pour ne pas empiler deux fenêtres
+  const depuisDetail = (action) => {
+    const el = document.getElementById('detailInfoModal');
+    el.addEventListener('hidden.bs.modal', () => action(), { once: true });
+    modal('detailInfoModal').hide();
   };
 
   return (
-    <div className="content-wrapper">
-      <div className="container-xxl flex-grow-1 container-p-y">
-        <h4 className="fw-bold py-3 mb-4">
-          <span className="text-muted fw-light">Admin / </span>Info
-        </h4>
+    <div className="container-xxl flex-grow-1 container-p-y">
+      <div className="gstf-page-header">
+        <div>
+          <h4 className="fw-bold mb-1">
+            <span className="text-muted fw-light">Administration /</span> Actualités du site
+          </h4>
+          <small className="text-muted">Publiées sur le site du séminaire, visibles par tous les visiteurs.</small>
+        </div>
+        <button className="btn btn-primary" onClick={ouvrirAjout} disabled={loading}>
+          <i className="bx bx-plus me-1"></i>Nouvelle actualité
+        </button>
+      </div>
+      {loading && <span className="visually-hidden" role="status">Chargement des actualités…</span>}
 
-        <div className="mb-3">
-          <button className="btn btn-primary" onClick={openAddModal}>
-            Nouveau
-          </button>
+      <div className="card">
+        <h5 className="card-header">
+          Actualités publiées
+          {loading ? (
+            <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '7rem', height: '1rem' }} aria-hidden="true" />
+          ) : (
+            <small className="text-muted fw-normal ms-2">
+              · {terme ? `${filtrees.length} sur ${infos.length}` : infos.length} actualité{infos.length > 1 ? 's' : ''}
+            </small>
+          )}
+        </h5>
+
+        <div className="card-body pb-3">
+          <SearchBar searchTerm={recherche} onSearchChange={setRecherche} placeholder="Rechercher par titre, contenu ou auteur…" />
         </div>
 
-        <div className="card">
-          <h5 className="card-header">Liste des infos publiées</h5>
-          <div className="card-body pb-0">
-            <SearchBar
-              searchTerm={searchTerm}
-              onSearchChange={handleSearchChange}
-              placeholder="Rechercher un professeur..."
-            />
+        <ul className="list-group list-group-flush gstf-annonces" aria-busy={loading}>
+          {loading ? (
+            <LignesAnnonceChargement />
+          ) : (
+            visibles.map((a) => (
+              <LigneAnnonce key={a.id} annonce={{ ...a, expediteur: a.auteur }} onClick={() => ouvrirDetail(a)} />
+            ))
+          )}
+        </ul>
+
+        {!loading && filtrees.length === 0 && (
+          <div className="gstf-empty">
+            {terme ? (
+              <>
+                <i className="bx bx-search-alt d-block"></i>
+                Aucune actualité ne correspond à « {recherche} ».
+                <div className="mt-3">
+                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setRecherche('')}>Effacer la recherche</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <i className="bx bx-globe d-block"></i>
+                Aucune actualité n'est encore publiée sur le site.
+                <div className="mt-3">
+                  <button type="button" className="btn btn-sm btn-primary" onClick={ouvrirAjout}>Publier une actualité</button>
+                </div>
+              </>
+            )}
           </div>
-          <DataTable
-            headers={tableHeaders}
-            data={filteredInfos}
-            onRowClick={openDetailModal}
-            onEdit={openEditModal}
-            onDelete={openDeleteModal}
-            showActions={true}
-            role="admin" // Assumé que l'admin peut tout faire
-            renderCell={renderCell}
-          />
+        )}
+
+        <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+      </div>
+
+      {/* Ajout / modification : un seul formulaire */}
+      <div className="modal fade" id="infoModal" tabIndex="-1" aria-labelledby="infoModalTitre" aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <form className="modal-content" onSubmit={enregistrer} noValidate>
+            <div className="modal-header">
+              <h5 className="modal-title" id="infoModalTitre">{enEdition ? "Modifier l'actualité" : 'Nouvelle actualité'}</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div className="modal-body">
+              <div className="mb-3">
+                <label className="form-label" htmlFor="info-titre">Titre</label>
+                <input id="info-titre" type="text" className="form-control" maxLength={MAX_TITRE} required
+                  placeholder="ex. Fête de la Toussaint"
+                  value={form.titre} onChange={(e) => changer('titre', e.target.value)} />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="info-auteur">Auteur</label>
+                <input id="info-auteur" type="text" className="form-control" maxLength={255} required list="info-auteurs"
+                  placeholder="ex. Père Rodolphe, Secrétariat…"
+                  value={form.auteur} onChange={(e) => changer('auteur', e.target.value)} />
+                <datalist id="info-auteurs">
+                  {auteurs.map((a) => <option key={a} value={a} />)}
+                </datalist>
+                <div className="form-text">Affiché sous l'actualité sur le site.</div>
+              </div>
+
+              <div>
+                <label className="form-label" htmlFor="info-texte">
+                  Contenu <span className="text-muted fw-normal">(facultatif)</span>
+                </label>
+                <textarea id="info-texte" className="form-control" rows={8} maxLength={MAX_TEXTE}
+                  placeholder="Le texte tel que les visiteurs du site le liront…"
+                  value={form.description} onChange={(e) => changer('description', e.target.value)} />
+                <div className="form-text d-flex justify-content-between gap-2">
+                  <span>{enEdition ? 'La modification est visible aussitôt sur le site.' : 'Un code de confirmation vous sera demandé avant la publication.'}</span>
+                  <span className="text-nowrap">{form.description.length.toLocaleString('fr-FR')} / {MAX_TEXTE.toLocaleString('fr-FR')}</span>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+              <button type="submit" className="btn btn-primary" disabled={enregistrement || !formulaireValide}>
+                {enregistrement ? 'Patientez…' : enEdition ? 'Enregistrer' : 'Publier sur le site'}
+              </button>
+            </div>
+          </form>
         </div>
+      </div>
 
-        {/* Modales */}
-        <AddModal
-          modalId="addModal"
-          title="Nouvelle Info"
-          fields={infoFields}
-          formData={newInfo}
-          onFormChange={(field, value) => handleFormChange(field, value, false)}
-          onSubmit={handleCreate}
-          loading={loadingCreate}
-          buttonText="Publier"
-        />
+      {/* Détail */}
+      <div className="modal fade" id="detailInfoModal" tabIndex="-1" aria-labelledby="detailInfoTitre" aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+          <div className="modal-content" onKeyDown={naviguer}>
+            {detail && (
+              <>
+                <div className="modal-header gstf-annonce-detail__entete">
+                  <span className="gstf-pastille-annonce" aria-hidden="true"><i className="bx bx-globe"></i></span>
+                  <div className="min-w-0 flex-grow-1">
+                    <div className="d-flex flex-wrap gap-1 mb-2">
+                      <span className="badge gstf-badge-neutre"><i className="bx bx-globe me-1" aria-hidden="true"></i>Site du séminaire</span>
+                      {estModifiee(detail) && (
+                        <span className="badge gstf-badge-neutre" title={`Modifiée le ${dateHeure(detail.updated_at)}`}>Modifiée</span>
+                      )}
+                    </div>
+                    <h4 className="modal-title gstf-annonce-detail__titre" id="detailInfoTitre">{detail.titre}</h4>
+                  </div>
+                  <button type="button" className="btn-close align-self-start" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
 
-        <EditModal
-          modalId="editModal"
-          title="Modifier Info"
-          fields={infoFields}
-          formData={editInfo}
-          onFormChange={(field, value) => handleFormChange(field, value, true)}
-          onSubmit={handleUpdate}
-          loading={loadingUpdate}
-          buttonText="Enregistrer"
-        />
+                <div className="modal-body">
+                  <div className="gstf-annonce-detail__meta">
+                    <span className="d-inline-flex align-items-center gap-2">
+                      <span className="avatar avatar-sm">
+                        <span className="avatar-initial rounded-circle bg-label-primary">{initiales(detail.auteur)}</span>
+                      </span>
+                      <strong className="text-body">{detail.auteur}</strong>
+                    </span>
+                    <span><i className="bx bx-calendar me-1" aria-hidden="true"></i>{dateHeure(detail.created_at)}</span>
+                  </div>
+                  {detail.description ? (
+                    <div className="gstf-annonce-detail__texte">{avecLiens(detail.description)}</div>
+                  ) : (
+                    <p className="text-muted fst-italic mb-0">Pas de texte : seul le titre est affiché sur le site.</p>
+                  )}
+                </div>
 
-        <DeleteModal
-          modalId="deleteModal"
-          title="Confirmer la suppression"
-          message="Voulez-vous vraiment supprimer cette information ?"
-          onConfirm={handleDelete}
-          loading={loadingDelete}
-        />
-
-        <DetailModal
-          modalId="detailModal"
-          title={selectedInfo?.titre || 'Détail de l\'information'}
-          data={selectedInfo}
-          customRender={renderDetailContent}
-        />
+                <div className="modal-footer gstf-annonce-detail__pied">
+                  {filtrees.length > 1 && rang >= 0 && (
+                    <div className="btn-group me-auto" role="group" aria-label="Autres actualités">
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusRecente}
+                        onClick={() => setDetail(plusRecente)} title="Actualité plus récente (←)">
+                        <i className="bx bx-chevron-left"></i><span className="d-none d-sm-inline">Plus récente</span>
+                      </button>
+                      <span className="btn btn-sm btn-outline-secondary disabled gstf-annonce-detail__position">{rang + 1} / {filtrees.length}</span>
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusAncienne}
+                        onClick={() => setDetail(plusAncienne)} title="Actualité plus ancienne (→)">
+                        <span className="d-none d-sm-inline">Plus ancienne</span><i className="bx bx-chevron-right"></i>
+                      </button>
+                    </div>
+                  )}
+                  <button type="button" className="btn btn-outline-danger" onClick={() => depuisDetail(() => supprimer(detail))}>
+                    <i className="bx bx-trash me-1"></i>Supprimer
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={() => depuisDetail(() => ouvrirModification(detail))}>
+                    <i className="bx bx-edit me-1"></i>Modifier
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
