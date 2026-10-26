@@ -1040,3 +1040,36 @@
   .gstf-edt__image,
   .gstf-edt__miniature { transition: none; }
 }
+
+/* ─── Comptes et accès ───────────────────────────────────── */
+.gstf-onglet__compteur {
+  min-width: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 1rem;
+  background: var(--gstf-badge);
+  color: inherit;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.nav-pills .nav-link.active .gstf-onglet__compteur { background: rgba(255, 255, 255, 0.25); }
+.gstf-lot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 1.5rem 1rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  background: var(--gstf-hover);
+}
+.gstf-comptes td { vertical-align: middle; }
+.gstf-comptes__case { width: 2.5rem; }
+.gstf-comptes__nom { color: var(--gstf-heading); font-weight: 600; max-width: 16rem; }
+.gstf-comptes__inactif .gstf-comptes__nom,
+.gstf-comptes__inactif .avatar { opacity: 0.55; }
+.gstf-comptes__action { width: 2rem; height: 2rem; }
+@media (max-width: 575.98px) {
+  .gstf-lot { margin: 0 1rem 1rem; }
+}

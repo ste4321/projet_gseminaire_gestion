@@ -1,153 +1,136 @@
-// src/components/Portal.jsx
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+// Comptes et accès : qui peut se connecter (activation), avec quel mot de passe (provisoire ou personnel),
+// et accès à l'espace d'un enseignant ou d'un étudiant en lecture seule.
+import React, { useEffect, useState, useMemo } from 'react';
 import SearchBar from './SearchBar';
-import DataTable from './DataTable';
 import Pagination from './Pagination';
+import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { useUserCession } from '../contexts/UserCessionContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { getUser } from '../auth/session';
-import MotDePasseProvisoire from './MotDePasseProvisoire';
+import { ouvrirEspace } from '../auth/consultation';
 import { plusRecentsDabord } from '../utils/tri';
+import { ilYA } from '../utils/dates';
 
-const roles = ['admin', 'prof', 'etudiant'];
+const ROLES = ['etudiant', 'prof', 'admin'];
 const ROLE_TABS = { admin: 'Administrateurs', prof: 'Enseignants', etudiant: 'Étudiants' };
+const PAR_PAGE = 10;
+const ETATS = [
+  { valeur: '', libelle: 'Tous les comptes' },
+  { valeur: 'actifs', libelle: 'Accès activé' },
+  { valeur: 'inactifs', libelle: 'Accès désactivé' },
+  { valeur: 'provisoire', libelle: 'Mot de passe provisoire' },
+];
+
+const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const initiales = (nom) => String(nom || '?').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((m) => m[0].toUpperCase()).join('');
+const dateComplete = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '');
 
 const Portal = () => {
   const { notify, confirm } = useFeedback();
-  const { usersByRole, fetchUsers, updateUserLocal, loadingByRole } = useUserCession();
-  const [selectedRole, setSelectedRole] = useState('admin');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 10;
-  const [togglingId, setTogglingId] = useState(null);
-  const [resettingId, setResettingId] = useState(null);
+  const { usersByRole, erreurByRole, stats, fetchUsers, fetchStats, updateUserLocal } = useUserCession();
+  const [role, setRole] = useState('etudiant');
+  const [recherche, setRecherche] = useState('');
+  const [etat, setEtat] = useState('');
+  const [page, setPage] = useState(0);
+  const [selection, setSelection] = useState(() => new Set());
+  const [enCours, setEnCours] = useState(null); // id du compte dont l'accès est en cours de modification
+  const [reinitEnCours, setReinitEnCours] = useState(null); // id du compte dont le mot de passe est réinitialisé
+  const [lotEnCours, setLotEnCours] = useState(null); // 'activer' | 'desactiver'
   const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
-  const currentUserId = getUser()?.id;
-
-  // États pour la sélection multiple
-  const [selectedUsers, setSelectedUsers] = useState(new Set());
-  const [bulkTogglingType, setBulkTogglingType] = useState(null); // 'activate' | 'deactivate'
+  const moi = getUser()?.id;
 
   useEffect(() => {
-    fetchUsers(selectedRole);
-  }, [selectedRole, fetchUsers]);
+    fetchUsers(role);
+  }, [role, fetchUsers]);
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
-  // Optimisation: mémorisation du filtrage
-  const filtered = useMemo(() => {
-    const usersForRole = plusRecentsDabord(usersByRole[selectedRole]);
-    const term = searchTerm.trim().toLowerCase();
-    if (!term) return usersForRole;
+  // Changement d'onglet, de recherche ou de filtre : première page, sélection vidée
+  useEffect(() => {
+    setPage(0);
+    setSelection(new Set());
+  }, [role, recherche, etat]);
 
-    return usersForRole.filter(u => {
-      return (
-        (u.email || '').toLowerCase().includes(term) ||
-        (u.role || '').toLowerCase().includes(term) ||
-        (u.nom_prenom || '').toLowerCase().includes(term)
-      );
-    });
-  }, [usersByRole, selectedRole, searchTerm]);
+  const comptes = usersByRole[role];
+  const loading = !comptes && !erreurByRole[role];
+  const erreur = !comptes ? erreurByRole[role] : null;
+  const occupe = enCours !== null || reinitEnCours !== null || lotEnCours !== null;
 
-  // Optimisation: mémorisation de la pagination
-  const paginationData = useMemo(() => {
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    const currentUsers = filtered.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
-    return { totalPages, currentUsers };
-  }, [filtered, currentPage, itemsPerPage]);
+  // ---------- Liste ----------
+  const terme = normaliser(recherche);
+  const filtres = useMemo(
+    () => plusRecentsDabord(comptes || []).filter((u) => {
+      if (etat === 'actifs' && !u.is_verified) return false;
+      if (etat === 'inactifs' && u.is_verified) return false;
+      if (etat === 'provisoire' && !u.must_change_password) return false;
+      return !terme || [u.nom_prenom, u.email, u.telephone].some((v) => normaliser(v).includes(terme));
+    }),
+    [comptes, etat, terme]
+  );
+  const totalPages = Math.ceil(filtres.length / PAR_PAGE);
+  const visibles = filtres.slice(page * PAR_PAGE, (page + 1) * PAR_PAGE);
+  const selectionnables = visibles.filter((u) => u.id !== moi);
+  const toutSelectionne = selectionnables.length > 0 && selectionnables.every((u) => selection.has(u.id));
+  const provisoires = (comptes || []).filter((u) => u.must_change_password).length;
+  const filtresActifs = Boolean(terme || etat);
 
-  const handleSearchChange = useCallback((value) => {
-    setSearchTerm(value);
-    setCurrentPage(0);
-    setSelectedUsers(new Set()); // Reset selection when searching
-  }, []);
+  const selectionner = (id, oui) => setSelection((avant) => {
+    const apres = new Set(avant);
+    if (oui) apres.add(id); else apres.delete(id);
+    return apres;
+  });
+  const toutSelectionner = (oui) => setSelection(oui ? new Set(selectionnables.map((u) => u.id)) : new Set());
 
-  const handleRoleChange = useCallback((role) => {
-    setSelectedRole(role);
-    setCurrentPage(0);
-    setSelectedUsers(new Set()); // Reset selection when changing role
-  }, []);
+  // ---------- Actions ----------
+  const basculer = async (compte) => {
+    const nom = compte.nom_prenom || compte.email;
+    if (compte.is_verified && !(await confirm({
+      title: `Désactiver l'accès de ${nom} ?`,
+      message: "Ce compte ne pourra plus se connecter jusqu'à sa réactivation.",
+      confirmLabel: 'Désactiver',
+      danger: true,
+    }))) return;
 
-  // Toggle individual user
-  const handleToggle = async (user) => {
-    setTogglingId(user.id);
+    setEnCours(compte.id);
     try {
-      const res = await api.patch(`/user-cessions/${user.id}/toggle`);
-      updateUserLocal(selectedRole, user.id, { is_verified: res.data.is_verified });
-      notify.success(`${user.nom_prenom || user.email} : accès ${res.data.is_verified ? 'activé' : 'désactivé'}.`);
-
-      // Update selection if this user was selected
-      if (selectedUsers.has(user.id)) {
-        setSelectedUsers(prev => new Set([...prev].filter(id => id !== user.id)));
-      }
+      const res = await api.patch(`/user-cessions/${compte.id}/toggle`);
+      updateUserLocal(role, compte.id, { is_verified: res.data.is_verified });
+      fetchStats();
+      notify.success(`${nom} : accès ${res.data.is_verified ? 'activé' : 'désactivé'}.`);
     } catch (err) {
       notify.error(errorMessage(err, 'Erreur lors de la mise à jour. Réessayez.'));
     } finally {
-      setTogglingId(null);
+      setEnCours(null);
     }
   };
 
-  // Gestion de la sélection
-  const handleSelectUser = (userId, isSelected) => {
-    setSelectedUsers(prev => {
-      const newSet = new Set(prev);
-      if (isSelected) {
-        newSet.add(userId);
-      } else {
-        newSet.delete(userId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = (isSelected) => {
-    if (isSelected) {
-      setSelectedUsers(new Set(paginationData.currentUsers.map(u => u.id)));
-    } else {
-      setSelectedUsers(new Set());
-    }
-  };
-
-  // Actions en lot
-  const handleBulkToggle = async (action) => {
-    if (selectedUsers.size === 0) {
-      notify.warning('Aucun utilisateur sélectionné.');
-      return;
-    }
-
-    const isActivating = action === 'activate';
-    if (!isActivating && !(await confirm({
-      title: 'Désactiver les comptes ?',
-      message: `${selectedUsers.size} compte(s) ne pourront plus se connecter jusqu'à leur réactivation.`,
+  const basculerLot = async (activer) => {
+    const ids = [...selection];
+    if (!activer && !(await confirm({
+      title: `Désactiver ${ids.length} compte${ids.length > 1 ? 's' : ''} ?`,
+      message: "Ils ne pourront plus se connecter jusqu'à leur réactivation.",
       confirmLabel: 'Désactiver',
       danger: true,
-    }))) {
-      return;
-    }
-    setBulkTogglingType(action);
+    }))) return;
 
+    setLotEnCours(activer ? 'activer' : 'desactiver');
     try {
-      const userIds = Array.from(selectedUsers);
-      const res = await api.patch('/user-cessions/bulk-toggle', {
-        user_ids: userIds,
-        is_verified: isActivating
-      });
-
-      // Mise à jour locale (le serveur ignore toujours le compte de l'admin connecté)
-      userIds.filter(userId => userId !== currentUserId).forEach(userId => {
-        updateUserLocal(selectedRole, userId, { is_verified: isActivating });
-      });
-
-      setSelectedUsers(new Set());
+      const res = await api.patch('/user-cessions/bulk-toggle', { user_ids: ids, is_verified: activer });
+      ids.filter((id) => id !== moi).forEach((id) => updateUserLocal(role, id, { is_verified: activer }));
+      setSelection(new Set());
+      fetchStats();
       notify.success(res.data.message);
     } catch (err) {
       notify.error(errorMessage(err, 'Erreur lors de la mise à jour en lot. Réessayez.'));
     } finally {
-      setBulkTogglingType(null);
+      setLotEnCours(null);
     }
   };
 
-  const handleResetPassword = async (user) => {
-    const nom = user.nom_prenom || user.email;
+  const reinitialiser = async (compte) => {
+    const nom = compte.nom_prenom || compte.email;
     const ok = await confirm({
       title: 'Réinitialiser le mot de passe ?',
       message: `Un nouveau mot de passe provisoire sera généré pour ${nom}.\nSon mot de passe actuel ne fonctionnera plus et ses sessions ouvertes seront fermées.`,
@@ -156,202 +139,230 @@ const Portal = () => {
     });
     if (!ok) return;
 
-    setResettingId(user.id);
+    setReinitEnCours(compte.id);
     try {
-      const res = await api.post(`/user-cessions/${user.id}/reset-password`);
-      updateUserLocal(selectedRole, user.id, { must_change_password: true });
-      setIdentifiants({ nom: user.nom_prenom, email: res.data.email, mot_de_passe: res.data.mot_de_passe });
+      const res = await api.post(`/user-cessions/${compte.id}/reset-password`);
+      updateUserLocal(role, compte.id, { must_change_password: true });
+      setIdentifiants({ nom: compte.nom_prenom, email: res.data.email, mot_de_passe: res.data.mot_de_passe });
     } catch (err) {
       notify.error(errorMessage(err, 'Erreur lors de la réinitialisation du mot de passe.'));
     } finally {
-      setResettingId(null);
+      setReinitEnCours(null);
     }
   };
 
-  const loading = !!loadingByRole[selectedRole];
-  const { totalPages, currentUsers } = paginationData;
+  const consulter = (compte) =>
+    ouvrirEspace({ userId: compte.id, nom: compte.nom_prenom || compte.email, role: compte.role, confirm, notify });
 
-  const tableHeaders = [
-    {
-      label: (
-        <div className="form-check">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            checked={selectedUsers.size > 0 && selectedUsers.size === currentUsers.length}
-            onChange={(e) => handleSelectAll(e.target.checked)}
-            disabled={loading || currentUsers.length === 0}
-          />
-        </div>
-      ),
-      field: 'select'
-    },
-    { label: 'Nom', field: 'nom_prenom' },
-    { label: 'Email', field: 'email' },
-    { label: 'Créé', field: 'created_at' },
-    { label: 'Accès', field: 'is_verified' },
-    { label: 'Mot de passe', field: 'password' }
-  ];
-
-  const renderCell = (row, field) => {
-    if (field === 'select') {
-      return (
-        <div className="form-check">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            checked={selectedUsers.has(row.id)}
-            onChange={(e) => handleSelectUser(row.id, e.target.checked)}
-            disabled={togglingId !== null || bulkTogglingType !== null}
-          />
-        </div>
-      );
-    }
-
-    if (field === 'is_verified') {
-      if (togglingId === row.id) {
-        return (
-          <div className="d-flex align-items-center">
-            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
-            <small>En cours...</small>
-          </div>
-        );
-      }
-      return (
-        <div className="form-check form-switch">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            checked={!!row.is_verified}
-            onChange={() => handleToggle(row)}
-            style={{ cursor: 'pointer' }}
-            disabled={togglingId !== null || bulkTogglingType !== null || row.id === currentUserId}
-            title={row.id === currentUserId ? 'Vous ne pouvez pas désactiver votre propre compte' : undefined}
-          />
-          <label className="form-check-label ms-2">
-            {row.is_verified ? 'Activé' : 'Désactivé'}
-          </label>
-        </div>
-      );
-    }
-
-    if (field === 'password') {
-      return (
-        <div className="d-flex align-items-center gap-2">
-          {row.must_change_password ? (
-            <span className="badge bg-label-warning" title="L'utilisateur doit le changer à sa prochaine connexion">Provisoire</span>
-          ) : (
-            <span className="badge bg-label-success">Personnel</span>
-          )}
-          {row.id !== currentUserId && (
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => handleResetPassword(row)}
-              disabled={resettingId !== null}
-              title="Générer un nouveau mot de passe provisoire"
-            >
-              {resettingId === row.id ? (
-                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-              ) : (
-                <><i className="bx bx-reset me-1"></i>Réinitialiser</>
-              )}
-            </button>
-          )}
-        </div>
-      );
-    }
-
-    if (field === 'created_at' || field === 'updated_at') {
-      return row[field] ? new Date(row[field]).toLocaleString() : '--';
-    }
-
-    return row[field] ?? '--';
-  };
+  // ---------- Rendu ----------
+  const compteurOnglet = (r) => stats?.[r]?.total;
+  const resume = stats?.[role];
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
-      <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light">Admin /</span> Portail
-      </h4>
+      <div className="gstf-page-header">
+        <div>
+          <h4 className="fw-bold mb-1">
+            <span className="text-muted fw-light">Administration /</span> Comptes et accès
+          </h4>
+          <small className="text-muted">Qui peut se connecter, et avec quel mot de passe.</small>
+        </div>
+      </div>
 
-      <ul className="nav nav-pills mb-3">
-        {roles.map(r => (
+      <ul className="nav nav-pills mb-3 gap-1" role="tablist">
+        {ROLES.map((r) => (
           <li className="nav-item" key={r}>
-            <button
-              className={`nav-link ${selectedRole === r ? 'active' : ''}`}
-              onClick={() => handleRoleChange(r)}
-            >
+            <button type="button" role="tab" aria-selected={role === r}
+              className={`nav-link d-flex align-items-center gap-2 ${role === r ? 'active' : ''}`} onClick={() => setRole(r)}>
               {ROLE_TABS[r]}
+              {compteurOnglet(r) !== undefined && <span className="gstf-onglet__compteur">{compteurOnglet(r)}</span>}
             </button>
           </li>
         ))}
       </ul>
 
       <div className="card">
-        <h5 className="card-header d-flex justify-content-between align-items-center">
-          <span>Comptes — {ROLE_TABS[selectedRole]}</span>
-        </h5>
-
-        <div className="card-body pb-0">
-          <SearchBar
-            searchTerm={searchTerm}
-            onSearchChange={handleSearchChange}
-            placeholder="Rechercher..."
-          />
+        <div className="card-header">
+          <h5 className="card-title mb-1">Comptes · {ROLE_TABS[role]}</h5>
+          {resume ? (
+            <small className="text-muted">
+              {resume.actifs} activé{resume.actifs > 1 ? 's' : ''} · {resume.inactifs} désactivé{resume.inactifs > 1 ? 's' : ''}
+              {comptes && provisoires > 0 && ` · ${provisoires} mot${provisoires > 1 ? 's' : ''} de passe provisoire${provisoires > 1 ? 's' : ''}`}
+            </small>
+          ) : (
+            <span className="gstf-squelette d-block" style={{ width: '14rem', height: '0.8rem' }} aria-hidden="true" />
+          )}
         </div>
 
-        <div className="table-responsive text-nowrap">
-        {selectedUsers.size > 0 && (
-            <div className="btn-group mb-3 ms-4" role="group">
-              <span className="text-secondary display-8 mb-0 me-2">
-                {selectedUsers.size} sélectionné{selectedUsers.size > 1 ? 's' : ''}
-              </span>
-              <button
-                className="btn btn-outline-primary btn-sm d-flex align-items-center"
-                onClick={() => handleBulkToggle('activate')}
-                disabled={bulkTogglingType !== null}
-              >
-                {bulkTogglingType === 'activate' && (
-                  <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                )}
+        <div className="card-body pt-0 pb-3">
+          <div className="gstf-filtres">
+            <SearchBar className="gstf-filtres__recherche" searchTerm={recherche} onSearchChange={setRecherche}
+              placeholder="Rechercher par nom, email ou téléphone…" />
+            <select className="form-select w-auto" value={etat} onChange={(e) => setEtat(e.target.value)} aria-label="Filtrer par état">
+              {ETATS.map((e) => <option key={e.valeur} value={e.valeur}>{e.libelle}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Actions groupées : visibles dès qu'un compte est coché */}
+        {selection.size > 0 && (
+          <div className="gstf-lot" role="region" aria-label="Actions sur la sélection">
+            <strong>{selection.size} sélectionné{selection.size > 1 ? 's' : ''}</strong>
+            <div className="d-flex flex-wrap gap-2 ms-auto">
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => basculerLot(true)} disabled={occupe}>
+                {lotEnCours === 'activer' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bx bx-check me-1"></i>}
                 Activer
               </button>
-              <button
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center"
-                onClick={() => handleBulkToggle('deactivate')}
-                disabled={bulkTogglingType !== null}
-              >
-                {bulkTogglingType === 'deactivate' && (
-                  <span className="spinner-border spinner-border-sm me-1" role="status"></span>
-                )}
+              <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => basculerLot(false)} disabled={occupe}>
+                {lotEnCours === 'desactiver' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bx bx-block me-1"></i>}
                 Désactiver
               </button>
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setSelection(new Set())} disabled={occupe}>
+                Annuler
+              </button>
             </div>
-          )}
-          {loading ? (
-            <div className="text-center p-4">
-              <div className="spinner-border text-primary" role="status"></div>
-              <p className="mt-2 mb-0">Chargement des comptes...</p>
-            </div>
-          ) : (
-            <DataTable
-              headers={tableHeaders}
-              data={currentUsers}
-              role="admin"
-              showActions={false}
-              renderCell={renderCell}
-            />
-          )}
-        </div>
-
-        {!loading && (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+          </div>
         )}
+
+        {erreur ? (
+          <div className="gstf-empty">
+            <i className="bx bx-error-circle d-block"></i>
+            <p className="mb-3">{erreur}</p>
+            <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => fetchUsers(role, { force: true })}>Réessayer</button>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table table-hover mb-0 gstf-comptes" aria-busy={loading}>
+              <thead>
+                <tr>
+                  <th scope="col" className="gstf-comptes__case">
+                    <input className="form-check-input" type="checkbox" aria-label="Tout sélectionner sur cette page"
+                      checked={toutSelectionne} onChange={(e) => toutSelectionner(e.target.checked)}
+                      disabled={loading || occupe || selectionnables.length === 0} />
+                  </th>
+                  <th scope="col">Compte</th>
+                  <th scope="col" className="d-none d-md-table-cell">Créé</th>
+                  <th scope="col">Accès</th>
+                  <th scope="col">Mot de passe</th>
+                  <th scope="col" className="text-end"><span className="visually-hidden">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading
+                  ? Array.from({ length: 6 }, (_, i) => (
+                      <tr key={i} aria-hidden="true">
+                        <td><span className="gstf-squelette" style={{ width: '1rem', height: '1rem' }} /></td>
+                        <td>
+                          <span className="d-flex align-items-center gap-2">
+                            <span className="gstf-squelette rounded-circle" style={{ width: '2.25rem', height: '2.25rem' }} />
+                            <span className="d-block">
+                              <span className="gstf-squelette mb-1" style={{ width: `${8 + (i % 3) * 2}rem`, height: '0.9rem' }} />
+                              <span className="gstf-squelette" style={{ width: '11rem', height: '0.7rem' }} />
+                            </span>
+                          </span>
+                        </td>
+                        <td className="d-none d-md-table-cell"><span className="gstf-squelette" style={{ width: '5rem', height: '0.8rem' }} /></td>
+                        <td><span className="gstf-squelette" style={{ width: '5.5rem', height: '1.2rem' }} /></td>
+                        <td><span className="gstf-squelette" style={{ width: '5rem', height: '1.2rem' }} /></td>
+                        <td />
+                      </tr>
+                    ))
+                  : visibles.map((u) => {
+                      const estMoi = u.id === moi;
+                      return (
+                        <tr key={u.id} className={u.is_verified ? undefined : 'gstf-comptes__inactif'}>
+                          <td className="gstf-comptes__case">
+                            <input className="form-check-input" type="checkbox" checked={selection.has(u.id)}
+                              onChange={(e) => selectionner(u.id, e.target.checked)} disabled={estMoi || occupe}
+                              aria-label={`Sélectionner ${u.nom_prenom || u.email}`}
+                              title={estMoi ? 'Votre propre compte ne peut pas être modifié ici' : undefined} />
+                          </td>
+                          <td>
+                            <span className="d-flex align-items-center gap-2 min-w-0">
+                              <span className="avatar avatar-sm flex-shrink-0">
+                                <span className="avatar-initial rounded-circle bg-label-primary">{initiales(u.nom_prenom || u.email)}</span>
+                              </span>
+                              <span className="min-w-0">
+                                <span className="d-flex align-items-center gap-2">
+                                  <strong className="gstf-comptes__nom text-truncate">{u.nom_prenom || 'Sans profil'}</strong>
+                                  {estMoi && <span className="badge gstf-badge-neutre">Vous</span>}
+                                </span>
+                                <small className="d-block text-muted text-truncate">{u.email}</small>
+                              </span>
+                            </span>
+                          </td>
+                          <td className="d-none d-md-table-cell text-muted small text-nowrap" title={dateComplete(u.created_at)}>
+                            {ilYA(u.created_at)}
+                          </td>
+                          <td>
+                            <div className="form-check form-switch mb-0 text-nowrap">
+                              <input className="form-check-input" type="checkbox" role="switch" id={`acces-${u.id}`}
+                                checked={!!u.is_verified} onChange={() => basculer(u)} disabled={occupe || estMoi}
+                                title={estMoi ? 'Vous ne pouvez pas désactiver votre propre compte' : undefined} />
+                              <label className="form-check-label small" htmlFor={`acces-${u.id}`}>
+                                {enCours === u.id ? 'Patientez…' : u.is_verified ? 'Activé' : 'Désactivé'}
+                              </label>
+                            </div>
+                          </td>
+                          <td className="text-nowrap">
+                            {u.must_change_password ? (
+                              <span className="badge gstf-badge-neutre" title="À changer à la prochaine connexion">
+                                <i className="bx bx-time-five me-1" aria-hidden="true"></i>Provisoire
+                              </span>
+                            ) : (
+                              <span className="small text-muted">Personnel</span>
+                            )}
+                          </td>
+                          <td className="text-end text-nowrap">
+                            {!estMoi && (
+                              <div className="d-inline-flex gap-1">
+                                {u.role !== 'admin' && (
+                                  <button type="button" className="btn btn-sm btn-icon btn-outline-secondary gstf-comptes__action"
+                                    onClick={() => consulter(u)} disabled={occupe || !u.is_verified}
+                                    title={u.is_verified ? 'Ouvrir son espace (lecture seule)' : "Compte désactivé : activez-le pour ouvrir son espace"}
+                                    aria-label={`Ouvrir l'espace de ${u.nom_prenom || u.email}`}>
+                                    <i className="bx bx-show"></i>
+                                  </button>
+                                )}
+                                <button type="button" className="btn btn-sm btn-icon btn-outline-secondary gstf-comptes__action"
+                                  onClick={() => reinitialiser(u)} disabled={occupe}
+                                  title="Générer un nouveau mot de passe provisoire"
+                                  aria-label={`Réinitialiser le mot de passe de ${u.nom_prenom || u.email}`}>
+                                  {reinitEnCours === u.id ? <span className="spinner-border spinner-border-sm" /> : <i className="bx bx-key"></i>}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && !erreur && filtres.length === 0 && (
+          <div className="gstf-empty">
+            {filtresActifs ? (
+              <>
+                <i className="bx bx-search-alt d-block"></i>
+                Aucun compte ne correspond à ces critères.
+                <div className="mt-3">
+                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => { setRecherche(''); setEtat(''); }}>
+                    Effacer les filtres
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <i className="bx bx-user-x d-block"></i>
+                Aucun compte {ROLE_TABS[role].toLowerCase()} pour l'instant.
+              </>
+            )}
+          </div>
+        )}
+
+        {!loading && <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />}
       </div>
 
       <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
