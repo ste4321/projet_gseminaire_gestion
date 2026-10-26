@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAnnonce } from '../contexts/AnnonceContext';
+import { useNotificationsAnnonces } from '../contexts/NotificationAnnonceContext';
+import LigneAnnonce, { LignesAnnonceChargement } from '../components/LigneAnnonce';
 
 const dateLongue = (iso) =>
   iso ? new Date(iso).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
@@ -13,11 +15,13 @@ const salutation = () => {
 };
 
 /**
- * Accueil des espaces enseignant et étudiant : dernières annonces et accès rapides.
+ * Accueil de l'espace enseignant : dernières annonces et accès rapides (l'étudiant a le sien : EtudiantDashboard).
  * Props : liens = [{ to, icon, label }], annoncesTo = lien vers la page des annonces
  */
 const Accueil = ({ liens, annoncesTo, aVenir }) => {
   const { annonces = [], loading } = useAnnonce() || {};
+  const { nonLues, ouvrir } = useNotificationsAnnonces();
+  const idsNonLues = new Set(nonLues.map((a) => a.id));
   const nomPrenom = localStorage.getItem('nom_prenom') || '';
   const dernieres = annonces.slice(0, 4);
 
@@ -40,34 +44,22 @@ const Accueil = ({ liens, annoncesTo, aVenir }) => {
               <h5 className="card-title gstf-section-title mb-0">Dernières annonces</h5>
               <Link to={annoncesTo} className="btn btn-sm btn-outline-primary">Toutes les annonces</Link>
             </div>
-            <div className="card-body">
-              {loading ? (
-                <div className="text-center py-4" role="status">
-                  <div className="spinner-border spinner-border-sm text-primary"></div>
-                  <span className="ms-2 text-muted">Chargement…</span>
-                </div>
-              ) : dernieres.length === 0 ? (
-                <div className="gstf-empty py-4">
-                  <i className="bx bx-message-square-dots d-block"></i>
-                  Aucune annonce pour le moment.
-                </div>
-              ) : (
-                <ul className="list-unstyled mb-0">
-                  {dernieres.map((a) => (
-                    <li key={a.id} className="py-2 border-bottom">
-                      <div className="d-flex justify-content-between align-items-start gap-2">
-                        <strong className="text-truncate">{a.titre}</strong>
-                        {a.niveau && <span className="badge bg-label-primary">{a.niveau.niveau}</span>}
-                      </div>
-                      <p className="mb-1 text-muted small" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {a.description}
-                      </p>
-                      <small className="text-muted">{a.expediteur} · {new Date(a.created_at).toLocaleDateString('fr-FR')}</small>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {!loading && dernieres.length === 0 ? (
+              <div className="gstf-empty">
+                <i className="bx bx-bell-off d-block"></i>
+                Aucune annonce pour le moment.
+              </div>
+            ) : (
+              <ul className="list-group list-group-flush gstf-annonces" aria-busy={loading}>
+                {loading ? (
+                  <LignesAnnonceChargement nombre={3} />
+                ) : (
+                  dernieres.map((a) => (
+                    <LigneAnnonce key={a.id} annonce={a} nouvelle={idsNonLues.has(a.id)} avecDestinataires onClick={() => ouvrir(a.id)} />
+                  ))
+                )}
+              </ul>
+            )}
           </div>
         </div>
 

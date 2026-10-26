@@ -4,9 +4,11 @@
 //   const { notify, confirm } = useFeedback();
 //   notify.success('Étudiant ajouté.');
 //   notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
-//   notify.info('…', { title: 'Nouvelle annonce', action: { label: 'Lire', onClick: () => … }, position: 'bas' });
+//   notify.info('…', { title: '…', action: { label: 'Voir', onClick: () => … } });
+//   notify.annonce(extrait, { title, meta: expéditeur, action: { label: "Lire l'annonce", onClick } }) : annonce reçue en direct
 //   Position : en haut à droite (défaut) pour le résultat d'une action de l'utilisateur ;
-//   'bas' (en bas à droite) pour ce qui arrive sans qu'il ait rien fait (notification reçue en direct).
+//   'bas' (en bas à droite) pour ce qui arrive sans qu'il ait rien fait (une annonce y est toujours).
+//   Survolée, une notification reste affichée le temps de la lire.
 //   if (await confirm({ title: 'Supprimer ?', message: '…', confirmLabel: 'Supprimer', danger: true })) { … }
 //   Avec `code: 'K7M2QX'`, le bouton ne s'active qu'une fois le code recopié (voir utils/confirmation.js).
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
@@ -18,32 +20,48 @@ const STYLES = {
   error: { icon: 'bx-error-circle', className: 'gstf-toast--error', title: 'Erreur' },
   warning: { icon: 'bx-error', className: 'gstf-toast--warning', title: 'Attention' },
   info: { icon: 'bx-info-circle', className: 'gstf-toast--info', title: 'Information' },
+  annonce: { icon: 'bxs-megaphone', className: 'gstf-toast--annonce', title: 'Nouvelle annonce' },
 };
 
-const DUREE = { success: 4000, info: 5000, warning: 7000, error: 8000 };
+const DUREE = { success: 4000, info: 5000, warning: 7000, error: 8000, annonce: 15000 };
+const DUREE_APRES_SURVOL = 4000;
 
 export const FeedbackProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const [dialog, setDialog] = useState(null);
   const [saisieCode, setSaisieCode] = useState('');
   const nextId = useRef(0);
+  const minuteries = useRef({}); // id du toast → fermeture programmée
 
   const dismiss = useCallback((id) => {
+    clearTimeout(minuteries.current[id]);
+    delete minuteries.current[id];
     setToasts((list) => list.filter((t) => t.id !== id));
   }, []);
 
+  const programmerFermeture = useCallback((id, duree) => {
+    clearTimeout(minuteries.current[id]);
+    minuteries.current[id] = setTimeout(() => dismiss(id), duree);
+  }, [dismiss]);
+
+  // Survol : le temps de lire ; la fermeture reprend quand la souris s'en va
+  const suspendre = (id) => clearTimeout(minuteries.current[id]);
+  const reprendre = (id) => programmerFermeture(id, DUREE_APRES_SURVOL);
+
   const push = useCallback((type, message, options = {}) => {
     const id = ++nextId.current;
-    setToasts((list) => [...list.slice(-4), { id, type, message, title: options.title, action: options.action, position: options.position === 'bas' ? 'bas' : 'haut' }]);
-    setTimeout(() => dismiss(id), options.duration ?? DUREE[type]);
+    const position = type === 'annonce' || options.position === 'bas' ? 'bas' : 'haut';
+    setToasts((list) => [...list.slice(-4), { id, type, message, title: options.title, meta: options.meta, action: options.action, position }]);
+    programmerFermeture(id, options.duration ?? DUREE[type]);
     return id;
-  }, [dismiss]);
+  }, [programmerFermeture]);
 
   const notify = useMemo(() => ({
     success: (message, options) => push('success', message, options),
     error: (message, options) => push('error', message, options),
     warning: (message, options) => push('warning', message, options),
     info: (message, options) => push('info', message, options),
+    annonce: (message, options) => push('annonce', message, options),
   }), [push]);
 
   const confirm = useCallback((options) => new Promise((resolve) => {
@@ -69,8 +87,32 @@ export const FeedbackProvider = ({ children }) => {
           aria-label={position === 'bas' ? 'Notifications reçues' : 'Notifications'}>
           {toasts.filter((t) => t.position === position).map((t) => {
             const style = STYLES[t.type];
+            const survol = { onMouseEnter: () => suspendre(t.id), onMouseLeave: () => reprendre(t.id), onFocus: () => suspendre(t.id) };
+            if (t.type === 'annonce') {
+              return (
+                <div key={t.id} className="gstf-toast gstf-toast--annonce" role="status" {...survol}>
+                  <span className="gstf-pastille-annonce" aria-hidden="true"><i className={`bx ${style.icon}`}></i></span>
+                  <div className="gstf-toast__body">
+                    <div className="gstf-toast__surtitre">{style.title} · à l'instant</div>
+                    <strong className="gstf-toast__titre">{t.title}</strong>
+                    {t.message && <div className="gstf-toast__extrait">{t.message}</div>}
+                    {t.meta && <div className="gstf-toast__meta"><i className="bx bx-user-voice me-1" aria-hidden="true"></i>{t.meta}</div>}
+                    <div className="d-flex gap-2 mt-2">
+                      {t.action && (
+                        <button type="button" className="btn btn-sm btn-primary"
+                          onClick={() => { dismiss(t.id); t.action.onClick(); }}>
+                          {t.action.label}
+                        </button>
+                      )}
+                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => dismiss(t.id)}>Plus tard</button>
+                    </div>
+                  </div>
+                  <button type="button" className="btn-close gstf-toast__fermer" aria-label="Fermer" onClick={() => dismiss(t.id)}></button>
+                </div>
+              );
+            }
             return (
-              <div key={t.id} className={`gstf-toast ${style.className}`} role={t.type === 'error' ? 'alert' : 'status'}>
+              <div key={t.id} className={`gstf-toast ${style.className}`} role={t.type === 'error' ? 'alert' : 'status'} {...survol}>
                 <i className={`bx ${style.icon} gstf-toast__icon`} aria-hidden="true"></i>
                 <div className="gstf-toast__body">
                   <strong>{t.title || style.title}</strong>

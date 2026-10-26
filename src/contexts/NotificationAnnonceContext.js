@@ -49,11 +49,11 @@ const Notifications = ({ role, userId, children }) => {
     () => ecouterUtilisateur(userId, 'annonce.maj', ({ action, annonce }) => {
       recharger();
       if (action === 'creee') {
-        notify.info(annonce.extrait, {
-          title: `Nouvelle annonce : ${annonce.titre}`,
-          duration: 12000,
-          position: 'bas', // reçue en direct : en bas à droite, sans masquer l'en-tête ni la cloche
-          action: { label: 'Lire', onClick: () => ouvrir(annonce.id) },
+        // En bas à droite, aux couleurs du séminaire (voir FeedbackContext)
+        notify.annonce(annonce.extrait, {
+          title: annonce.titre,
+          meta: annonce.expediteur,
+          action: { label: "Lire l'annonce", onClick: () => ouvrir(annonce.id) },
         });
       }
     }),

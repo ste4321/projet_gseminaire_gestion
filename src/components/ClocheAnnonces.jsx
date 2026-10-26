@@ -1,17 +1,9 @@
 import React from 'react';
 import { useNotificationsAnnonces } from '../contexts/NotificationAnnonceContext';
 import { plusRecentsDabord } from '../utils/tri';
+import { ilYA } from '../utils/dates';
 
 const MAX_AFFICHEES = 5;
-
-const ilYA = (iso) => {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const heures = Math.round(minutes / 60);
-  if (heures < 24) return `il y a ${heures} h`;
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-};
 
 /** Cloche de l'en-tête : annonces non lues (enseignants et étudiants) */
 const ClocheAnnonces = () => {

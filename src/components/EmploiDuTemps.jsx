@@ -1,16 +1,16 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { storageUrl } from '../config';
-import { FaAngleDoubleLeft, FaAngleDoubleRight } from 'react-icons/fa';
 import { useEmploi } from '../contexts/EmploiContext';
 
 // Import des composants modulaires
 import AddModal from './AddModal';
 import EditModal from './EditModal';
 import DeleteModal from './DeleteModal';
+import { ROLE_LABELS } from '../navigation';
 
 // Même limite que le serveur (EmploiDuTempsController::MAX_PAR_SEMESTRE)
 const MAX_IMAGES = 5;
@@ -45,7 +45,17 @@ const EmploiDuTemps = () => {
     [semestre, emploiSemestre1, emploiSemestre2]
   );
 
+  const semestreInitialChoisi = useRef(false);
+  useEffect(() => {
+    if (loading || semestreInitialChoisi.current) return;
+    semestreInitialChoisi.current = true;
+    if (emploiSemestre1.length === 0 && emploiSemestre2.length > 0) setSemestre(2);
+  }, [loading, emploiSemestre1.length, emploiSemestre2.length]);
+
   const totalPages = emploiActuel.length;
+  const admin = role === 'admin';
+  const autreSemestre = semestre === 1 ? 2 : 1;
+  const autreAContenu = (semestre === 1 ? emploiSemestre2 : emploiSemestre1).length > 0;
   const complet = emploiActuel.length >= MAX_IMAGES;
   const currentEmploi = emploiActuel[page];
 
@@ -98,6 +108,10 @@ const EmploiDuTemps = () => {
     if (currentEmploi) {
       const currentImageId = currentEmploi.id;
       handleImageLoadStart(currentImageId);
+      // Déjà en cache : chargée avant cet effet, l'événement « load » ne viendra plus
+      const actuelle = new Image();
+      actuelle.src = storageUrl(currentEmploi.image_url);
+      if (actuelle.complete) handleImageLoadEnd(currentImageId);
 
       // Précharger l'image précédente et suivante
       const preloadImages = [];
@@ -113,7 +127,7 @@ const EmploiDuTemps = () => {
         img.src = storageUrl(emploi.image_url);
       });
     }
-  }, [currentEmploi, page, emploiActuel, handleImageLoadStart]);
+  }, [currentEmploi, page, emploiActuel, handleImageLoadStart, handleImageLoadEnd]);
 
   // Réinitialiser la page si elle dépasse la nouvelle longueur
   useEffect(() => {
@@ -263,60 +277,31 @@ const EmploiDuTemps = () => {
     setPage(newPage);
   }, []);
 
-  const renderPagination = useCallback(() => {
-    if (totalPages <= 1) return null;
+  // Pages suivante / précédente : flèches sur l'image, miniatures, touches ← →
+  const pagePrecedente = () => page > 0 && handlePageChange(page - 1);
+  const pageSuivante = () => page < totalPages - 1 && handlePageChange(page + 1);
+  const naviguerClavier = (e) => {
+    if (e.key === 'ArrowLeft') pagePrecedente();
+    if (e.key === 'ArrowRight') pageSuivante();
+  };
 
-    const maxVisiblePages = 5;
-    let start = Math.max(0, page - Math.floor(maxVisiblePages / 2));
-    let end = start + maxVisiblePages;
-    if (end > totalPages) {
-      end = totalPages;
-      start = Math.max(0, end - maxVisiblePages);
-    }
+  const imageUrl = currentEmploi ? storageUrl(currentEmploi.image_url) : '';
 
-    const pages = Array.from({ length: end - start }, (_, i) => start + i);
-
-    return (
-      <nav className="mt-4" aria-label="Pagination">
-        <ul className="pagination justify-content-center">
-          <li className={`page-item ${page === 0 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => handlePageChange(0)} disabled={page === 0}>
-              <FaAngleDoubleLeft />
-            </button>
-          </li>
-          {pages.map(pg => (
-            <li key={pg} className={`page-item ${pg === page ? 'active' : ''}`}>
-              <button className="page-link" onClick={() => handlePageChange(pg)}>{pg + 1}</button>
-            </li>
-          ))}
-          <li className={`page-item ${page === totalPages - 1 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={() => handlePageChange(totalPages - 1)} disabled={page === totalPages - 1}>
-              <FaAngleDoubleRight />
-            </button>
-          </li>
-        </ul>
-      </nav>
-    );
-  }, [totalPages, page, handlePageChange]);
-
-  // Composant ImageViewer optimisé
-  const ImageViewer = useMemo(() => {
+  const ImageViewer = (() => {
     if (!currentEmploi) return null;
-
     const imageId = currentEmploi.id;
-    const imageUrl = storageUrl(currentEmploi.image_url);
     const isLoading = imageLoading[imageId];
 
     // Fichier enregistré mais inaccessible (ex. lien public/storage manquant côté serveur)
     if (imageErreur[imageId] === imageUrl) {
       return (
-        <div className="d-flex flex-column align-items-center justify-content-center bg-light rounded border p-4" style={{ minHeight: '40vh' }}>
-          <i className="bx bx-image-alt display-4 text-muted mb-3"></i>
+        <div className="gstf-edt__zone gstf-edt__zone--message">
+          <i className="bx bx-image-alt display-5 text-muted mb-2"></i>
           <p className="fw-semibold mb-1">L'image de cet emploi du temps est introuvable.</p>
           <p className="text-muted small mb-3" style={{ maxWidth: 520 }}>
-            {role === 'admin'
-              ? "Le fichier n'est pas accessible sur le serveur. Remplacez l'image avec le bouton « Modifier », ou demandez à l'administrateur technique de vérifier le stockage (php artisan storage:link)."
-              : "Réessayez plus tard ou contactez le secrétariat."}
+            {admin
+              ? "Le fichier n'est pas accessible sur le serveur. Remplacez l'image, ou demandez à l'administrateur technique de vérifier le stockage (php artisan storage:link)."
+              : 'Réessayez plus tard ou contactez le secrétariat.'}
           </p>
           <button type="button" className="btn btn-sm btn-outline-primary"
             onClick={() => setImageErreur(prev => ({ ...prev, [imageId]: null }))}>
@@ -327,75 +312,82 @@ const EmploiDuTemps = () => {
     }
 
     return (
-      <div className="position-relative">
+      <div className="gstf-edt__zone" tabIndex={totalPages > 1 ? 0 : undefined} onKeyDown={naviguerClavier}
+        aria-label={totalPages > 1 ? 'Emploi du temps : flèches gauche et droite pour changer de page' : undefined}>
         {isLoading && (
           // Image en cours de téléchargement : squelette de la taille de la zone d'affichage
-          <div className="position-absolute top-0 start-0 w-100 h-100 rounded border overflow-hidden" style={{ zIndex: 1 }}>
-            <span className="visually-hidden" role="status">Chargement de l'image…</span>
-            <span className="gstf-squelette w-100 h-100" style={{ borderRadius: 0 }} aria-hidden="true" />
-          </div>
+          <span className="gstf-squelette gstf-edt__chargement" aria-hidden="true" />
         )}
-
-        <div className="d-flex justify-content-center align-items-center bg-light rounded border overflow-hidden" style={{ height: '60vh' }}>
-          <PhotoProvider>
-            <PhotoView src={imageUrl}>
-              <img
-                src={imageUrl}
-                alt={`Emploi du temps ${semestre === 1 ? 'premier' : 'deuxième'} semestre`}
-                className="w-100 h-100"
-                style={{
-                  objectFit: 'contain',
-                  cursor: 'zoom-in',
-                  opacity: isLoading ? 0 : 1,
-                  transition: 'opacity 0.3s ease'
-                }}
-                onLoadStart={() => handleImageLoadStart(imageId)}
-                onLoad={() => handleImageLoadEnd(imageId)}
-                onError={() => {
-                  handleImageLoadEnd(imageId);
-                  setImageErreur(prev => ({ ...prev, [imageId]: imageUrl }));
-                }}
-                loading="lazy"
-              />
-            </PhotoView>
-          </PhotoProvider>
-        </div>
+        {isLoading && <span className="visually-hidden" role="status">Chargement de l'image…</span>}
+        <PhotoProvider>
+          <PhotoView src={imageUrl}>
+            <img
+              src={imageUrl}
+              alt={`Emploi du temps du semestre ${semestre}${totalPages > 1 ? `, page ${page + 1}` : ''}`}
+              className="gstf-edt__image"
+              style={{ opacity: isLoading ? 0 : 1 }}
+              onLoad={() => handleImageLoadEnd(imageId)}
+              onError={() => {
+                handleImageLoadEnd(imageId);
+                setImageErreur(prev => ({ ...prev, [imageId]: imageUrl }));
+              }}
+            />
+          </PhotoView>
+        </PhotoProvider>
+        {totalPages > 1 && (
+          <>
+            <button type="button" className="gstf-edt__fleche gstf-edt__fleche--gauche" onClick={pagePrecedente}
+              disabled={page === 0} aria-label="Page précédente">
+              <i className="bx bx-chevron-left"></i>
+            </button>
+            <button type="button" className="gstf-edt__fleche gstf-edt__fleche--droite" onClick={pageSuivante}
+              disabled={page === totalPages - 1} aria-label="Page suivante">
+              <i className="bx bx-chevron-right"></i>
+            </button>
+          </>
+        )}
       </div>
     );
-  }, [currentEmploi, imageLoading, imageErreur, role, semestre, handleImageLoadStart, handleImageLoadEnd]);
+  })();
 
-  // Premier chargement : la page garde sa structure (onglets, carte, image, pagination) en squelette
+  // Choix du semestre : boutons groupés (lisibles aussi sur téléphone)
+  const choixSemestre = (
+    <div className="btn-group" role="group" aria-label="Semestre">
+      {[1, 2].map((s) => (
+        <button key={s} type="button" disabled={loading}
+          className={`btn ${semestre === s ? 'btn-primary' : 'btn-outline-primary'}`}
+          aria-pressed={semestre === s} onClick={() => handleChangeSemestre(s)}>
+          Semestre {s}
+        </button>
+      ))}
+    </div>
+  );
+
+  const entete = (
+    <div className="gstf-page-header">
+      <h4 className="fw-bold mb-0">
+        <span className="text-muted fw-light">{ROLE_LABELS[role]} /</span> Emploi du temps
+      </h4>
+      {choixSemestre}
+    </div>
+  );
+
+  // Premier chargement : la page garde sa structure (en-tête, carte, image) en squelette
   if (loading) {
     return (
       <div className="container-xxl flex-grow-1 container-p-y" aria-busy="true">
-        <h4 className="fw-bold py-3 mb-4">
-          <span className="text-muted fw-light text-capitalize">{role} /</span> Emploi du temps
-        </h4>
+        {entete}
         <span className="visually-hidden" role="status">Chargement de l'emploi du temps…</span>
-        <div className="row" aria-hidden="true">
-          <div className="col-md-12">
-            <ul className="nav nav-pills flex-column flex-md-row mb-3">
-              {[0, 1].map(i => (
-                <li className="nav-item me-md-2 mb-2 mb-md-0" key={i}>
-                  <span className="gstf-squelette" style={{ width: '7.5rem', height: '2.4rem' }} />
-                </li>
-              ))}
-            </ul>
-            <div className="card mb-4 p-4 pt-5 position-relative">
-              {role === 'admin' && (
-                <>
-                  <span className="gstf-squelette position-absolute top-0 start-0 m-3" style={{ width: '6.5rem', height: '1rem' }} />
-                  <span className="gstf-squelette position-absolute top-0 end-0 m-3" style={{ width: '6.5rem', height: '1.9rem' }} />
-                </>
-              )}
-              <br />
-              <span className="gstf-squelette w-100" style={{ height: '60vh' }} />
-              <div className="d-flex justify-content-center gap-2 mt-4">
-                {[0, 1, 2, 3].map(i => (
-                  <span className="gstf-squelette" key={i} style={{ width: '2.4rem', height: '2.4rem' }} />
-                ))}
-              </div>
-            </div>
+        <div className="card" aria-hidden="true">
+          <div className="card-header d-flex justify-content-between align-items-center gap-2">
+            <span className="d-block">
+              <span className="gstf-squelette mb-2" style={{ width: '7rem', height: '1.1rem' }} />
+              <span className="gstf-squelette" style={{ width: '5rem', height: '0.75rem' }} />
+            </span>
+            <span className="gstf-squelette" style={{ width: '7.5rem', height: '1.9rem' }} />
+          </div>
+          <div className="card-body pt-0">
+            <span className="gstf-squelette gstf-edt__zone d-block" />
           </div>
         </div>
       </div>
@@ -404,78 +396,87 @@ const EmploiDuTemps = () => {
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
-      <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light text-capitalize">{role} /</span> Emploi du temps
-      </h4>
+      {entete}
 
-      <div className="row">
-        <div className="col-md-12">
-          <ul className="nav nav-pills flex-column flex-md-row mb-3">
-            <li className="nav-item">
-              <button
-                className={`nav-link ${semestre === 1 ? 'active' : ''}`}
-                onClick={() => handleChangeSemestre(1)}
-              >
-                Semestre 1
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                className={`nav-link ${semestre === 2 ? 'active' : ''}`}
-                onClick={() => handleChangeSemestre(2)}
-              >
-                Semestre 2
-              </button>
-            </li>
-          </ul>
-
-          <div className="card mb-4 text-center p-4 pt-5 position-relative">
-            {/* Boutons d'action */}
-            {role === 'admin' && (
-              <div className="position-absolute top-0 start-0 m-3 small text-muted" aria-live="polite">
-                <i className="bx bx-images me-1"></i>
-                {emploiActuel.length} / {MAX_IMAGES} images
-                {complet && <span className="ms-1 d-none d-md-inline">— supprimez ou remplacez une image pour en ajouter</span>}
-              </div>
+      <div className="card">
+        <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            <h5 className="card-title gstf-section-title mb-1">Semestre {semestre}</h5>
+            <small className="text-muted" aria-live="polite">
+              {totalPages === 0
+                ? 'Pas encore publié'
+                : totalPages > 1 ? `Page ${page + 1} sur ${totalPages}` : 'Une page'}
+              {admin && ` · ${emploiActuel.length} / ${MAX_IMAGES} images`}
+            </small>
+          </div>
+          <div className="d-flex flex-wrap gap-2">
+            {currentEmploi && !imageErreur[currentEmploi.id] && (
+              <a href={imageUrl} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-secondary">
+                <i className="bx bx-link-external me-1"></i>Ouvrir l'image
+              </a>
             )}
-            {role === 'admin' && (
-              <div className="position-absolute top-0 end-0 m-3 d-flex gap-2">
-                <button className="btn btn-sm btn-outline-primary" onClick={openAddModal} disabled={complet}
-                  title={complet ? `Maximum ${MAX_IMAGES} images par semestre` : 'Ajouter une image'} aria-label="Ajouter une image">
-                  <i className="bx bx-plus"></i>
-                </button>
-                {emploiActuel.length > 0 && (
-                  <>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openEditModal} title="Remplacer cette image" aria-label="Remplacer cette image">
-                      <i className="bx bx-edit"></i>
-                    </button>
-                    <button className="btn btn-sm btn-outline-primary" onClick={openDeleteModal} title="Supprimer cette image" aria-label="Supprimer cette image">
-                      <i className="bx bx-trash"></i>
-                    </button>
-                  </>
-                )}
-              </div>
+            {admin && (
+              <button className="btn btn-sm btn-primary" onClick={openAddModal} disabled={complet}
+                title={complet ? `Maximum ${MAX_IMAGES} images par semestre : supprimez ou remplacez une image` : undefined}>
+                <i className="bx bx-plus me-1"></i>Ajouter
+              </button>
             )}
-            <br />
-            {emploiActuel.length > 0 ? (
+            {admin && currentEmploi && (
               <>
-                {ImageViewer}
-                {renderPagination()}
+                <button className="btn btn-sm btn-outline-primary" onClick={openEditModal}>
+                  <i className="bx bx-edit me-1"></i>Remplacer
+                </button>
+                <button className="btn btn-sm btn-outline-danger" onClick={openDeleteModal} aria-label="Supprimer cette image">
+                  <i className="bx bx-trash"></i>
+                </button>
               </>
-            ) : (
-              <div className="d-flex flex-column align-items-center justify-content-center bg-light rounded border" style={{ minHeight: '60vh' }}>
-                <i className="bx bx-calendar-x display-1 text-muted mb-3"></i>
-                <p className="text-muted fs-5">Aucun emploi du temps disponible pour ce semestre.</p>
-                {role === 'admin' && (
-                  <button className="btn btn-primary mt-3" onClick={openAddModal}>
-                    <i className="bx bx-plus me-2"></i>
-                    Ajouter un emploi du temps
-                  </button>
-                )}
-              </div>
             )}
           </div>
         </div>
+
+        <div className="card-body pt-0">
+          {currentEmploi ? (
+            <>
+              {ImageViewer}
+              <p className="small text-muted text-center mt-2 mb-0 d-none d-md-block">
+                <i className="bx bx-zoom-in me-1"></i>Cliquez sur l'image pour l'agrandir
+              </p>
+            </>
+          ) : (
+            <div className="gstf-empty">
+              <i className="bx bx-calendar-x d-block"></i>
+              <p className="mb-1 fw-semibold text-body">Aucun emploi du temps pour le semestre {semestre}.</p>
+              <p className="mb-0">
+                {admin ? 'Ajoutez une ou plusieurs images (5 au maximum).' : "Il s'affichera ici dès sa publication par l'administration."}
+              </p>
+              <div className="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                {admin && (
+                  <button className="btn btn-sm btn-primary" onClick={openAddModal}>
+                    <i className="bx bx-plus me-1"></i>Ajouter un emploi du temps
+                  </button>
+                )}
+                {autreAContenu && (
+                  <button className="btn btn-sm btn-outline-primary" onClick={() => handleChangeSemestre(autreSemestre)}>
+                    Voir le semestre {autreSemestre}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Miniatures : une par page */}
+        {totalPages > 1 && (
+          <div className="card-footer gstf-edt__miniatures" role="group" aria-label="Pages de l'emploi du temps">
+            {emploiActuel.map((emploi, i) => (
+              <button key={emploi.id} type="button" className={`gstf-edt__miniature${i === page ? ' is-active' : ''}`}
+                onClick={() => handlePageChange(i)} aria-label={`Page ${i + 1}`} aria-current={i === page ? 'page' : undefined}>
+                <img src={storageUrl(emploi.image_url)} alt="" loading="lazy" />
+                <span>{i + 1}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modales réutilisables */}

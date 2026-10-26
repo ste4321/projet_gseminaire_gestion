@@ -14,6 +14,7 @@ import FicheEnseignant from './FicheEnseignant';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 import BoutonCopier from './BoutonCopier';
 import { plusRecentsDabord } from '../utils/tri';
+import { ROLE_LABELS } from '../navigation';
 
 const FORMULAIRE_VIDE = { nom_prenom: '', adresse: '', email: '', telephone: '' };
 
@@ -150,7 +151,7 @@ const ListeProf = () => {
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
       <h4 className="fw-bold py-3 mb-4">
-        <span className="text-muted fw-light text-capitalize">{role} /</span> Enseignants
+        <span className="text-muted fw-light">{ROLE_LABELS[role]} /</span> Enseignants
       </h4>
       {loading && <span className="visually-hidden" role="status">Chargement des enseignants…</span>}
 

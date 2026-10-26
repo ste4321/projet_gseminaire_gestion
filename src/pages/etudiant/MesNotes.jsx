@@ -1,58 +1,32 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import api, { errorMessage, estAnnulee } from '../../api/client';
-import useDerniereRequete from '../../hooks/useDerniereRequete';
+import React, { useState } from 'react';
 import { useFeedback } from '../../contexts/FeedbackContext';
+import { useParcours, useReleve } from '../../contexts/EspaceEtudiantContext';
 import { telechargerBulletin } from '../../utils/bulletin';
 import StatutResultat from '../../components/StatutResultat';
 
 const format = (n) => (n === null || n === undefined ? '—' : Number(n).toFixed(2));
 
+// Chiffres sobres : seule une note sous la moyenne est signalée (une seule couleur d'accent)
 const BadgeNote = ({ valeur }) => {
   if (valeur === null || valeur === undefined) {
     return <span className="text-muted" title="Note pas encore saisie">—</span>;
   }
-  const classe = valeur < 10 ? 'bg-label-danger' : valeur >= 14 ? 'bg-label-success' : 'bg-label-secondary';
-  return <span className={`badge ${classe} fs-6`}>{format(valeur)}</span>;
+  const faible = valeur < 10;
+  return (
+    <span className={`gstf-note${faible ? ' gstf-note--faible' : ''}`} title={faible ? 'Inférieure à 10 / 20' : undefined}>
+      {format(valeur)}
+      {faible && <span className="visually-hidden"> (inférieure à 10)</span>}
+    </span>
+  );
 };
 
 const MesNotes = () => {
   const { notify } = useFeedback();
-  const [parcours, setParcours] = useState([]);
-  const [parcoursId, setParcoursId] = useState('');
-  const [releve, setReleve] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [erreur, setErreur] = useState(null);
+  const parcours = useParcours();
+  const [parcoursId, setParcoursId] = useState(''); // '' = inscription la plus récente
+  // Gardé en mémoire : revenir sur la page (ou sur une année déjà vue) l'affiche aussitôt
+  const { releve, loading, erreur, recharger } = useReleve(parcoursId);
   const [pdfEnCours, setPdfEnCours] = useState(false);
-
-  useEffect(() => {
-    const controle = new AbortController();
-    api.get('/etudiant/parcours', { signal: controle.signal })
-      .then((res) => setParcours(res.data))
-      .catch(() => setParcours([])); // sans la liste, seul le parcours en cours est proposé
-    return () => controle.abort();
-  }, []);
-
-  const nouvelleRequete = useDerniereRequete();
-
-  const charger = useCallback(async (id) => {
-    const signal = nouvelleRequete(); // changement de parcours rapide : seule la dernière réponse compte
-    setLoading(true);
-    setErreur(null);
-    try {
-      const res = await api.get('/etudiant/releve', { params: id ? { parcours: id } : {}, signal });
-      setReleve(res.data);
-    } catch (err) {
-      if (estAnnulee(err)) return;
-      setReleve(null);
-      setErreur(errorMessage(err, 'Impossible de charger vos notes.'));
-    } finally {
-      if (!signal.aborted) setLoading(false);
-    }
-  }, [nouvelleRequete]);
-
-  useEffect(() => {
-    charger(parcoursId);
-  }, [parcoursId, charger]);
 
   const telecharger = async () => {
     setPdfEnCours(true);
@@ -85,7 +59,6 @@ const MesNotes = () => {
               aria-label="Année académique"
               value={parcoursId || releve?.parcours_id || ''}
               onChange={(e) => setParcoursId(e.target.value)}
-              disabled={loading}
             >
               {parcours.map((p) => <option key={p.id} value={p.id}>{p.annee} · {p.niveau}</option>)}
             </select>
@@ -108,7 +81,7 @@ const MesNotes = () => {
           <div className="gstf-empty">
             <i className="bx bx-info-circle d-block"></i>
             <p className="mb-3">{erreur}</p>
-            <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => charger(parcoursId)}>Réessayer</button>
+            <button type="button" className="btn btn-outline-primary btn-sm" onClick={recharger}>Réessayer</button>
           </div>
         </div>
       ) : releve && (
@@ -155,11 +128,13 @@ const MesNotes = () => {
           </div>
 
           {aucunePublication && general.matieres_total > 0 && (
-            <div className="alert alert-info d-flex gap-2" role="status">
-              <i className="bx bx-time-five fs-4"></i>
-              <div>
-                <strong>Vos notes ne sont pas encore publiées.</strong><br />
-                Elles apparaîtront ici dès que l'administration aura publié les résultats du semestre.
+            <div className="card mb-4" role="status">
+              <div className="card-body gstf-stat align-items-start">
+                <div className="gstf-stat__icon gstf-stat__icon--gold" aria-hidden="true"><i className="bx bx-time-five"></i></div>
+                <div>
+                  <strong className="d-block text-body mb-1">Vos notes ne sont pas encore publiées.</strong>
+                  <span className="text-muted">Elles apparaîtront ici dès que l'administration aura publié les résultats du semestre.</span>
+                </div>
               </div>
             </div>
           )}
