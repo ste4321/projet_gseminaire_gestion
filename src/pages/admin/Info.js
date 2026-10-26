@@ -176,9 +176,6 @@ const Info = () => {
           </h4>
           <small className="text-muted">Publiées sur le site du séminaire, visibles par tous les visiteurs.</small>
         </div>
-        <button className="btn btn-primary" onClick={ouvrirAjout} disabled={loading}>
-          <i className="bx bx-plus me-1"></i>Nouvelle actualité
-        </button>
       </div>
       {loading && <span className="visually-hidden" role="status">Chargement des actualités…</span>}
 
@@ -194,7 +191,13 @@ const Info = () => {
           )}
         </h5>
 
-        <div className="card-body pb-3">
+        <div className="mb-3 ms-4">
+          <button className="btn btn-primary" onClick={ouvrirAjout} disabled={loading}>
+            <i className="bx bx-plus me-1"></i>Nouvelle actualité
+          </button>
+        </div>
+        <br />
+        <div className="card-body pt-0 pb-3">
           <SearchBar searchTerm={recherche} onSearchChange={setRecherche} placeholder="Rechercher par titre, contenu ou auteur…" />
         </div>
 
