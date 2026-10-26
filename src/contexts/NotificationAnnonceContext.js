@@ -50,10 +50,10 @@ const Notifications = ({ role, userId, children }) => {
       recharger();
       if (action === 'creee') {
         // En bas à droite, aux couleurs du séminaire (voir FeedbackContext)
-        notify.annonce(annonce.extrait, {
+        notify.annonce(null, {
           title: annonce.titre,
-          meta: annonce.expediteur,
-          action: { label: "Lire l'annonce", onClick: () => ouvrir(annonce.id) },
+          meta: `Annonce · ${annonce.expediteur}`,
+          action: { label: 'Lire', onClick: () => ouvrir(annonce.id) },
         });
       }
     }),

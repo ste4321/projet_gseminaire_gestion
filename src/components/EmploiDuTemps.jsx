@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { storageUrl } from '../config';
 import { useEmploi } from '../contexts/EmploiContext';
+import { useNotificationsEtudiant } from '../contexts/NotificationsEtudiantContext';
 
 // Import des composants modulaires
 import AddModal from './AddModal';
@@ -45,7 +47,24 @@ const EmploiDuTemps = () => {
     [semestre, emploiSemestre1, emploiSemestre2]
   );
 
+  // Page consultée : l'emploi du temps ne compte plus comme nouveau (cloche de l'en-tête ; sans effet pour l'admin)
+  const { marquerEdtLu } = useNotificationsEtudiant();
+  useEffect(() => {
+    if (!loading) marquerEdtLu();
+  }, [loading, marquerEdtLu]);
+
   const semestreInitialChoisi = useRef(false);
+  // Arrivée depuis une notification (« Nouvel emploi du temps — Semestre 2 ») : ce semestre, première page
+  const location = useLocation();
+  const navigate = useNavigate();
+  const semestreDemande = location.state?.semestre;
+  useEffect(() => {
+    if (!semestreDemande) return;
+    semestreInitialChoisi.current = true;
+    setSemestre(Number(semestreDemande));
+    setPage(0);
+    navigate('.', { replace: true, state: null });
+  }, [semestreDemande, navigate]);
   useEffect(() => {
     if (loading || semestreInitialChoisi.current) return;
     semestreInitialChoisi.current = true;

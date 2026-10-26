@@ -103,19 +103,19 @@
 .gstf-toast--info { color: var(--gstf-info); }
 /* En haut : résultat d'une action. En bas : notification reçue (la plus récente au plus près du bord) */
 .gstf-toasts--haut { top: 1rem; }
-.gstf-toasts--bas { bottom: 1rem; }
+.gstf-toasts--bas { bottom: 1rem; width: min(340px, calc(100vw - 2rem)); }
 .gstf-toasts--bas .gstf-toast { animation-name: gstf-toast-in-bas; }
 
-/* Annonce reçue : aux couleurs du séminaire (bordeaux, liseré doré), pas de bandeau de couleur à gauche */
+/* Nouvelle reçue en direct (annonce, notes, emploi du temps) : courte, icône + titre + une ligne + un lien */
 .gstf-toast.gstf-toast--annonce {
   position: relative;
+  align-items: center;
   color: var(--gstf-text);
   border-left: 0;
-  border-top: 3px solid var(--gstf-gold);
-  padding: 1rem 2.5rem 0.85rem 1rem;
+  padding: 0.75rem 2.25rem 0.75rem 0.85rem;
   box-shadow: 0 0.5rem 1.5rem var(--gstf-ombre);
 }
-/* Pastille mégaphone : notification d'annonce et détail d'une annonce */
+/* Pastille : notification d'annonce et détail d'une annonce */
 .gstf-pastille-annonce {
   flex: none;
   display: inline-flex;
@@ -128,49 +128,113 @@
   color: var(--gstf-primary);
   font-size: 1.25rem;
 }
-.gstf-toast__surtitre {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--gstf-primary);
-  margin-bottom: 0.15rem;
-}
+.gstf-toast--annonce .gstf-pastille-annonce { width: 2.25rem; height: 2.25rem; font-size: 1.1rem; }
 .gstf-toast--annonce .gstf-toast__titre {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.35;
   word-break: break-word;
 }
-.gstf-toast__extrait {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-top: 0.25rem;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--gstf-text);
-  word-break: break-word;
-}
 .gstf-toast__meta {
-  margin-top: 0.35rem;
+  display: block;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
   color: var(--gstf-text-muted);
 }
+.gstf-toast__lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gstf-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.gstf-toast__lien:hover .bx { transform: translateX(2px); }
+.gstf-toast__lien .bx { transition: transform 0.15s ease; }
 .gstf-toast__fermer {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  font-size: 0.7rem;
+  top: 0.65rem;
+  right: 0.65rem;
+  font-size: 0.65rem;
 }
 
-/* Cloche de l'en-tête : annonces non lues */
-.gstf-cloche { width: min(340px, calc(100vw - 2rem)); }
-.gstf-cloche__item { white-space: normal; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+/* Cloche de l'en-tête : nouveautés non lues (le thème impose aux menus display: block et nowrap) */
+.dropdown-menu.gstf-cloche { width: 22rem; max-width: calc(100vw - 1.5rem); padding: 0; overflow: hidden; }
+.gstf-cloche .gstf-cloche__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gstf-border);
+}
+.gstf-cloche .gstf-cloche__tout-lire {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gstf-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.gstf-cloche .gstf-cloche__tout-lire .bx { font-size: 1rem; }
+.gstf-cloche .gstf-cloche__liste { max-height: 22rem; overflow-y: auto; }
+.gstf-cloche .gstf-cloche__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  white-space: normal;
+  border-bottom: 1px solid var(--gstf-border-soft);
+}
+.gstf-cloche .gstf-cloche__icone {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+  font-size: 1.05rem;
+}
+.gstf-cloche .gstf-cloche__titre {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--gstf-heading);
+  word-break: break-word;
+}
+.gstf-cloche .gstf-cloche__detail {
+  display: block;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-cloche .gstf-cloche__point { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--gstf-primary); }
+.gstf-cloche .gstf-cloche__pied { padding: 0.65rem 1rem; text-align: center; font-size: 0.85rem; font-weight: 500; color: var(--gstf-primary); }
 .gstf-cloche__compteur { font-size: 0.65rem; margin-top: 0.1rem; }
 
 @keyframes gstf-toast-in {

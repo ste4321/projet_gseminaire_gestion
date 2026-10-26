@@ -5,9 +5,10 @@
 //   notify.success('Étudiant ajouté.');
 //   notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
 //   notify.info('…', { title: '…', action: { label: 'Voir', onClick: () => … } });
-//   notify.annonce(extrait, { title, meta: expéditeur, action: { label: "Lire l'annonce", onClick } }) : annonce reçue en direct
+//   notify.annonce(null, { title, meta: 'Annonce · Administration', icone, action: { label: 'Lire', onClick } }) :
+//     nouvelle reçue en direct (annonce, notes, emploi du temps). Courte : icône, titre, une ligne, un lien.
 //   Position : en haut à droite (défaut) pour le résultat d'une action de l'utilisateur ;
-//   'bas' (en bas à droite) pour ce qui arrive sans qu'il ait rien fait (une annonce y est toujours).
+//   'bas' (en bas à droite) pour ce qui arrive sans qu'il ait rien fait (une nouvelle reçue y est toujours).
 //   Survolée, une notification reste affichée le temps de la lire.
 //   if (await confirm({ title: 'Supprimer ?', message: '…', confirmLabel: 'Supprimer', danger: true })) { … }
 //   Avec `code: 'K7M2QX'`, le bouton ne s'active qu'une fois le code recopié (voir utils/confirmation.js).
@@ -51,7 +52,7 @@ export const FeedbackProvider = ({ children }) => {
   const push = useCallback((type, message, options = {}) => {
     const id = ++nextId.current;
     const position = type === 'annonce' || options.position === 'bas' ? 'bas' : 'haut';
-    setToasts((list) => [...list.slice(-4), { id, type, message, title: options.title, meta: options.meta, action: options.action, position }]);
+    setToasts((list) => [...list.slice(-4), { id, type, message, title: options.title, meta: options.meta, action: options.action, icone: options.icone, position }]);
     programmerFermeture(id, options.duration ?? DUREE[type]);
     return id;
   }, [programmerFermeture]);
@@ -91,21 +92,16 @@ export const FeedbackProvider = ({ children }) => {
             if (t.type === 'annonce') {
               return (
                 <div key={t.id} className="gstf-toast gstf-toast--annonce" role="status" {...survol}>
-                  <span className="gstf-pastille-annonce" aria-hidden="true"><i className={`bx ${style.icon}`}></i></span>
+                  <span className="gstf-pastille-annonce" aria-hidden="true"><i className={`bx ${t.icone || style.icon}`}></i></span>
                   <div className="gstf-toast__body">
-                    <div className="gstf-toast__surtitre">{style.title} · à l'instant</div>
                     <strong className="gstf-toast__titre">{t.title}</strong>
-                    {t.message && <div className="gstf-toast__extrait">{t.message}</div>}
-                    {t.meta && <div className="gstf-toast__meta"><i className="bx bx-user-voice me-1" aria-hidden="true"></i>{t.meta}</div>}
-                    <div className="d-flex gap-2 mt-2">
-                      {t.action && (
-                        <button type="button" className="btn btn-sm btn-primary"
-                          onClick={() => { dismiss(t.id); t.action.onClick(); }}>
-                          {t.action.label}
-                        </button>
-                      )}
-                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => dismiss(t.id)}>Plus tard</button>
-                    </div>
+                    <span className="gstf-toast__meta">{t.meta ? `${t.meta} · ` : ''}à l'instant</span>
+                    {t.action && (
+                      <button type="button" className="gstf-toast__lien"
+                        onClick={() => { dismiss(t.id); t.action.onClick(); }}>
+                        {t.action.label}<i className="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                      </button>
+                    )}
                   </div>
                   <button type="button" className="btn-close gstf-toast__fermer" aria-label="Fermer" onClick={() => dismiss(t.id)}></button>
                 </div>

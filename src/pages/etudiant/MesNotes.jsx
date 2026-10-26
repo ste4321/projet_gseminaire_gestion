@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import { useParcours, useReleve } from '../../contexts/EspaceEtudiantContext';
+import { useNotificationsEtudiant } from '../../contexts/NotificationsEtudiantContext';
 import { telechargerBulletin } from '../../utils/bulletin';
 import StatutResultat from '../../components/StatutResultat';
 
@@ -27,6 +28,12 @@ const MesNotes = () => {
   // Gardé en mémoire : revenir sur la page (ou sur une année déjà vue) l'affiche aussitôt
   const { releve, loading, erreur, recharger } = useReleve(parcoursId);
   const [pdfEnCours, setPdfEnCours] = useState(false);
+
+  // Page consultée : les notes publiées ne comptent plus comme nouvelles (cloche de l'en-tête)
+  const { marquerNotesLues } = useNotificationsEtudiant();
+  useEffect(() => {
+    if (releve) marquerNotesLues();
+  }, [releve, marquerNotesLues]);
 
   const telecharger = async () => {
     setPdfEnCours(true);
