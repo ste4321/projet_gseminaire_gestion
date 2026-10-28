@@ -3,6 +3,7 @@ import api, { estAnnulee } from '../api/client';
 import useDerniereRequete from '../hooks/useDerniereRequete';
 import StatutResultat from './StatutResultat';
 import BoutonCopier from './BoutonCopier';
+import { dateCourte, libelleStatut } from '../utils/parcours';
 
 const initiales = (nom = '') =>
   nom.split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0].toUpperCase()).join('') || '?';
@@ -12,7 +13,7 @@ const initiales = (nom = '') =>
  * `etudiant` : ligne de la liste (nom_prenom, matricule, email, telephone, diocese, niveau,
  * original = inscription affichée).
  */
-const FicheEtudiant = ({ modalId, etudiant, role, onModifier }) => {
+const FicheEtudiant = ({ modalId, etudiant, role, onModifier, onDepart, onRetour }) => {
   const [general, setGeneral] = useState(null); // moyenne et résultat de l'année affichée
   const nouvelleRequete = useDerniereRequete();
   const parcoursId = etudiant?.original?.id;
@@ -66,6 +67,16 @@ const FicheEtudiant = ({ modalId, etudiant, role, onModifier }) => {
                   ))}
                 </ul>
 
+                {etudiant.date_sortie && (
+                  <div className="gstf-fiche-etudiant__sortie" role="note">
+                    <i className="bx bx-log-out-circle" aria-hidden="true"></i>
+                    <span>
+                      <strong className="d-block text-body">{libelleStatut(etudiant.statut) || 'A quitté le séminaire'} · {dateCourte(etudiant.date_sortie)}</strong>
+                      {etudiant.motif_sortie && <span className="text-muted">{etudiant.motif_sortie}</span>}
+                    </span>
+                  </div>
+                )}
+
                 {general !== false && (
                   <div className="gstf-fiche-etudiant__bilan">
                     <span className="text-muted">Moyenne {annee && `${annee}`}</span>
@@ -82,6 +93,15 @@ const FicheEtudiant = ({ modalId, etudiant, role, onModifier }) => {
               </div>
 
               <div className="modal-footer">
+                {role === 'admin' && (etudiant.date_sortie ? (
+                  <button type="button" className="btn btn-outline-secondary me-auto" onClick={onRetour}>
+                    <i className="bx bx-undo me-1"></i>Annuler le départ
+                  </button>
+                ) : (
+                  <button type="button" className="btn btn-outline-danger me-auto" onClick={onDepart}>
+                    <i className="bx bx-log-out-circle me-1"></i>Déclarer un départ
+                  </button>
+                ))}
                 <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
                 {role === 'admin' && (
                   <button type="button" className="btn btn-primary" onClick={onModifier}>

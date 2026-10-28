@@ -8,6 +8,7 @@ import ChangerMotDePasse from './pages/ChangerMotDePasse';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Info from './pages/admin/Info';
+import Reinscription from './pages/admin/Reinscription';
 import Niveau from './pages/admin/Niveau';
 
 import ProfLayout from './layouts/ProfLayout';
@@ -41,6 +42,7 @@ function App() {
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="listeEtudiant" element={<ListeEtudiants />} />
+                <Route path="reinscription" element={<Reinscription />} />
                 <Route path="noteEtudiant" element={<NoteEtudiant />} />
                 <Route path="matiere" element={<Matiere />} />
                 <Route path="edt" element={<EmploiDuTemps />} />

@@ -1073,3 +1073,32 @@
 @media (max-width: 575.98px) {
   .gstf-lot { margin: 0 1rem 1rem; }
 }
+
+/* ─── Réinscriptions et départs ──────────────────────────── */
+.gstf-reinscription td { vertical-align: middle; }
+.gstf-reinscription .form-select-sm,
+.gstf-reinscription .form-control-sm { min-width: 11rem; }
+.gstf-reinscription__neutre td { color: var(--gstf-text-muted); }
+.gstf-reinscription__pied { position: sticky; bottom: 0; background: var(--gstf-surface); border-top: 1px solid var(--gstf-border); z-index: 2; }
+.gstf-choix {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+.gstf-choix .form-check-input { margin-top: 0.2rem !important; flex: none; }
+.gstf-choix.is-actif { border-color: var(--gstf-primary); background: var(--gstf-primary-soft); }
+.gstf-fiche-etudiant__sortie {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  background: var(--gstf-hover);
+  font-size: 0.875rem;
+}
+.gstf-fiche-etudiant__sortie .bx { font-size: 1.3rem; color: var(--gstf-text-muted); }

@@ -13,6 +13,8 @@ import DeleteModal from './DeleteModal';
 import DataTable from './DataTable';
 import Pagination from './Pagination';
 import FicheEtudiant from './FicheEtudiant';
+import SortieEtudiant from './SortieEtudiant';
+import { dateCourte, libelleStatut } from '../utils/parcours';
 import ImportModal from './ImportModal';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
 import { telechargerIdentifiants } from '../utils/identifiants';
@@ -94,6 +96,9 @@ const ListeEtudiant = () => {
       telephone: etu?.telephone,
       diocese: etu?.diocese,
       niveau: parcours?.niveau?.niveau,
+      statut: parcours?.statut,
+      date_sortie: etu?.date_sortie,
+      motif_sortie: etu?.motif_sortie,
       original: parcours
     };
   });
@@ -337,6 +342,23 @@ const ListeEtudiant = () => {
     window.bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
   };
 
+  // Retour d'un étudiant parti (ou départ déclaré par erreur) : inscription et compte réactivés
+  const annulerSortie = async (etudiant) => {
+    const ok = await confirm({
+      title: `${etudiant.nom_prenom} revient au séminaire ?`,
+      message: 'Son départ est annulé : il retrouve son inscription et son compte est réactivé.',
+      confirmLabel: 'Annuler le départ',
+    });
+    if (!ok) return;
+    try {
+      const res = await api.delete(`/etudiants/${etudiant.id}/sortie`);
+      notify.success(res.data.message);
+      recharger();
+    } catch (err) {
+      notify.error(messageErreur(err, "Le départ n'a pas pu être annulé."));
+    }
+  };
+
   // Action lancée depuis la fiche : la fiche se ferme d'abord, pour ne pas empiler deux fenêtres
   const depuisFiche = (action) => {
     const el = document.getElementById('detailModal');
@@ -460,6 +482,17 @@ const ListeEtudiant = () => {
           refreshing={actualisation}
           renderCell={(etudiant, field) => {
             const value = etudiant[field];
+            // Étudiant parti (diplômé, abandon…) : signalé à côté de son nom, son dossier reste consultable
+            if (field === 'nom_prenom' && etudiant.date_sortie) {
+              return (
+                <span className="d-inline-flex align-items-center gap-2">
+                  <span className="text-muted">{value}</span>
+                  <span className="badge gstf-badge-neutre" title={`Depuis le ${dateCourte(etudiant.date_sortie)}`}>
+                    {libelleStatut(etudiant.statut) || 'Sorti'}
+                  </span>
+                </span>
+              );
+            }
             // Matricule : ouvre l'espace de l'étudiant (lecture seule), sans déclencher le clic sur la ligne
             if (field === 'matricule' && value) {
               return (
@@ -541,7 +574,11 @@ const ListeEtudiant = () => {
         etudiant={detailEtudiant}
         role={role}
         onModifier={() => depuisFiche(() => openEditModal(detailEtudiant))}
+        onDepart={() => depuisFiche(() => window.bootstrap.Modal.getOrCreateInstance(document.getElementById('sortieModal')).show())}
+        onRetour={() => depuisFiche(() => annulerSortie(detailEtudiant))}
       />
+
+      <SortieEtudiant modalId="sortieModal" etudiant={detailEtudiant} onEnregistre={recharger} />
 
       <ImportModal
         modalId="importModal"
