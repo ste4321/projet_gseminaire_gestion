@@ -1238,3 +1238,330 @@
   .gstf-releve__barre { display: none; }
   .gstf-releve th, .gstf-releve td { padding-left: 0.65rem; padding-right: 0.65rem; }
 }
+
+/* ─── Calendrier académique (admin) ──────────────────────── */
+/* Sélecteur d'années : tuiles défilant horizontalement */
+.gstf-cal-annees {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(15rem, 17rem);
+  gap: 0.875rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.25rem 0.75rem;
+  margin: -0.25rem -0.25rem 0;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.gstf-cal-annee {
+  --cal-statut: var(--gstf-text-muted);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.75rem;
+  background: var(--gstf-surface);
+  color: var(--gstf-text);
+  text-align: left;
+  scroll-snap-align: start;
+  box-shadow: 0 1px 3px var(--gstf-border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.gstf-cal-annee:hover { border-color: var(--gstf-gold); transform: translateY(-2px); box-shadow: 0 6px 16px var(--gstf-border); }
+.gstf-cal-annee:focus-visible { outline: 2px solid var(--gstf-primary); outline-offset: 2px; }
+.gstf-cal-annee.is-active {
+  border-color: var(--gstf-primary);
+  background: linear-gradient(180deg, var(--gstf-primary-soft) 0%, var(--gstf-surface) 70%);
+  box-shadow: 0 0 0 1px var(--gstf-primary), 0 6px 18px var(--gstf-ombre);
+}
+.gstf-cal-annee--site { --cal-statut: var(--gstf-ok); }
+.gstf-cal-annee--cache { --cal-statut: var(--gstf-alerte); }
+
+.gstf-cal-annee__haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.gstf-cal-annee__annee {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gstf-heading);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.gstf-cal-annee__temps {
+  flex-shrink: 0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--gstf-badge);
+  color: var(--gstf-text);
+}
+.gstf-cal-annee__temps--en-cours { background: var(--gstf-gold-soft); color: var(--gstf-gold-text); }
+.gstf-cal-annee__temps--a-venir { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+
+/* Statut de publication : point coloré + texte (tuiles et en-tête du calendrier choisi) */
+.gstf-cal-statut {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cal-statut, var(--gstf-text-muted));
+}
+.gstf-cal-statut--site { --cal-statut: var(--gstf-ok); }
+.gstf-cal-statut--cache { --cal-statut: var(--gstf-alerte); }
+h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--gstf-badge); }
+.gstf-cal-statut__point {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px var(--gstf-badge);
+}
+.gstf-cal-annee--site .gstf-cal-statut__point,
+.gstf-cal-statut--site .gstf-cal-statut__point { animation: gstf-cal-pulse 2.4s ease-in-out infinite; }
+@keyframes gstf-cal-pulse {
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
+
+/* Avancement de l'année en cours */
+.gstf-cal-annee__barre {
+  display: block;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--gstf-track);
+  overflow: hidden;
+}
+.gstf-cal-annee__barre span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--gstf-gold), var(--gstf-primary));
+}
+
+.gstf-cal-annee__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: auto;
+  font-size: 0.8125rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-cal-annee__meta > span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.gstf-cal-annee__meta .bx { flex-shrink: 0; font-size: 1rem; }
+.gstf-cal-annee__meta > .gstf-cal-annee__prochain {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.gstf-cal-annee__prochain strong { color: var(--gstf-gold-text); }
+.gstf-cal-annee__prochain .bx { vertical-align: -0.15em; margin-right: 0.35rem; }
+
+/* Tuile d'ajout */
+.gstf-cal-annee--ajout {
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 8.5rem;
+  border-style: dashed;
+  border-width: 2px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--gstf-text-muted);
+  font-weight: 600;
+}
+.gstf-cal-annee--ajout .bx { font-size: 1.75rem; color: var(--gstf-gold); }
+.gstf-cal-annee--ajout small { font-weight: 400; }
+.gstf-cal-annee--ajout:hover { color: var(--gstf-primary); border-color: var(--gstf-primary); box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gstf-cal-annee, .gstf-cal-annee:hover { transition: none; transform: none; }
+  .gstf-cal-statut__point { animation: none !important; }
+}
+
+
+/* Résumé de l'année choisie */
+.gstf-cal-chiffres {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(5.5rem, auto)) minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--gstf-border-soft);
+}
+.gstf-cal-chiffres > div {
+  min-width: 0;
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.5rem;
+  background: var(--gstf-hover);
+}
+.gstf-cal-chiffres dt {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gstf-text-muted);
+}
+.gstf-cal-chiffres dd {
+  margin: 0.15rem 0 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--gstf-heading);
+  font-variant-numeric: tabular-nums;
+}
+.gstf-cal-chiffres__prochain { background: var(--gstf-gold-soft) !important; }
+.gstf-cal-lien {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gstf-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+}
+.gstf-cal-lien > span { max-width: 100%; }
+.gstf-cal-lien:hover .text-truncate { text-decoration: underline; }
+.gstf-cal-chiffres__quand { font-size: 1.125rem; font-weight: 700; color: var(--gstf-gold-text); }
+@media (max-width: 767.98px) {
+  .gstf-cal-chiffres { grid-template-columns: repeat(3, 1fr); }
+  .gstf-cal-chiffres__prochain { grid-column: 1 / -1; }
+}
+
+/* Recherche et filtre */
+.gstf-cal-outils {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+.gstf-cal-recherche { flex: 1 1 18rem; max-width: 28rem; }
+
+/* Chronologie des événements d'un semestre */
+.gstf-cal-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.5rem;
+}
+.gstf-cal-mois {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.5rem 1.5rem 0.35rem;
+  background: var(--gstf-surface);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gstf-text-muted);
+}
+.gstf-cal-evenement {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.65rem 1.5rem;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.gstf-cal-evenement:hover { background: var(--gstf-hover); }
+.gstf-cal-evenement.is-prochain { border-left-color: var(--gstf-gold); background: var(--gstf-gold-soft); }
+.gstf-cal-evenement.is-aujourdhui { border-left-color: var(--gstf-ok); }
+.gstf-cal-evenement.is-recent { animation: gstf-cal-recent 2.6s ease-out; }
+@keyframes gstf-cal-recent {
+  0%, 30% { background: var(--gstf-primary-soft); box-shadow: inset 0 0 0 1px var(--gstf-primary); }
+}
+
+.gstf-cal-pastille {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.9rem;
+  height: 3.1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  background: var(--gstf-surface);
+  line-height: 1;
+}
+.gstf-cal-pastille__jour { font-size: 1.15rem; font-weight: 700; color: var(--gstf-heading); }
+.gstf-cal-pastille__mois { margin-top: 0.2rem; font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--gstf-gold-text); }
+.is-prochain .gstf-cal-pastille { border-color: var(--gstf-gold); }
+
+.gstf-cal-evenement__date {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gstf-gold-text);
+}
+.gstf-cal-evenement__libelle {
+  color: var(--gstf-heading);
+  overflow-wrap: anywhere;
+}
+.gstf-cal-evenement__libelle mark { padding: 0 0.1em; border-radius: 0.2em; background: var(--gstf-gold-soft); color: inherit; }
+.gstf-cal-evenement__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+.gstf-cal-evenement__badges .badge { font-weight: 500; text-transform: none; }
+.gstf-cal-badge-prochain { background: var(--gstf-gold); color: #fff; }
+.gstf-cal-evenement.is-passe .gstf-cal-pastille,
+.gstf-cal-evenement.is-passe .gstf-cal-evenement__date,
+.gstf-cal-evenement.is-passe .gstf-cal-evenement__libelle { opacity: 0.5; }
+
+/* Actions : visibles au survol ou au clavier (toujours visibles sur écran tactile) */
+.gstf-cal-evenement__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  transition: opacity 0.15s ease;
+}
+@media (hover: hover) {
+  .gstf-cal-evenement__actions { opacity: 0; }
+  .gstf-cal-evenement:hover .gstf-cal-evenement__actions,
+  .gstf-cal-evenement:focus-within .gstf-cal-evenement__actions { opacity: 1; }
+}
+@media (max-width: 575.98px) {
+  .gstf-cal-evenement { padding: 0.65rem 1rem; align-items: flex-start; }
+  .gstf-cal-mois { padding-left: 1rem; }
+  .gstf-cal-evenement__actions { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gstf-cal-evenement.is-recent { animation: none; background: var(--gstf-primary-soft); }
+}
+.gstf-cal-apercu {
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--gstf-gold);
+  border-radius: 0.375rem;
+  background: var(--gstf-gold-soft);
+}
+/* « Deux jours » : second jour calculé, affiché en lecture seule */
+.gstf-cal-second-jour {
+  background: var(--gstf-badge);
+  color: var(--gstf-heading);
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

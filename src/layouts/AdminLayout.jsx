@@ -3,6 +3,7 @@ import { EmploiProvider } from '../contexts/EmploiContext';
 import { ProfProvider } from '../contexts/ProfContext';
 import { AnnonceProvider } from '../contexts/AnnonceContext';
 import { InfoProvider } from '../contexts/InfoContext';
+import { CalendrierProvider } from '../contexts/CalendrierContext';
 import { NiveauProvider } from '../contexts/NiveauContext';
 import { SemestreProvider } from '../contexts/SemestreContext';
 import { AnneeProvider } from '../contexts/AnneeContext';
@@ -12,7 +13,7 @@ import { UserCessionProvider } from '../contexts/UserCessionContext';
 const providers = [
   AnneeProvider, SemestreProvider, NiveauProvider,
   AnnonceProvider, ProfProvider, EmploiProvider,
-  UserCessionProvider, InfoProvider,
+  UserCessionProvider, InfoProvider, CalendrierProvider,
 ];
 
 const AdminLayout = () =>

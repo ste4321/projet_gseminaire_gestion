@@ -8,6 +8,7 @@ import ChangerMotDePasse from './pages/ChangerMotDePasse';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Info from './pages/admin/Info';
+import Calendrier from './pages/admin/Calendrier';
 import Reinscription from './pages/admin/Reinscription';
 import Niveau from './pages/admin/Niveau';
 
@@ -49,6 +50,7 @@ function App() {
                 <Route path="listeProf" element={<ListeProf />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />
                 <Route path="info" element={<Info />} />
+                <Route path="calendrier" element={<Calendrier />} />
                 <Route path="portal" element={<Portal />} />
                 <Route path="niveau" element={<Niveau />} />
                 <Route path="semestre" element={<Semestre />} />
