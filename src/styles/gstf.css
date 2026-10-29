@@ -103,19 +103,19 @@
 .gstf-toast--info { color: var(--gstf-info); }
 /* En haut : résultat d'une action. En bas : notification reçue (la plus récente au plus près du bord) */
 .gstf-toasts--haut { top: 1rem; }
-.gstf-toasts--bas { bottom: 1rem; }
+.gstf-toasts--bas { bottom: 1rem; width: min(340px, calc(100vw - 2rem)); }
 .gstf-toasts--bas .gstf-toast { animation-name: gstf-toast-in-bas; }
 
-/* Annonce reçue : aux couleurs du séminaire (bordeaux, liseré doré), pas de bandeau de couleur à gauche */
+/* Nouvelle reçue en direct (annonce, notes, emploi du temps) : courte, icône + titre + une ligne + un lien */
 .gstf-toast.gstf-toast--annonce {
   position: relative;
+  align-items: center;
   color: var(--gstf-text);
   border-left: 0;
-  border-top: 3px solid var(--gstf-gold);
-  padding: 1rem 2.5rem 0.85rem 1rem;
+  padding: 0.75rem 2.25rem 0.75rem 0.85rem;
   box-shadow: 0 0.5rem 1.5rem var(--gstf-ombre);
 }
-/* Pastille mégaphone : notification d'annonce et détail d'une annonce */
+/* Pastille : notification d'annonce et détail d'une annonce */
 .gstf-pastille-annonce {
   flex: none;
   display: inline-flex;
@@ -128,49 +128,113 @@
   color: var(--gstf-primary);
   font-size: 1.25rem;
 }
-.gstf-toast__surtitre {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--gstf-primary);
-  margin-bottom: 0.15rem;
-}
+.gstf-toast--annonce .gstf-pastille-annonce { width: 2.25rem; height: 2.25rem; font-size: 1.1rem; }
 .gstf-toast--annonce .gstf-toast__titre {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.35;
   word-break: break-word;
 }
-.gstf-toast__extrait {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-top: 0.25rem;
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--gstf-text);
-  word-break: break-word;
-}
 .gstf-toast__meta {
-  margin-top: 0.35rem;
+  display: block;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.78rem;
   color: var(--gstf-text-muted);
 }
+.gstf-toast__lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: 0.3rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gstf-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.gstf-toast__lien:hover .bx { transform: translateX(2px); }
+.gstf-toast__lien .bx { transition: transform 0.15s ease; }
 .gstf-toast__fermer {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  font-size: 0.7rem;
+  top: 0.65rem;
+  right: 0.65rem;
+  font-size: 0.65rem;
 }
 
-/* Cloche de l'en-tête : annonces non lues */
-.gstf-cloche { width: min(340px, calc(100vw - 2rem)); }
-.gstf-cloche__item { white-space: normal; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+/* Cloche de l'en-tête : nouveautés non lues (le thème impose aux menus display: block et nowrap) */
+.dropdown-menu.gstf-cloche { width: 22rem; max-width: calc(100vw - 1.5rem); padding: 0; overflow: hidden; }
+.gstf-cloche .gstf-cloche__entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gstf-border);
+}
+.gstf-cloche .gstf-cloche__tout-lire {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gstf-primary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.gstf-cloche .gstf-cloche__tout-lire .bx { font-size: 1rem; }
+.gstf-cloche .gstf-cloche__liste { max-height: 22rem; overflow-y: auto; }
+.gstf-cloche .gstf-cloche__item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  white-space: normal;
+  border-bottom: 1px solid var(--gstf-border-soft);
+}
+.gstf-cloche .gstf-cloche__icone {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+  font-size: 1.05rem;
+}
+.gstf-cloche .gstf-cloche__titre {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--gstf-heading);
+  word-break: break-word;
+}
+.gstf-cloche .gstf-cloche__detail {
+  display: block;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-cloche .gstf-cloche__point { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--gstf-primary); }
+.gstf-cloche .gstf-cloche__pied { padding: 0.65rem 1rem; text-align: center; font-size: 0.85rem; font-weight: 500; color: var(--gstf-primary); }
 .gstf-cloche__compteur { font-size: 0.65rem; margin-top: 0.1rem; }
 
 @keyframes gstf-toast-in {
@@ -975,4 +1039,202 @@
 @media (prefers-reduced-motion: reduce) {
   .gstf-edt__image,
   .gstf-edt__miniature { transition: none; }
+}
+
+/* ─── Comptes et accès ───────────────────────────────────── */
+.gstf-onglet__compteur {
+  min-width: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 1rem;
+  background: var(--gstf-badge);
+  color: inherit;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.nav-pills .nav-link.active .gstf-onglet__compteur { background: rgba(255, 255, 255, 0.25); }
+.gstf-lot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0 1.5rem 1rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  background: var(--gstf-hover);
+}
+.gstf-comptes td { vertical-align: middle; }
+.gstf-comptes__case { width: 2.5rem; }
+.gstf-comptes__nom { color: var(--gstf-heading); font-weight: 600; max-width: 16rem; }
+.gstf-comptes__inactif .gstf-comptes__nom,
+.gstf-comptes__inactif .avatar { opacity: 0.55; }
+.gstf-comptes__action { width: 2rem; height: 2rem; }
+@media (max-width: 575.98px) {
+  .gstf-lot { margin: 0 1rem 1rem; }
+}
+
+/* ─── Réinscriptions et départs ──────────────────────────── */
+.gstf-reinscription { min-width: 48rem; table-layout: fixed; }
+.gstf-reinscription__col-resultat { width: 13rem; }
+.gstf-reinscription__col-decision { width: 13.5rem; }
+.gstf-reinscription__col-cible { width: 12.5rem; }
+.gstf-reinscription thead th { font-size: 0.72rem; letter-spacing: 0.05em; }
+.gstf-reinscription td { vertical-align: middle; padding-top: 0.7rem; padding-bottom: 0.7rem; }
+.gstf-reinscription .form-select-sm,
+.gstf-reinscription .form-control-sm { width: 100%; }
+.gstf-reinscription__groupe th {
+  padding: 0.55rem 1.25rem;
+  background: var(--gstf-hover);
+  color: var(--gstf-heading);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  border-bottom: 1px solid var(--gstf-border);
+}
+.gstf-reinscription__groupe th span { margin-left: 0.5rem; font-weight: 400; color: var(--gstf-text-muted); }
+.gstf-reinscription__avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 2.1rem; height: 2.1rem; border-radius: 50%;
+  background: var(--gstf-badge); color: var(--gstf-heading);
+  font-size: 0.75rem; font-weight: 600;
+}
+.gstf-reinscription__moyenne { font-weight: 700; color: var(--gstf-heading); font-variant-numeric: tabular-nums; min-width: 2.6rem; }
+.gstf-reinscription__alerte { display: flex; align-items: center; gap: 0.25rem; margin-top: 0.3rem; color: var(--gstf-primary); font-size: 0.75rem; }
+.gstf-reinscription__fait { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; color: var(--gstf-text-muted); }
+.gstf-reinscription__trajet { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--gstf-text-muted); white-space: nowrap; }
+.gstf-reinscription__trajet strong { color: var(--gstf-heading); }
+.gstf-reinscription__trajet .form-select-sm { flex: 1; min-width: 0; }
+.gstf-reinscription__retablir {
+  display: inline-flex; align-items: center; gap: 0.2rem; margin-top: 0.3rem; padding: 0;
+  border: 0; background: none; color: var(--gstf-text-muted); font-size: 0.75rem; text-align: left;
+}
+.gstf-reinscription__retablir:hover { color: var(--gstf-primary); text-decoration: underline; }
+.gstf-reinscription tr.is-corrigee td:first-child { box-shadow: inset 3px 0 0 var(--gstf-primary); }
+.gstf-reinscription tr.is-neutre td { color: var(--gstf-text-muted); }
+.gstf-reinscription tr.is-neutre .gstf-reinscription__avatar,
+.gstf-reinscription tr.is-neutre strong { opacity: 0.65; }
+/* Filtres par décision */
+.gstf-puces { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.gstf-puce {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.75rem;
+  border: 1px solid var(--gstf-border); border-radius: 2rem;
+  background: var(--gstf-surface); color: var(--gstf-text);
+  font-size: 0.8rem; line-height: 1.4;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+.gstf-puce:hover { border-color: var(--gstf-primary); color: var(--gstf-primary); }
+.gstf-puce.is-actif { border-color: var(--gstf-primary); background: var(--gstf-primary-soft); color: var(--gstf-primary); font-weight: 600; }
+.gstf-puce__compteur {
+  min-width: 1.4rem; padding: 0 0.35rem; border-radius: 1rem;
+  background: var(--gstf-badge); color: inherit; font-size: 0.72rem; text-align: center; font-variant-numeric: tabular-nums;
+}
+.gstf-reinscription__pied { position: sticky; bottom: 0; background: var(--gstf-surface); border-top: 1px solid var(--gstf-border); z-index: 2; }
+.gstf-choix {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+.gstf-choix .form-check-input { margin-top: 0.2rem !important; flex: none; }
+.gstf-choix.is-actif { border-color: var(--gstf-primary); background: var(--gstf-primary-soft); }
+.gstf-fiche-etudiant__sortie {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+  background: var(--gstf-hover);
+  font-size: 0.875rem;
+}
+.gstf-fiche-etudiant__sortie .bx { font-size: 1.3rem; color: var(--gstf-text-muted); }
+
+/* Fiche étudiant : notes de l'année (lecture seule) */
+.gstf-fiche-etudiant__notes { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gstf-border); }
+.gstf-fiche-etudiant__notes .gstf-note { font-size: 0.875rem; }
+.gstf-fiche-etudiant__liens { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.gstf-lien-notes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 2rem;
+  background: none;
+  color: var(--gstf-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.gstf-lien-notes small { color: var(--gstf-text-muted); font-weight: 400; }
+.gstf-lien-notes:hover:not(:disabled) { border-color: var(--gstf-primary); }
+.gstf-lien-notes.is-actif { border-color: var(--gstf-primary); background: var(--gstf-primary-soft); }
+.gstf-lien-notes:disabled { color: var(--gstf-text-muted); opacity: 0.6; cursor: not-allowed; }
+
+/* Résultat (Validé / Rattrapage / En attente) : étiquette sobre, une seule couleur d'accent */
+.gstf-resultat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.55rem 0.1rem 0.4rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.gstf-resultat .bx { font-size: 0.95rem; }
+.gstf-resultat--valide { color: var(--gstf-heading); }
+.gstf-resultat--valide .bx { color: var(--gstf-text-muted); }
+.gstf-resultat--rattrapage { color: var(--gstf-primary); border-color: var(--gstf-primary); background: var(--gstf-primary-soft); }
+.gstf-resultat--attente { color: var(--gstf-text-muted); border-style: dashed; font-weight: 500; }
+
+/* Relevé d'un semestre (fiche étudiant) */
+.gstf-releve-semestre { margin-bottom: 1.25rem; border: 1px solid var(--gstf-border); border-radius: 0.5rem; overflow: hidden; }
+.gstf-releve-semestre__entete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
+  background: var(--gstf-hover);
+  border-bottom: 1px solid var(--gstf-border);
+}
+.gstf-releve-semestre__moyenne { font-weight: 700; color: var(--gstf-heading); font-variant-numeric: tabular-nums; }
+.gstf-releve-semestre__moyenne small { font-weight: 400; color: var(--gstf-text-muted); }
+.gstf-releve-semestre__prive { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--gstf-text-muted); }
+.gstf-releve { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.875rem; }
+.gstf-releve__col-coef { width: 4.5rem; }
+.gstf-releve__col-note { width: 10rem; }
+.gstf-releve th {
+  padding: 0.5rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--gstf-text-muted);
+  border-bottom: 1px solid var(--gstf-border);
+}
+.gstf-releve td { padding: 0.55rem 1rem; border-bottom: 1px solid var(--gstf-border-soft); vertical-align: middle; word-break: break-word; }
+.gstf-releve tbody tr:last-child td { border-bottom: 0; }
+.gstf-releve td small { font-size: 0.72rem; }
+.gstf-releve__note { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; }
+.gstf-releve__note strong { min-width: 2.75rem; text-align: right; color: var(--gstf-heading); font-variant-numeric: tabular-nums; }
+.gstf-releve__barre { flex: 1; max-width: 4.5rem; height: 0.3rem; border-radius: 1rem; background: var(--gstf-track); overflow: hidden; }
+.gstf-releve__barre > span { display: block; height: 100%; border-radius: inherit; background: var(--gstf-text-muted); opacity: 0.55; }
+.gstf-releve__note.is-faible strong { color: var(--gstf-primary); }
+.gstf-releve__note.is-faible .gstf-releve__barre > span { background: var(--gstf-primary); opacity: 1; }
+@media (max-width: 575.98px) {
+  .gstf-releve__col-note { width: 6.5rem; }
+  .gstf-releve__barre { display: none; }
+  .gstf-releve th, .gstf-releve td { padding-left: 0.65rem; padding-right: 0.65rem; }
 }

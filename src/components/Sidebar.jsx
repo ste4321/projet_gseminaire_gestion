@@ -2,14 +2,12 @@ import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getRole } from '../auth/session';
 import { MENUS } from '../navigation';
-import { useNotificationsAnnonces } from '../contexts/NotificationAnnonceContext';
 
 // Ferme le menu en mobile (classe ajoutée par le bouton « menu » du Header)
 export const closeSidebar = () => document.body.classList.remove('layout-menu-expanded');
 
 const Sidebar = () => {
   const menu = MENUS[getRole()] || [];
-  const { nonLues } = useNotificationsAnnonces(); // vide pour l'administration
 
   // Échap ferme le menu mobile
   useEffect(() => {
@@ -57,11 +55,6 @@ const Sidebar = () => {
               >
                 <i className={`menu-icon tf-icons bx ${item.icon}`} aria-hidden="true"></i>
                 <div>{item.label}</div>
-                {item.to.endsWith('/annonce') && nonLues.length > 0 && (
-                  <span className="badge rounded-pill bg-primary ms-auto" aria-label={`${nonLues.length} non lue${nonLues.length > 1 ? 's' : ''}`}>
-                    {nonLues.length > 9 ? '9+' : nonLues.length}
-                  </span>
-                )}
               </NavLink>
             </li>
           )

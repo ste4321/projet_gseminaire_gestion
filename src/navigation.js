@@ -13,6 +13,7 @@ export const MENUS = {
 
     { section: 'Scolarité' },
     { to: '/admin/listeEtudiant', label: 'Étudiants', icon: 'bx-group' },
+    { to: '/admin/reinscription', label: 'Réinscriptions', icon: 'bx-transfer-alt' },
     { to: '/admin/noteEtudiant', label: 'Notes', icon: 'bx-spreadsheet' },
     { to: '/admin/matiere', label: 'Matières', icon: 'bx-book' },
     { to: '/admin/edt', label: 'Emploi du temps', icon: 'bx-calendar' },

@@ -2,6 +2,7 @@ import React from 'react';
 import { ilYA } from '../utils/dates';
 
 // Une annonce dans une liste (page Annonces, accueils étudiant et enseignant) : même présentation partout.
+// Sert aussi aux actualités du site (page Actualités, avec l'auteur en guise d'expéditeur).
 // Sobre : vignette de date neutre, une seule couleur d'accent (le point des annonces nouvelles).
 
 export const ETUDIANTS = 'etudiants';

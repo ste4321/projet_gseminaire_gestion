@@ -240,14 +240,25 @@ const Matiere = () => {
 
   const creerAnnee = async (e) => {
     e.preventDefault();
+    // La fenêtre de saisie est fermée pendant la confirmation (deux fenêtres superposées se disputent le focus)
+    modal('anneeModal').hide();
+    const ok = await confirm({
+      title: `Créer l'année ${nouvelleAnnee.annee_aca} ?`,
+      message: "Elle sera ajoutée aux années académiques et proposée partout : programme, notes, emplois du temps et réinscriptions.",
+      confirmLabel: "Créer l'année",
+    });
+    if (!ok) {
+      modal('anneeModal').show(); // retour à la saisie
+      return;
+    }
     setLoadingAnnee(true);
     try {
       const res = await api.post('/annee_aca', nouvelleAnnee);
       notify.success(res.data.message);
       await fetchAnnees();
       setSelectedAnnee(String(res.data.annee.id)); // on arrive directement sur son programme
-      modal('anneeModal').hide();
     } catch (err) {
+      modal('anneeModal').show(); // pour corriger la saisie
       notify.error(errorMessage(err, "La création de l'année a échoué."));
     } finally {
       setLoadingAnnee(false);

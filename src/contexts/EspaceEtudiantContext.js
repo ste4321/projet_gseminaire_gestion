@@ -10,8 +10,10 @@ export const EspaceEtudiantProvider = ({ children }) => {
   const [releves, setReleves] = useState({}); // parcours ('' = inscription la plus récente) → { data, erreur }
   const [parcours, setParcours] = useState(null); // null = pas encore reçu
   const enCours = useRef({}); // une seule requête à la fois par relevé
+  const relevesVus = useRef(new Set()); // relevés déjà demandés (à recharger quand des notes sont publiées)
 
   const chargerReleve = useCallback((cle) => {
+    relevesVus.current.add(cle);
     if (enCours.current[cle]) return enCours.current[cle];
     const requete = api
       .get('/etudiant/releve', { params: cle ? { parcours: cle } : {} })
@@ -41,7 +43,15 @@ export const EspaceEtudiantProvider = ({ children }) => {
       .catch(() => setParcours([])); // sans la liste, seul le parcours en cours est proposé
   }, []);
 
-  const valeur = useMemo(() => ({ releves, chargerReleve, parcours, chargerParcours }), [releves, chargerReleve, parcours, chargerParcours]);
+  // Notes publiées ou retirées (notification en direct) : tous les relevés déjà vus se mettent à jour
+  const actualiserReleves = useCallback(() => {
+    relevesVus.current.forEach((cle) => chargerReleve(cle));
+  }, [chargerReleve]);
+
+  const valeur = useMemo(
+    () => ({ releves, chargerReleve, actualiserReleves, parcours, chargerParcours }),
+    [releves, chargerReleve, actualiserReleves, parcours, chargerParcours]
+  );
 
   return <EspaceEtudiantContext.Provider value={valeur}>{children}</EspaceEtudiantContext.Provider>;
 };
@@ -69,6 +79,9 @@ export const useReleve = (parcoursId = '') => {
     recharger,
   };
 };
+
+/** Remet à jour les relevés déjà affichés (après une publication de notes) */
+export const useActualiserReleves = () => useContext(EspaceEtudiantContext).actualiserReleves;
 
 /** Inscriptions de l'étudiant (années / niveaux), la plus récente d'abord */
 export const useParcours = () => {

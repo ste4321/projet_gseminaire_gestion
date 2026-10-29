@@ -69,17 +69,27 @@ export const onConnectionChange = (callback) => {
   return () => connection.unbind('state_change', handler);
 };
 
+// Plusieurs écoutes sur le même canal (annonces, notes, emploi du temps) : on le quitte à la dernière
+const abonnes = {};
+
 /** Écoute un événement sur le canal privé de l'utilisateur ; renvoie la fonction d'arrêt */
 export const ecouterUtilisateur = (userId, evenement, callback) => {
   const instance = getEcho();
   if (!instance || !userId) return () => {};
   const nom = `App.Models.User.${userId}`;
   const canal = instance.private(nom);
+  if (!abonnes[nom]) {
+    canal.error((erreur) => console.warn(`[GSTF] Abonnement au canal ${nom} refusé`, erreur));
+  }
+  abonnes[nom] = (abonnes[nom] || 0) + 1;
   canal.listen(`.${evenement}`, callback);
-  canal.error((erreur) => console.warn(`[GSTF] Abonnement au canal ${nom} refusé`, erreur));
   return () => {
     canal.stopListening(`.${evenement}`, callback);
-    instance.leave(nom);
+    abonnes[nom] -= 1;
+    if (abonnes[nom] === 0) {
+      delete abonnes[nom];
+      instance.leave(nom);
+    }
   };
 };
 
@@ -88,5 +98,6 @@ export const fermerConnexion = () => {
   if (echo) {
     echo.disconnect();
     echo = null;
+    Object.keys(abonnes).forEach((nom) => delete abonnes[nom]);
   }
 };
