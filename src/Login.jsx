@@ -85,8 +85,10 @@ const Login = () => {
             errorMessage = err.response.data?.message || 'Erreur de connexion';
         }
       } else if (err.request) {
-        // Erreur de réseau
-        errorMessage = 'Problème de connexion. Vérifiez votre réseau';
+        // Aucune réponse : soit l'appareil est hors ligne, soit le serveur est arrêté ou injoignable
+        errorMessage = navigator.onLine === false
+          ? 'Vous êtes hors ligne. Vérifiez votre connexion internet.'
+          : 'Le serveur ne répond pas. Réessayez dans un instant.';
       }
 
       setErrors({ general: errorMessage });
