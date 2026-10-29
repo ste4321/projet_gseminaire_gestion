@@ -22,6 +22,7 @@ export const MENUS = {
     { section: 'Communication' },
     { to: '/admin/annonce', label: 'Annonces', icon: 'bx-message-square-dots' },
     { to: '/admin/info', label: 'Actualités du site', icon: 'bx-globe' },
+    { to: '/admin/calendrier', label: 'Calendrier académique', icon: 'bx-calendar-event' },
 
     { section: 'Paramètres' },
     { to: '/admin/portal', label: 'Comptes et accès', icon: 'bx-lock-open-alt' },
