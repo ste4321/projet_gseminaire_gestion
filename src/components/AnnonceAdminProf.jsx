@@ -14,6 +14,7 @@ import { plusRecentsDabord } from '../utils/tri';
 import { trierNiveaux } from '../utils/niveaux';
 import LigneAnnonce, { ETUDIANTS, ENSEIGNANTS, TOUS, libelleDestinataires, iconeDestinataires, LignesAnnonceChargement } from './LigneAnnonce';
 import { ROLE_LABELS } from '../navigation';
+import { storageUrl } from '../config';
 
 // Annonces : publiées par l'administration, lues par leurs destinataires
 // (le serveur ne renvoie à chacun que les siennes : à un étudiant, celles des étudiants de son année et de son niveau ;
@@ -400,7 +401,7 @@ const AnnonceAdminProf = () => {
                 </label>
                 {enEdition?.fichier && !form.fichier && (
                   <div className="d-flex flex-wrap align-items-center gap-3 mb-2 small">
-                    <a href={enEdition.fichier} target="_blank" rel="noreferrer" className={form.supprimer_fichier ? 'text-decoration-line-through text-muted' : ''}>
+                    <a href={storageUrl(enEdition.fichier)} target="_blank" rel="noreferrer" className={form.supprimer_fichier ? 'text-decoration-line-through text-muted' : ''}>
                       <i className={`bx ${iconeFichier(enEdition.fichier)} me-1`}></i>Fichier actuel
                     </a>
                     <div className="form-check mb-0">
@@ -467,9 +468,9 @@ const AnnonceAdminProf = () => {
                     <div className="gstf-piece-jointe">
                       {estImage(detail.fichier) && (
                         <PhotoProvider>
-                          <PhotoView src={detail.fichier}>
+                          <PhotoView src={storageUrl(detail.fichier)}>
                             <button type="button" className="gstf-piece-jointe__apercu" aria-label="Agrandir l'image jointe">
-                              <img src={detail.fichier} alt={`Pièce jointe de « ${detail.titre} »`} />
+                              <img src={storageUrl(detail.fichier)} alt={`Pièce jointe de « ${detail.titre} »`} />
                               <span className="gstf-piece-jointe__zoom"><i className="bx bx-zoom-in" aria-hidden="true"></i></span>
                             </button>
                           </PhotoView>
@@ -481,7 +482,7 @@ const AnnonceAdminProf = () => {
                           <strong className="d-block">Pièce jointe</strong>
                           <small className="text-muted">{TYPES_FICHIER[extension(detail.fichier)] || 'Fichier'} · {extension(detail.fichier).toUpperCase()}</small>
                         </span>
-                        <a href={detail.fichier} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary">
+                        <a href={storageUrl(detail.fichier)} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-primary">
                           <i className="bx bx-link-external me-1"></i>Ouvrir
                         </a>
                       </div>
