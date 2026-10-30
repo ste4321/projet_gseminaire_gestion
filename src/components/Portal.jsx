@@ -48,12 +48,14 @@ const depuis = (jours) => {
   if (jours < 60) return `depuis ${jours} j`;
   return `depuis ${Math.round(jours / 30)} mois`;
 };
-// Provisoire ancien et pas utilisé depuis qu'il a été remis : identifiants probablement jamais reçus
-const provisoireEnSouffrance = (u) => u.must_change_password && joursDepuis(u.provisoire_depuis) >= SEUIL_PROVISOIRE
-  && (!u.derniere_connexion_at || new Date(u.derniere_connexion_at) < new Date(u.provisoire_depuis));
-const jamaisConnecte = (u) => !u.derniere_connexion_at;
 // Dernière fois où la personne a été vue dans l'application (signal de présence, sinon connexion)
 const vuLe = (u) => u.derniere_activite_at || u.derniere_connexion_at || null;
+// Aucune trace d'utilisation : ni connexion, ni signal de présence (une session ouverte avant le suivi
+// des connexions n'a pas de date de connexion, mais son signal de présence prouve qu'elle est utilisée)
+const jamaisConnecte = (u) => !u.en_ligne && !vuLe(u);
+// Provisoire ancien et pas utilisé depuis qu'il a été remis : identifiants probablement jamais reçus
+const provisoireEnSouffrance = (u) => u.must_change_password && joursDepuis(u.provisoire_depuis) >= SEUIL_PROVISOIRE
+  && (!vuLe(u) || new Date(vuLe(u)) < new Date(u.provisoire_depuis));
 const dormant = (u) => !u.en_ligne && Boolean(vuLe(u)) && joursDepuis(vuLe(u)) >= 182;
 // Statut : « En ligne », « En ligne il y a 5 min », « En ligne hier », « En ligne le 12 oct. », « Jamais connecté »
 const texteStatut = (u) => {
