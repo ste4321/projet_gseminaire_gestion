@@ -5,7 +5,8 @@ import React, { useState } from 'react';
  * Le serveur ne conserve pas ce mot de passe en clair : une fois la fenêtre fermée,
  * il faudra le réinitialiser depuis le Portail.
  *
- * Props : identifiants = { nom, email, mot_de_passe } | null, onClose
+ * Props : identifiants = { nom, email, mot_de_passe, actif? } | null, onClose
+ * (actif : le compte est déjà activé, inutile de le rappeler)
  */
 const MotDePasseProvisoire = ({ identifiants, onClose }) => {
   const [copie, setCopie] = useState(false);
@@ -53,8 +54,8 @@ const MotDePasseProvisoire = ({ identifiants, onClose }) => {
 
               <div className="alert alert-warning mb-0" role="alert">
                 <strong>Ce mot de passe ne sera plus jamais affiché.</strong> Transmettez-le à la personne
-                maintenant. Elle devra le remplacer à sa première connexion. Pensez aussi à
-                <strong> activer le compte</strong> dans le Portail.
+                maintenant. Elle devra le remplacer à sa première connexion.
+                {!identifiants.actif && <> Pensez aussi à <strong>activer le compte</strong> dans le Portail.</>}
               </div>
             </div>
             <div className="modal-footer">

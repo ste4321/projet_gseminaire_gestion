@@ -4,7 +4,9 @@ import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import SearchBar from './SearchBar';
 import Pagination from './Pagination';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
+import AjoutAdministrateur from './AjoutAdministrateur';
 import { useUserCession } from '../contexts/UserCessionContext';
+import { useProf } from '../contexts/ProfContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { getUser } from '../auth/session';
@@ -77,6 +79,7 @@ const PRESENCE_EXPIRATION_MS = 120 * 1000;
 const Portal = () => {
   const { notify, confirm } = useFeedback();
   const { usersByRole, loadingByRole, erreurByRole, stats, fetchUsers, fetchStats, updateUserLocal, mergePresence, deleteUserLocal } = useUserCession();
+  const { setProfs } = useProf();
   const [role, setRole] = useState('etudiant');
   const [recherche, setRecherche] = useState('');
   const [etat, setEtat] = useState('');
@@ -86,6 +89,7 @@ const Portal = () => {
   const [reinitEnCours, setReinitEnCours] = useState(null); // id du compte dont le mot de passe est réinitialisé
   const [lotEnCours, setLotEnCours] = useState(null); // 'activer' | 'desactiver' | 'supprimer'
   const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
+  const [ajoutAdmin, setAjoutAdmin] = useState(false);
   const moi = getUser()?.id;
 
   // Liste relue à chaque arrivée sur la page ou sur l'onglet (la liste affichée reste visible pendant ce temps) :
@@ -285,6 +289,10 @@ const Portal = () => {
     try {
       const res = await api.post('/user-cessions/bulk-delete', { user_ids: ids, code_confirmation: code });
       res.data.supprimes.forEach((id) => deleteUserLocal(role, id));
+      // La liste des enseignants, gardée en mémoire, ne doit plus montrer ces fiches comme liées à un compte
+      if (role === 'prof') {
+        setProfs((liste) => liste.map((p) => (res.data.supprimes.includes(p.id_user_cession) ? { ...p, id_user_cession: null } : p)));
+      }
       setSelection(new Set());
       fetchStats();
       notify.success(res.data.message);
@@ -297,6 +305,12 @@ const Portal = () => {
 
   const consulter = (compte) =>
     ouvrirEspace({ userId: compte.id, nom: compte.nom_prenom || compte.email, role: compte.role, confirm, notify });
+
+  const adminAjoute = (data) => {
+    setAjoutAdmin(false);
+    setIdentifiants({ nom: data.admin?.nom_prenom, email: data.user?.email, mot_de_passe: data.mot_de_passe, actif: true });
+    actualiser();
+  };
 
   // ---------- Rendu ----------
   const compteurOnglet = (r) => stats?.[r]?.total;
@@ -329,6 +343,11 @@ const Portal = () => {
         <div className="card-header">
           <div className="d-flex align-items-center gap-2">
             <h5 className="card-title mb-1 flex-grow-1">Comptes · {ROLE_TABS[role]}</h5>
+            {role === 'admin' && (
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => setAjoutAdmin(true)}>
+                <i className="bx bx-plus me-1"></i>Nouvel administrateur
+              </button>
+            )}
             {comptes && (
               <button type="button" className="btn btn-sm btn-icon btn-outline-secondary" onClick={actualiser}
                 disabled={loadingByRole[role]} title="Actualiser la liste" aria-label="Actualiser la liste">
@@ -567,6 +586,7 @@ const Portal = () => {
         {!loading && <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />}
       </div>
 
+      {ajoutAdmin && <AjoutAdministrateur onCree={adminAjoute} onClose={() => setAjoutAdmin(false)} />}
       <MotDePasseProvisoire identifiants={identifiants} onClose={() => setIdentifiants(null)} />
     </div>
   );
