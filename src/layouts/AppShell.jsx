@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 import BandeauConsultation from '../components/BandeauConsultation';
 import { NotificationAnnonceProvider } from '../contexts/NotificationAnnonceContext';
 import useScripts from '../hooks/useScripts';
+import usePresence from '../hooks/usePresence';
 import { getRole } from '../auth/session';
 import { pageTitle } from '../navigation';
 
@@ -22,6 +23,7 @@ const THEME_SCRIPTS = [
 /** Structure commune aux trois espaces (admin, prof, étudiant) : menu, en-tête, contenu, pied de page. */
 const AppShell = () => {
   useScripts(THEME_SCRIPTS);
+  usePresence();
   const { pathname } = useLocation();
 
   // Titre de l'onglet du navigateur

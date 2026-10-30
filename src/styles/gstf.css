@@ -1642,3 +1642,50 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
 @media (prefers-reduced-motion: reduce) {
   .gstf-segment__option > span { transition: none; }
 }
+
+/* Comptes et accès : identifiants provisoires restés sans usage */
+.gstf-comptes__alerte { font-size: 1.05rem; color: var(--gstf-alerte); cursor: help; }
+.gstf-comptes__alerte-lien { color: var(--gstf-alerte) !important; }
+
+/* Comptes et accès : statut de présence (vert uniquement pour « En ligne ») */
+.gstf-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.gstf-presence__point {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--gstf-text-muted);
+}
+.gstf-presence--en-ligne { color: var(--gstf-ok) !important; font-weight: 600; }
+.gstf-presence--en-ligne .gstf-presence__point {
+  border-color: var(--gstf-ok);
+  background: var(--gstf-ok);
+  animation: gstf-presence-pulse 2s ease-in-out infinite;
+}
+@keyframes gstf-presence-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.45); }
+  50% { box-shadow: 0 0 0 4px rgba(46, 125, 50, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gstf-presence--en-ligne .gstf-presence__point { animation: none; }
+}
+/* Comptes et accès : suppression neutre, rouge au survol */
+.gstf-comptes__supprimer:hover:not(:disabled),
+.gstf-comptes__supprimer:focus-visible {
+  color: var(--gstf-erreur) !important;
+  border-color: var(--gstf-erreur) !important;
+  background: transparent !important;
+}
+/* Comptes et accès : colonne Matricule (onglet Étudiants) */
+.gstf-comptes__matricule {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--gstf-heading);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.gstf-comptes__matricule mark { padding: 0; background: var(--gstf-primary-soft); color: inherit; }
