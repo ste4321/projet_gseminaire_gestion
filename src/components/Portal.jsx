@@ -12,6 +12,7 @@ import { ouvrirEspace } from '../auth/consultation';
 import { plusRecentsDabord } from '../utils/tri';
 import { ilYA } from '../utils/dates';
 import { confirmerAvecCode } from '../utils/confirmation';
+import { ecouterCanalPrive, onConnectionChange } from '../realtime';
 
 const ROLES = ['etudiant', 'prof', 'admin'];
 const ROLE_TABS = { admin: 'Administrateurs', prof: 'Enseignants', etudiant: 'Étudiants' };
@@ -69,7 +70,9 @@ const infoStatut = (u) => [
   u.derniere_connexion_at && `Dernière connexion : ${dateComplete(u.derniere_connexion_at)}`,
   `Compte créé le ${dateComplete(u.created_at)}`,
 ].filter(Boolean).join('\n');
-const PRESENCE_MS = 30 * 1000; // statut « En ligne » relu toutes les 30 s
+const PRESENCE_MS = 30 * 1000; // sans direct : statut « En ligne » relu toutes les 30 s
+// Sans signal de présence depuis 2 min (application fermée sans déconnexion) : hors ligne (comme User::PRESENCE_SECONDES)
+const PRESENCE_EXPIRATION_MS = 120 * 1000;
 
 const Portal = () => {
   const { notify, confirm } = useFeedback();
@@ -106,15 +109,36 @@ const Portal = () => {
     };
   }, [actualiser]);
 
-  // Statut « En ligne » : relu toutes les 30 s tant que la page est visible (requête légère, sans la liste complète)
+  // ---------- Statut « En ligne » en direct ----------
+  // Connexion, signal de présence et déconnexion arrivent par WebSocket (canal privé « comptes », administrateurs).
+  // Sans direct (Reverb arrêté ou non configuré) : relecture légère toutes les 30 s.
+  const [direct, setDirect] = useState(false);
+  const [maintenant, setMaintenant] = useState(() => Date.now());
+
+  useEffect(() => onConnectionChange((etat) => setDirect(etat === 'connected')), []);
+
+  useEffect(() => ecouterCanalPrive('comptes', 'presence.maj', (p) => mergePresence(p.role, [p])), [mergePresence]);
+
+  // En revenant au direct (après une coupure), on rattrape ce qui a pu être manqué
   useEffect(() => {
+    if (direct) api.get('/user-cessions/presence', { params: { role } }).then((res) => mergePresence(role, res.data)).catch(() => {});
+  }, [direct, role, mergePresence]);
+
+  useEffect(() => {
+    if (direct) return undefined;
     const relire = () => {
       if (document.visibilityState !== 'visible') return;
       api.get('/user-cessions/presence', { params: { role } }).then((res) => mergePresence(role, res.data)).catch(() => {});
     };
     const minuterie = setInterval(relire, PRESENCE_MS);
     return () => clearInterval(minuterie);
-  }, [role, mergePresence]);
+  }, [direct, role, mergePresence]);
+
+  // Horloge de la page : un compte dont le signal s'est arrêté repasse hors ligne sans attendre le serveur
+  useEffect(() => {
+    const minuterie = setInterval(() => setMaintenant(Date.now()), 15 * 1000);
+    return () => clearInterval(minuterie);
+  }, []);
 
   // Changement d'onglet, de recherche ou de filtre : première page, sélection vidée
   useEffect(() => {
@@ -122,7 +146,13 @@ const Portal = () => {
     setSelection(new Set());
   }, [role, recherche, etat]);
 
-  const comptes = usersByRole[role];
+  // Statut effectif : en ligne seulement si le dernier signal de présence est récent
+  const comptesBruts = usersByRole[role];
+  const comptes = useMemo(() => comptesBruts?.map((u) => (
+    u.en_ligne && u.derniere_activite_at && maintenant - new Date(u.derniere_activite_at) > PRESENCE_EXPIRATION_MS
+      ? { ...u, en_ligne: false }
+      : u
+  )), [comptesBruts, maintenant]);
   const loading = !comptes && !erreurByRole[role];
   const erreur = !comptes ? erreurByRole[role] : null;
   const occupe = enCours !== null || reinitEnCours !== null || lotEnCours !== null;
