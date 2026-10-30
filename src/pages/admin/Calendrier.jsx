@@ -222,6 +222,14 @@ const Calendrier = () => {
   const evenementValide = evenement.date_debut && evenement.libelle.trim()
     && (!surDeuxDates || (finCalculee && finCalculee > evenement.date_debut));
   // Période de deux jours consécutifs : « Deux jours » s'affiche mieux sur le site (« Vendredi 6 et samedi 7 février »)
+  const dansSemestre = (numero, iso) => {
+    const debut = calendrier?.[`s${numero}_debut`];
+    const fin = calendrier?.[`s${numero}_fin`];
+    return Boolean(debut && fin && iso >= debut && iso <= fin);
+  };
+  const semestreSuggere = evenement.date_debut && !dansSemestre(evenement.semestre, evenement.date_debut)
+    ? SEMESTRES.find((s) => s.numero !== evenement.semestre && dansSemestre(s.numero, evenement.date_debut))?.numero ?? null
+    : null;
   const periodeDeDeuxJours = evenement.type === 'du' && evenement.date_fin && evenement.date_fin === lendemain(evenement.date_debut);
 
   const enregistrerEvenement = async (e, encore = false) => {
@@ -383,10 +391,10 @@ const Calendrier = () => {
                   <button type="button" className="btn btn-outline-secondary" onClick={ouvrirBornes}>
                     <i className="bx bx-calendar-check me-1"></i>Dates des semestres
                   </button>
-                  <button type="button" className="btn btn-outline-danger" onClick={supprimerCalendrier} title="Supprimer ce calendrier">
+                  <button type="button" className="btn btn-outline-secondary gstf-cal-supprimer" onClick={supprimerCalendrier} title="Supprimer ce calendrier">
                     <i className="bx bx-trash"></i><span className="visually-hidden">Supprimer</span>
                   </button>
-                  <button type="button" className={`btn ${calendrier.publie ? 'btn-outline-warning' : 'btn-success'}`} onClick={basculerPublication}>
+                  <button type="button" className={`btn ${calendrier.publie ? 'btn-outline-secondary' : 'btn-primary'}`} onClick={basculerPublication}>
                     <i className={`bx ${calendrier.publie ? 'bx-hide' : 'bx-globe'} me-1`}></i>
                     {calendrier.publie ? 'Retirer du site' : 'Publier sur le site'}
                   </button>
@@ -462,7 +470,7 @@ const Calendrier = () => {
                   <div className="card h-100">
                     <div className="card-header d-flex align-items-start gap-2">
                       <div className="flex-grow-1 min-w-0">
-                        <h5 className="mb-1 gstf-section-title d-flex align-items-center gap-2">
+                        <h5 className="mb-1 d-flex align-items-center gap-2">
                           {titre}
                           <span className="badge rounded-pill gstf-badge-neutre">{filtreActif ? `${evenements.length} / ${tous.length}` : tous.length}</span>
                         </h5>
@@ -474,7 +482,7 @@ const Calendrier = () => {
                           )}
                         </small>
                       </div>
-                      <button type="button" className="btn btn-sm btn-primary text-nowrap" onClick={() => ouvrirEvenement(numero)}>
+                      <button type="button" className="btn btn-sm btn-outline-primary text-nowrap" onClick={() => ouvrirEvenement(numero)}>
                         <i className="bx bx-plus me-1"></i>Ajouter
                       </button>
                     </div>
@@ -519,12 +527,12 @@ const Calendrier = () => {
                                   <div className="gstf-cal-evenement__libelle">{surligner(ev.libelle, recherche)}</div>
                                   {(auj || estProchain || duree > 1 || hors) && (
                                     <div className="gstf-cal-evenement__badges">
-                                      {auj && <span className="badge bg-label-success"><i className="bx bx-radio-circle-marked me-1" aria-hidden="true"></i>Aujourd'hui</span>}
-                                      {estProchain && <span className="badge gstf-cal-badge-prochain"><i className="bx bx-right-arrow-alt me-1" aria-hidden="true"></i>Prochain · {dans(ev.date_debut, today)}</span>}
+                                      {auj && <span className="badge gstf-cal-badge-accent"><i className="bx bx-radio-circle-marked me-1" aria-hidden="true"></i>Aujourd'hui</span>}
+                                      {estProchain && <span className="badge gstf-cal-badge-accent"><i className="bx bx-right-arrow-alt me-1" aria-hidden="true"></i>Prochain · {dans(ev.date_debut, today)}</span>}
                                       {duree > 1 && <span className="badge gstf-badge-neutre">{duree} jours</span>}
                                       {hors && (
-                                        <span className="badge bg-label-warning" title="En dehors des dates saisies pour ce semestre">
-                                          <i className="bx bx-error me-1" aria-hidden="true"></i>Hors du semestre
+                                        <span className="badge gstf-badge-neutre" title="En dehors des dates saisies pour ce semestre">
+                                          <i className="bx bx-error me-1 gstf-cal-alerte" aria-hidden="true"></i>Hors du semestre
                                         </span>
                                       )}
                                     </div>
@@ -537,7 +545,7 @@ const Calendrier = () => {
                                   <button type="button" className="btn btn-sm btn-icon btn-outline-secondary" onClick={() => ouvrirEvenement(numero, null, ev)} title="Dupliquer" aria-label={`Dupliquer « ${ev.libelle} »`}>
                                     <i className="bx bx-copy"></i>
                                   </button>
-                                  <button type="button" className="btn btn-sm btn-icon btn-outline-danger" onClick={() => supprimerEvenement(ev)} title="Supprimer" aria-label={`Supprimer « ${ev.libelle} »`}>
+                                  <button type="button" className="btn btn-sm btn-icon btn-outline-secondary gstf-cal-supprimer" onClick={() => supprimerEvenement(ev)} title="Supprimer" aria-label={`Supprimer « ${ev.libelle} »`}>
                                     <i className="bx bx-trash"></i>
                                   </button>
                                 </div>
@@ -558,50 +566,60 @@ const Calendrier = () => {
       {/* Événement : ajout et modification */}
       <div className="modal fade" id="calEvenementModal" tabIndex="-1" aria-labelledby="calEvenementTitre" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
-          <form className="modal-content" onSubmit={(e) => enregistrerEvenement(e)} noValidate>
+          <form className="modal-content gstf-cal-modal" onSubmit={(e) => enregistrerEvenement(e)} noValidate>
             <div className="modal-header">
-              <h5 className="modal-title" id="calEvenementTitre">
-                {enEdition ? "Modifier l'événement" : 'Nouvel événement'}
-                {calendrier && <small className="text-muted fw-normal ms-2">{calendrier.annee}</small>}
-              </h5>
+              <div className="min-w-0">
+                <h5 className="modal-title" id="calEvenementTitre">{enEdition ? "Modifier l'événement" : 'Nouvel événement'}</h5>
+                {calendrier && <small className="text-muted">Calendrier {calendrier.annee}</small>}
+              </div>
               <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <div className="modal-body">
-              <div className="mb-3">
-                <span className="form-label d-block">Semestre</span>
-                <div className="btn-group w-100" role="group" aria-label="Semestre">
+              <fieldset className="mb-3">
+                <legend className="gstf-cal-champ">Semestre</legend>
+                <div className="gstf-segment" role="radiogroup" aria-label="Semestre">
                   {SEMESTRES.map(({ numero, titre }) => (
-                    <React.Fragment key={numero}>
-                      <input type="radio" className="btn-check" name="cal-semestre" id={`cal-semestre-${numero}`}
+                    <label key={numero} className="gstf-segment__option">
+                      <input type="radio" name="cal-semestre" value={numero}
                         checked={evenement.semestre === numero} onChange={() => changer('semestre', numero)} />
-                      <label className="btn btn-outline-primary" htmlFor={`cal-semestre-${numero}`}>{titre}</label>
-                    </React.Fragment>
+                      <span>{titre}</span>
+                    </label>
                   ))}
                 </div>
-              </div>
+                {semestreSuggere && (
+                  <div className="form-text mt-2">
+                    <i className="bx bx-info-circle me-1" aria-hidden="true"></i>
+                    Cette date tombe dans le {SEMESTRES.find((s) => s.numero === semestreSuggere).titre.toLowerCase()}.{' '}
+                    <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => changer('semestre', semestreSuggere)}>Le choisir</button>
+                  </div>
+                )}
+              </fieldset>
 
-              <div className="mb-3">
-                <span className="form-label d-block">Durée</span>
-                <div className="btn-group w-100" role="group" aria-label="Durée">
+              <fieldset className="mb-3">
+                <legend className="gstf-cal-champ">Durée</legend>
+                <div className="gstf-segment" role="radiogroup" aria-label="Durée">
                   {TYPES.map((t) => (
-                    <React.Fragment key={t.valeur}>
-                      <input type="radio" className="btn-check" name="cal-type" id={`cal-type-${t.valeur}`}
+                    <label key={t.valeur} className="gstf-segment__option">
+                      <input type="radio" name="cal-type" value={t.valeur}
                         checked={evenement.type === t.valeur} onChange={() => changer('type', t.valeur)} />
-                      <label className="btn btn-outline-secondary" htmlFor={`cal-type-${t.valeur}`} title={t.aide}>{t.libelle}</label>
-                    </React.Fragment>
+                      <span>
+                        {t.libelle}
+                        <small>{t.aide || 'Une seule date'}</small>
+                      </span>
+                    </label>
                   ))}
                 </div>
-              </div>
+              </fieldset>
 
               <div className="row g-3 mb-3">
                 <div className={surDeuxDates ? 'col-6' : 'col-12'}>
-                  <label className="form-label" htmlFor="cal-date-debut">{surDeuxDates ? (evenement.type === 'du' ? 'Du' : 'Premier jour') : 'Date'}</label>
+                  <label className="gstf-cal-champ" htmlFor="cal-date-debut">{surDeuxDates ? (evenement.type === 'du' ? 'Du' : 'Premier jour') : 'Date'}</label>
                   <input ref={champDate} id="cal-date-debut" type="date" className="form-control" required
                     value={evenement.date_debut} onChange={(e) => changer('date_debut', e.target.value)} />
                 </div>
                 {evenement.type === 'du' && (
                   <div className="col-6">
-                    <label className="form-label" htmlFor="cal-date-fin">Au</label>
+                    <label className="gstf-cal-champ" htmlFor="cal-date-fin">Au</label>
                     <input id="cal-date-fin" type="date" className={`form-control ${evenement.date_fin && evenement.date_debut && evenement.date_fin <= evenement.date_debut ? 'is-invalid' : ''}`}
                       required min={lendemain(evenement.date_debut) || undefined}
                       value={evenement.date_fin} onChange={(e) => changer('date_fin', e.target.value)} />
@@ -610,7 +628,7 @@ const Calendrier = () => {
                 )}
                 {evenement.type === 'et' && (
                   <div className="col-6">
-                    <span className="form-label d-block" id="cal-second-jour">Second jour</span>
+                    <span className="gstf-cal-champ" id="cal-second-jour">Second jour</span>
                     <div className="form-control gstf-cal-second-jour" aria-labelledby="cal-second-jour" aria-live="polite">
                       {evenement.date_debut ? dateLongue(finCalculee) : <span className="text-muted">Le lendemain</span>}
                     </div>
@@ -618,13 +636,11 @@ const Calendrier = () => {
                 )}
                 {evenement.type === 'et' && (
                   <div className="col-12 form-text mt-1">
-                    <i className="bx bx-info-circle me-1" aria-hidden="true"></i>
-                    Deux jours consécutifs : le second jour est le lendemain du premier. Pour plus de jours, choisissez « Une période ».
+                    Le second jour est toujours le lendemain du premier. Pour plus de jours, choisissez « Une période ».
                   </div>
                 )}
                 {periodeDeDeuxJours && (
-                  <div className="col-12 form-text mt-1 text-warning">
-                    <i className="bx bx-bulb me-1" aria-hidden="true"></i>
+                  <div className="col-12 form-text mt-1">
                     Ces dates se suivent : choisissez plutôt{' '}
                     <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => changer('type', 'et')}>« Deux jours »</button>
                     {' '}pour afficher « {dateEvenement({ date_debut: evenement.date_debut, date_fin: evenement.date_fin, liaison: 'et' })} ».
@@ -632,23 +648,32 @@ const Calendrier = () => {
                 )}
               </div>
 
-              <div className="mb-3">
-                <label className="form-label" htmlFor="cal-libelle">Intitulé</label>
+              <div className="mb-4">
+                <div className="d-flex justify-content-between align-items-baseline">
+                  <label className="gstf-cal-champ" htmlFor="cal-libelle">Intitulé</label>
+                  {evenement.libelle.length > 200 && <small className="text-muted">{evenement.libelle.length} / 255</small>}
+                </div>
                 <input id="cal-libelle" type="text" className="form-control" maxLength={255} required
                   placeholder="ex. Examens semestriels"
                   value={evenement.libelle} onChange={(e) => changer('libelle', e.target.value)} />
               </div>
 
               <div className="gstf-cal-apercu" aria-live="polite">
-                <small className="text-muted d-block mb-1">Aperçu sur le site</small>
-                <div className="gstf-cal-evenement__date">{evenement.date_debut ? dateEvenement(apercu) : '—'}</div>
-                <div className="gstf-cal-evenement__libelle">{evenement.libelle.trim() || '—'}</div>
+                <span className="gstf-cal-apercu__titre"><i className="bx bx-show me-1" aria-hidden="true"></i>Aperçu sur le site</span>
+                {evenement.date_debut || evenement.libelle.trim() ? (
+                  <>
+                    <div className="gstf-cal-apercu__date">{evenement.date_debut ? dateEvenement(apercu) : 'Date à choisir'}</div>
+                    <div className="gstf-cal-apercu__libelle">{evenement.libelle.trim() || 'Intitulé à saisir'}</div>
+                  </>
+                ) : (
+                  <div className="text-muted small">Choisissez une date et saisissez l'intitulé.</div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
               {!enEdition && (
-                <button type="button" className="btn btn-outline-primary" disabled={enCours || !evenementValide} onClick={(e) => enregistrerEvenement(e, true)}>
+                <button type="button" className="btn btn-outline-secondary" disabled={enCours || !evenementValide} onClick={(e) => enregistrerEvenement(e, true)}>
                   Ajouter et continuer
                 </button>
               )}
@@ -663,13 +688,13 @@ const Calendrier = () => {
       {/* Nouvelle année */}
       <div className="modal fade" id="calNouvelleModal" tabIndex="-1" aria-labelledby="calNouvelleTitre" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
-          <form className="modal-content" onSubmit={creer} noValidate>
+          <form className="modal-content gstf-cal-modal" onSubmit={creer} noValidate>
             <div className="modal-header">
               <h5 className="modal-title" id="calNouvelleTitre">Nouveau calendrier</h5>
               <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <div className="modal-body">
-              <label className="form-label" htmlFor="cal-annee">Année académique</label>
+              <label className="gstf-cal-champ" htmlFor="cal-annee">Année académique</label>
               <input id="cal-annee" type="text" className="form-control" required placeholder="2026-2027" pattern="\d{4}-\d{4}"
                 value={nouvelle.annee} onChange={(e) => setNouvelle((n) => ({ ...n, annee: e.target.value }))} />
               {tries[0] && (
@@ -697,7 +722,7 @@ const Calendrier = () => {
       {/* Dates des semestres */}
       <div className="modal fade" id="calBornesModal" tabIndex="-1" aria-labelledby="calBornesTitre" aria-hidden="true">
         <div className="modal-dialog modal-dialog-centered">
-          <form className="modal-content" onSubmit={enregistrerBornes} noValidate>
+          <form className="modal-content gstf-cal-modal" onSubmit={enregistrerBornes} noValidate>
             <div className="modal-header">
               <h5 className="modal-title" id="calBornesTitre">
                 Dates des semestres{calendrier && <small className="text-muted fw-normal ms-2">{calendrier.annee}</small>}
@@ -707,13 +732,13 @@ const Calendrier = () => {
             <div className="modal-body">
               {SEMESTRES.map(({ numero, titre }) => (
                 <fieldset key={numero} className="mb-3">
-                  <legend className="form-label fs-6 fw-semibold">{titre}</legend>
+                  <legend className="fs-6 fw-semibold mb-2">{titre}</legend>
                   <div className="row g-3">
                     {['debut', 'fin'].map((borne) => {
                       const cle = `s${numero}_${borne}`;
                       return (
                         <div key={borne} className="col-6">
-                          <label className="form-label" htmlFor={`cal-${cle}`}>{borne === 'debut' ? 'Début' : 'Fin'}</label>
+                          <label className="gstf-cal-champ" htmlFor={`cal-${cle}`}>{borne === 'debut' ? 'Début' : 'Fin'}</label>
                           <input id={`cal-${cle}`} type="date" className="form-control" value={bornes[cle]}
                             min={borne === 'fin' ? bornes[`s${numero}_debut`] || undefined : undefined}
                             onChange={(e) => setBornes((b) => ({ ...b, [cle]: e.target.value }))} />

@@ -1,6 +1,6 @@
 // Comptes et accès : qui peut se connecter (activation), avec quel mot de passe (provisoire ou personnel),
 // et accès à l'espace d'un enseignant ou d'un étudiant en lecture seule.
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import SearchBar from './SearchBar';
 import Pagination from './Pagination';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
@@ -11,24 +11,72 @@ import { getUser } from '../auth/session';
 import { ouvrirEspace } from '../auth/consultation';
 import { plusRecentsDabord } from '../utils/tri';
 import { ilYA } from '../utils/dates';
+import { confirmerAvecCode } from '../utils/confirmation';
+import { ecouterCanalPrive, onConnectionChange } from '../realtime';
 
 const ROLES = ['etudiant', 'prof', 'admin'];
 const ROLE_TABS = { admin: 'Administrateurs', prof: 'Enseignants', etudiant: 'Étudiants' };
 const PAR_PAGE = 10;
+// Au-delà, un mot de passe provisoire jamais remplacé laisse penser que les identifiants n'ont pas été remis
+const SEUIL_PROVISOIRE = 30;
+const JOUR = 24 * 60 * 60 * 1000;
 const ETATS = [
   { valeur: '', libelle: 'Tous les comptes' },
+  { valeur: 'en-ligne', libelle: 'En ligne maintenant' },
   { valeur: 'actifs', libelle: 'Accès activé' },
   { valeur: 'inactifs', libelle: 'Accès désactivé' },
   { valeur: 'provisoire', libelle: 'Mot de passe provisoire' },
+  { valeur: 'provisoire-ancien', libelle: `Provisoire depuis plus de ${SEUIL_PROVISOIRE} jours` },
+  { valeur: 'jamais', libelle: 'Jamais connectés' },
+  { valeur: 'dormants', libelle: 'Sans connexion depuis 6 mois' },
 ];
 
 const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+// Terme recherché surligné (comparaison sans accents ni majuscules), ex. « DEMO002 » dans le matricule
+const surligner = (texte, recherche) => {
+  const terme = normaliser(recherche);
+  const i = terme ? normaliser(texte).indexOf(terme) : -1;
+  if (i < 0) return texte;
+  return <>{texte.slice(0, i)}<mark>{texte.slice(i, i + terme.length)}</mark>{texte.slice(i + terme.length)}</>;
+};
 const initiales = (nom) => String(nom || '?').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((m) => m[0].toUpperCase()).join('');
 const dateComplete = (iso) => (iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' }) : '');
+const joursDepuis = (iso) => (iso ? Math.max(0, Math.floor((Date.now() - new Date(iso)) / JOUR)) : null);
+// « depuis aujourd'hui », « depuis 23 j », « depuis 3 mois »
+const depuis = (jours) => {
+  if (jours === null) return '';
+  if (jours === 0) return "depuis aujourd'hui";
+  if (jours < 60) return `depuis ${jours} j`;
+  return `depuis ${Math.round(jours / 30)} mois`;
+};
+// Dernière fois où la personne a été vue dans l'application (signal de présence, sinon connexion)
+const vuLe = (u) => u.derniere_activite_at || u.derniere_connexion_at || null;
+// Aucune trace d'utilisation : ni connexion, ni signal de présence (une session ouverte avant le suivi
+// des connexions n'a pas de date de connexion, mais son signal de présence prouve qu'elle est utilisée)
+const jamaisConnecte = (u) => !u.en_ligne && !vuLe(u);
+// Provisoire ancien et pas utilisé depuis qu'il a été remis : identifiants probablement jamais reçus
+const provisoireEnSouffrance = (u) => u.must_change_password && joursDepuis(u.provisoire_depuis) >= SEUIL_PROVISOIRE
+  && (!vuLe(u) || new Date(vuLe(u)) < new Date(u.provisoire_depuis));
+const dormant = (u) => !u.en_ligne && Boolean(vuLe(u)) && joursDepuis(vuLe(u)) >= 182;
+// Statut : « En ligne », « En ligne il y a 5 min », « En ligne hier », « En ligne le 12 oct. », « Jamais connecté »
+const texteStatut = (u) => {
+  if (u.en_ligne) return 'En ligne';
+  if (!vuLe(u)) return 'Jamais connecté';
+  const quand = ilYA(vuLe(u));
+  return /^(il y a|à l'instant|hier)/.test(quand) ? `En ligne ${quand}` : `En ligne le ${quand}`;
+};
+const infoStatut = (u) => [
+  u.en_ligne ? 'Utilise l’application en ce moment' : vuLe(u) ? `En ligne pour la dernière fois le ${dateComplete(vuLe(u))}` : 'Ne s’est jamais connecté',
+  u.derniere_connexion_at && `Dernière connexion : ${dateComplete(u.derniere_connexion_at)}`,
+  `Compte créé le ${dateComplete(u.created_at)}`,
+].filter(Boolean).join('\n');
+const PRESENCE_MS = 30 * 1000; // sans direct : statut « En ligne » relu toutes les 30 s
+// Sans signal de présence depuis 2 min (application fermée sans déconnexion) : hors ligne (comme User::PRESENCE_SECONDES)
+const PRESENCE_EXPIRATION_MS = 120 * 1000;
 
 const Portal = () => {
   const { notify, confirm } = useFeedback();
-  const { usersByRole, erreurByRole, stats, fetchUsers, fetchStats, updateUserLocal } = useUserCession();
+  const { usersByRole, loadingByRole, erreurByRole, stats, fetchUsers, fetchStats, updateUserLocal, mergePresence, deleteUserLocal } = useUserCession();
   const [role, setRole] = useState('etudiant');
   const [recherche, setRecherche] = useState('');
   const [etat, setEtat] = useState('');
@@ -36,16 +84,61 @@ const Portal = () => {
   const [selection, setSelection] = useState(() => new Set());
   const [enCours, setEnCours] = useState(null); // id du compte dont l'accès est en cours de modification
   const [reinitEnCours, setReinitEnCours] = useState(null); // id du compte dont le mot de passe est réinitialisé
-  const [lotEnCours, setLotEnCours] = useState(null); // 'activer' | 'desactiver'
+  const [lotEnCours, setLotEnCours] = useState(null); // 'activer' | 'desactiver' | 'supprimer'
   const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
   const moi = getUser()?.id;
 
-  useEffect(() => {
-    fetchUsers(role);
-  }, [role, fetchUsers]);
-  useEffect(() => {
+  // Liste relue à chaque arrivée sur la page ou sur l'onglet (la liste affichée reste visible pendant ce temps) :
+  // les connexions, changements de mot de passe et nouveaux comptes faits ailleurs apparaissent
+  const actualiser = useCallback(() => {
+    fetchUsers(role, { force: true });
     fetchStats();
-  }, [fetchStats]);
+  }, [role, fetchUsers, fetchStats]);
+
+  useEffect(() => {
+    actualiser();
+  }, [actualiser]);
+
+  useEffect(() => {
+    const auRetour = () => document.visibilityState === 'visible' && actualiser();
+    document.addEventListener('visibilitychange', auRetour);
+    window.addEventListener('focus', auRetour);
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour);
+      window.removeEventListener('focus', auRetour);
+    };
+  }, [actualiser]);
+
+  // ---------- Statut « En ligne » en direct ----------
+  // Connexion, signal de présence et déconnexion arrivent par WebSocket (canal privé « comptes », administrateurs).
+  // Sans direct (Reverb arrêté ou non configuré) : relecture légère toutes les 30 s.
+  const [direct, setDirect] = useState(false);
+  const [maintenant, setMaintenant] = useState(() => Date.now());
+
+  useEffect(() => onConnectionChange((etat) => setDirect(etat === 'connected')), []);
+
+  useEffect(() => ecouterCanalPrive('comptes', 'presence.maj', (p) => mergePresence(p.role, [p])), [mergePresence]);
+
+  // En revenant au direct (après une coupure), on rattrape ce qui a pu être manqué
+  useEffect(() => {
+    if (direct) api.get('/user-cessions/presence', { params: { role } }).then((res) => mergePresence(role, res.data)).catch(() => {});
+  }, [direct, role, mergePresence]);
+
+  useEffect(() => {
+    if (direct) return undefined;
+    const relire = () => {
+      if (document.visibilityState !== 'visible') return;
+      api.get('/user-cessions/presence', { params: { role } }).then((res) => mergePresence(role, res.data)).catch(() => {});
+    };
+    const minuterie = setInterval(relire, PRESENCE_MS);
+    return () => clearInterval(minuterie);
+  }, [direct, role, mergePresence]);
+
+  // Horloge de la page : un compte dont le signal s'est arrêté repasse hors ligne sans attendre le serveur
+  useEffect(() => {
+    const minuterie = setInterval(() => setMaintenant(Date.now()), 15 * 1000);
+    return () => clearInterval(minuterie);
+  }, []);
 
   // Changement d'onglet, de recherche ou de filtre : première page, sélection vidée
   useEffect(() => {
@@ -53,7 +146,13 @@ const Portal = () => {
     setSelection(new Set());
   }, [role, recherche, etat]);
 
-  const comptes = usersByRole[role];
+  // Statut effectif : en ligne seulement si le dernier signal de présence est récent
+  const comptesBruts = usersByRole[role];
+  const comptes = useMemo(() => comptesBruts?.map((u) => (
+    u.en_ligne && u.derniere_activite_at && maintenant - new Date(u.derniere_activite_at) > PRESENCE_EXPIRATION_MS
+      ? { ...u, en_ligne: false }
+      : u
+  )), [comptesBruts, maintenant]);
   const loading = !comptes && !erreurByRole[role];
   const erreur = !comptes ? erreurByRole[role] : null;
   const occupe = enCours !== null || reinitEnCours !== null || lotEnCours !== null;
@@ -65,7 +164,11 @@ const Portal = () => {
       if (etat === 'actifs' && !u.is_verified) return false;
       if (etat === 'inactifs' && u.is_verified) return false;
       if (etat === 'provisoire' && !u.must_change_password) return false;
-      return !terme || [u.nom_prenom, u.email, u.telephone].some((v) => normaliser(v).includes(terme));
+      if (etat === 'provisoire-ancien' && !provisoireEnSouffrance(u)) return false;
+      if (etat === 'en-ligne' && !u.en_ligne) return false;
+      if (etat === 'jamais' && !jamaisConnecte(u)) return false;
+      if (etat === 'dormants' && !dormant(u)) return false;
+      return !terme || [u.nom_prenom, u.email, u.telephone, u.matricule].some((v) => normaliser(v).includes(terme));
     }),
     [comptes, etat, terme]
   );
@@ -74,6 +177,9 @@ const Portal = () => {
   const selectionnables = visibles.filter((u) => u.id !== moi);
   const toutSelectionne = selectionnables.length > 0 && selectionnables.every((u) => selection.has(u.id));
   const provisoires = (comptes || []).filter((u) => u.must_change_password).length;
+  const enSouffrance = (comptes || []).filter(provisoireEnSouffrance).length;
+  const jamais = (comptes || []).filter(jamaisConnecte).length;
+  const enLigne = (comptes || []).filter((u) => u.en_ligne).length;
   const filtresActifs = Boolean(terme || etat);
 
   const selectionner = (id, oui) => setSelection((avant) => {
@@ -142,12 +248,50 @@ const Portal = () => {
     setReinitEnCours(compte.id);
     try {
       const res = await api.post(`/user-cessions/${compte.id}/reset-password`);
-      updateUserLocal(role, compte.id, { must_change_password: true });
+      updateUserLocal(role, compte.id, { must_change_password: true, provisoire_depuis: new Date().toISOString() });
       setIdentifiants({ nom: compte.nom_prenom, email: res.data.email, mot_de_passe: res.data.mot_de_passe });
     } catch (err) {
       notify.error(errorMessage(err, 'Erreur lors de la réinitialisation du mot de passe.'));
     } finally {
       setReinitEnCours(null);
+    }
+  };
+
+  // Suppression définitive des comptes sélectionnés (ex. étudiant exclu) : seul l'accès disparaît,
+  // les dossiers sont conservés côté serveur. Un seul code de confirmation pour toute la sélection.
+  const supprimerSelection = async () => {
+    const ids = [...selection];
+    const choisis = (comptes || []).filter((u) => selection.has(u.id));
+    const n = ids.length;
+    const noms = choisis.slice(0, 5).map((u) => `• ${u.nom_prenom || u.email}`).join('\n') + (n > 5 ? `\n• … et ${n - 5} autre${n - 5 > 1 ? 's' : ''}` : '');
+    const dossiers = role === 'etudiant'
+      ? `${n > 1 ? 'Leurs dossiers' : 'Son dossier'} (notes, bulletins, parcours) ${n > 1 ? 'sont conservés' : 'est conservé'}. Un nouveau compte pourra être créé plus tard (par exemple lors d’un import).`
+      : role === 'prof' ? `${n > 1 ? 'Leurs fiches enseignant sont conservées' : 'Sa fiche enseignant est conservée'}.` : '';
+    let code;
+    try {
+      code = await confirmerAvecCode(confirm, 'supprimer_compte', {
+        title: n > 1 ? `Supprimer ${n} comptes ?` : `Supprimer le compte de ${choisis[0]?.nom_prenom || choisis[0]?.email} ?`,
+        message: `${noms}\n\n${n > 1 ? 'Ces personnes ne pourront plus' : 'Cette personne ne pourra plus'} se connecter ; les sessions ouvertes sont fermées. Cette action est définitive.\n${dossiers}`.trim(),
+        confirmLabel: n > 1 ? `Supprimer les ${n} comptes` : 'Supprimer le compte',
+        danger: true,
+      });
+    } catch (err) {
+      notify.error(errorMessage(err, "Impossible d'obtenir un code de confirmation."));
+      return;
+    }
+    if (!code) return;
+
+    setLotEnCours('supprimer');
+    try {
+      const res = await api.post('/user-cessions/bulk-delete', { user_ids: ids, code_confirmation: code });
+      res.data.supprimes.forEach((id) => deleteUserLocal(role, id));
+      setSelection(new Set());
+      fetchStats();
+      notify.success(res.data.message);
+    } catch (err) {
+      notify.error(errorMessage(err, 'Erreur lors de la suppression des comptes.'));
+    } finally {
+      setLotEnCours(null);
     }
   };
 
@@ -183,11 +327,35 @@ const Portal = () => {
 
       <div className="card">
         <div className="card-header">
-          <h5 className="card-title mb-1">Comptes · {ROLE_TABS[role]}</h5>
+          <div className="d-flex align-items-center gap-2">
+            <h5 className="card-title mb-1 flex-grow-1">Comptes · {ROLE_TABS[role]}</h5>
+            {comptes && (
+              <button type="button" className="btn btn-sm btn-icon btn-outline-secondary" onClick={actualiser}
+                disabled={loadingByRole[role]} title="Actualiser la liste" aria-label="Actualiser la liste">
+                <i className={`bx bx-refresh ${loadingByRole[role] ? 'bx-spin' : ''}`}></i>
+              </button>
+            )}
+          </div>
           {resume ? (
             <small className="text-muted">
+              {comptes && enLigne > 0 && (
+                <><button type="button" className="btn btn-link btn-sm p-0 align-baseline gstf-presence gstf-presence--en-ligne" onClick={() => setEtat('en-ligne')}>
+                  <span className="gstf-presence__point" aria-hidden="true"></span>{enLigne} en ligne
+                </button> · </>
+              )}
               {resume.actifs} activé{resume.actifs > 1 ? 's' : ''} · {resume.inactifs} désactivé{resume.inactifs > 1 ? 's' : ''}
               {comptes && provisoires > 0 && ` · ${provisoires} mot${provisoires > 1 ? 's' : ''} de passe provisoire${provisoires > 1 ? 's' : ''}`}
+              {comptes && jamais > 0 && (
+                <> · <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={() => setEtat('jamais')}>
+                  {jamais} jamais connecté{jamais > 1 ? 's' : ''}
+                </button></>
+              )}
+              {comptes && enSouffrance > 0 && (
+                <> · <button type="button" className="btn btn-link btn-sm p-0 align-baseline gstf-comptes__alerte-lien" onClick={() => setEtat('provisoire-ancien')}
+                  title={`Mot de passe provisoire jamais utilisé depuis plus de ${SEUIL_PROVISOIRE} jours`}>
+                  <i className="bx bx-error me-1" aria-hidden="true"></i>{enSouffrance} identifiant{enSouffrance > 1 ? 's' : ''} peut-être non remis
+                </button></>
+              )}
             </small>
           ) : (
             <span className="gstf-squelette d-block" style={{ width: '14rem', height: '0.8rem' }} aria-hidden="true" />
@@ -197,7 +365,7 @@ const Portal = () => {
         <div className="card-body pt-0 pb-3">
           <div className="gstf-filtres">
             <SearchBar className="gstf-filtres__recherche" searchTerm={recherche} onSearchChange={setRecherche}
-              placeholder="Rechercher par nom, email ou téléphone…" />
+              placeholder="Rechercher par nom, matricule ou email…" />
             <select className="form-select w-auto" value={etat} onChange={(e) => setEtat(e.target.value)} aria-label="Filtrer par état">
               {ETATS.map((e) => <option key={e.valeur} value={e.valeur}>{e.libelle}</option>)}
             </select>
@@ -216,6 +384,11 @@ const Portal = () => {
               <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => basculerLot(false)} disabled={occupe}>
                 {lotEnCours === 'desactiver' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bx bx-block me-1"></i>}
                 Désactiver
+              </button>
+              <button type="button" className="btn btn-sm btn-outline-secondary gstf-comptes__supprimer" onClick={supprimerSelection} disabled={occupe}
+                title="Supprimer définitivement les comptes sélectionnés (les dossiers sont conservés)">
+                {lotEnCours === 'supprimer' ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bx bx-trash me-1"></i>}
+                Supprimer
               </button>
               <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setSelection(new Set())} disabled={occupe}>
                 Annuler
@@ -241,7 +414,8 @@ const Portal = () => {
                       disabled={loading || occupe || selectionnables.length === 0} />
                   </th>
                   <th scope="col">Compte</th>
-                  <th scope="col" className="d-none d-md-table-cell">Créé</th>
+                  {role === 'etudiant' && <th scope="col" className="d-none d-lg-table-cell">Matricule</th>}
+                  <th scope="col" className="d-none d-md-table-cell">Statut</th>
                   <th scope="col">Accès</th>
                   <th scope="col">Mot de passe</th>
                   <th scope="col" className="text-end"><span className="visually-hidden">Actions</span></th>
@@ -261,6 +435,7 @@ const Portal = () => {
                             </span>
                           </span>
                         </td>
+                        {role === 'etudiant' && <td className="d-none d-lg-table-cell"><span className="gstf-squelette" style={{ width: '4.5rem', height: '0.8rem' }} /></td>}
                         <td className="d-none d-md-table-cell"><span className="gstf-squelette" style={{ width: '5rem', height: '0.8rem' }} /></td>
                         <td><span className="gstf-squelette" style={{ width: '5.5rem', height: '1.2rem' }} /></td>
                         <td><span className="gstf-squelette" style={{ width: '5rem', height: '1.2rem' }} /></td>
@@ -279,7 +454,7 @@ const Portal = () => {
                           </td>
                           <td>
                             <span className="d-flex align-items-center gap-2 min-w-0">
-                              <span className="avatar avatar-sm flex-shrink-0">
+                              <span className={`avatar avatar-sm flex-shrink-0 ${u.en_ligne ? 'avatar-online' : ''}`} title={u.en_ligne ? 'En ligne' : undefined}>
                                 <span className="avatar-initial rounded-circle bg-label-primary">{initiales(u.nom_prenom || u.email)}</span>
                               </span>
                               <span className="min-w-0">
@@ -288,11 +463,29 @@ const Portal = () => {
                                   {estMoi && <span className="badge gstf-badge-neutre">Vous</span>}
                                 </span>
                                 <small className="d-block text-muted text-truncate">{u.email}</small>
+                                <small className={`d-block d-md-none ${u.en_ligne ? 'gstf-presence--en-ligne' : 'text-muted'}`} title={infoStatut(u)}>
+                                  {texteStatut(u)}
+                                </small>
                               </span>
                             </span>
                           </td>
-                          <td className="d-none d-md-table-cell text-muted small text-nowrap" title={dateComplete(u.created_at)}>
-                            {ilYA(u.created_at)}
+                          {role === 'etudiant' && (
+                            <td className="d-none d-lg-table-cell text-nowrap">
+                              {u.matricule ? <span className="gstf-comptes__matricule">{surligner(u.matricule, recherche)}</span> : <span className="text-muted">—</span>}
+                            </td>
+                          )}
+                          <td className="d-none d-md-table-cell small text-nowrap" title={infoStatut(u)}>
+                            {u.en_ligne ? (
+                              <span className="gstf-presence gstf-presence--en-ligne">
+                                <span className="gstf-presence__point" aria-hidden="true"></span>En ligne
+                              </span>
+                            ) : vuLe(u) ? (
+                              <span className={`gstf-presence ${dormant(u) ? 'text-muted' : 'text-body'}`}>
+                                <span className="gstf-presence__point" aria-hidden="true"></span>{texteStatut(u)}
+                              </span>
+                            ) : (
+                              <span className="text-muted fst-italic">Jamais connecté</span>
+                            )}
                           </td>
                           <td>
                             <div className="form-check form-switch mb-0 text-nowrap">
@@ -306,8 +499,17 @@ const Portal = () => {
                           </td>
                           <td className="text-nowrap">
                             {u.must_change_password ? (
-                              <span className="badge gstf-badge-neutre" title="À changer à la prochaine connexion">
-                                <i className="bx bx-time-five me-1" aria-hidden="true"></i>Provisoire
+                              <span className="d-inline-flex align-items-center gap-1">
+                                <span className="badge gstf-badge-neutre"
+                                  title={`À changer à la prochaine connexion${u.provisoire_depuis ? `\nProvisoire depuis le ${dateComplete(u.provisoire_depuis)}` : ''}`}>
+                                  <i className="bx bx-time-five me-1" aria-hidden="true"></i>Provisoire
+                                  {u.provisoire_depuis && <span className="fw-normal ms-1">· {depuis(joursDepuis(u.provisoire_depuis))}</span>}
+                                </span>
+                                {provisoireEnSouffrance(u) && (
+                                  <i className="bx bx-error gstf-comptes__alerte" role="img"
+                                    aria-label="Identifiants peut-être non remis"
+                                    title={`Jamais utilisé depuis plus de ${SEUIL_PROVISOIRE} jours : les identifiants ont-ils été remis ? Vous pouvez réinitialiser le mot de passe pour en générer de nouveaux.`}></i>
+                                )}
                               </span>
                             ) : (
                               <span className="small text-muted">Personnel</span>

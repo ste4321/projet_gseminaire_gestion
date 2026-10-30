@@ -73,10 +73,13 @@ export const onConnectionChange = (callback) => {
 const abonnes = {};
 
 /** Écoute un événement sur le canal privé de l'utilisateur ; renvoie la fonction d'arrêt */
-export const ecouterUtilisateur = (userId, evenement, callback) => {
+export const ecouterUtilisateur = (userId, evenement, callback) =>
+  userId ? ecouterCanalPrive(`App.Models.User.${userId}`, evenement, callback) : () => {};
+
+/** Écoute un événement sur un canal privé (ex. « comptes », réservé aux administrateurs) ; renvoie la fonction d'arrêt */
+export const ecouterCanalPrive = (nom, evenement, callback) => {
   const instance = getEcho();
-  if (!instance || !userId) return () => {};
-  const nom = `App.Models.User.${userId}`;
+  if (!instance) return () => {};
   const canal = instance.private(nom);
   if (!abonnes[nom]) {
     canal.error((erreur) => console.warn(`[GSTF] Abonnement au canal ${nom} refusé`, erreur));

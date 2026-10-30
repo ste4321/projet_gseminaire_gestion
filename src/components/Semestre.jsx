@@ -1,282 +1,159 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSemestre } from '../contexts/SemestreContext';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
-import { plusRecentsDabord } from '../utils/tri';
+import { ListeChargement, FenetreFormulaire, ActionsLigne, fenetre, pluriel } from './Referentiel';
+
+// Semestres de l'année (Semestre 1 / S1…) : chaque matière appartient à un semestre, les notes se publient par semestre.
+// Suppression refusée par le serveur dès qu'une matière y est rattachée.
+
+const FORMULAIRE_VIDE = { semestre: '', code_semestre: '' };
+// « Semestre 2 » → « S2 » (proposé tant que le code n'a pas été saisi à la main)
+const codePropose = (nom) => {
+  const m = /(\d+)\s*$/.exec(String(nom ?? '').trim());
+  return m ? `S${m[1]}` : '';
+};
+const normaliser = (texte) => String(texte ?? '').trim().toLowerCase();
 
 const Semestre = () => {
-  const { semestres, fetchSemestres, loading } = useSemestre();
-  const [form, setForm] = useState({ semestre: '', code_semestre: '' });
-  const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState('');
-  const [detail, setDetail] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
-  const [loadingSubmit, setLoadingSubmit] = useState(false);
-  const [loadingDeleteId, setLoadingDeleteId] = useState(null);
-  const { notify } = useFeedback();
+  const { notify, confirm } = useFeedback();
+  const { semestres, loading, fetchSemestres } = useSemestre();
+  const [form, setForm] = useState(FORMULAIRE_VIDE);
+  const [codeManuel, setCodeManuel] = useState(false);
+  const [enEdition, setEnEdition] = useState(null);
+  const [enCours, setEnCours] = useState(false);
 
-  // Pagination
-  const itemsPerPage = 5;
-  const [currentPage, setCurrentPage] = useState(1);
-  const filtered = plusRecentsDabord(semestres).filter((s) =>
-    s.semestre.toLowerCase().includes(search.toLowerCase())
-  );
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const currentItems = filtered.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Relu à chaque ouverture de la page : la liste gardée en mémoire par l'espace admin peut dater (chiffres périmés)
+  useEffect(() => {
+    fetchSemestres();
+  }, [fetchSemestres]);
 
-  const showAlert = (type, message) => (type === 'success' ? notify.success(message) : notify.error(message));
+  const tries = useMemo(() => [...semestres].sort((a, b) => a.id - b.id), [semestres]);
 
-  const openModal = (id) => {
-    const modal = new window.bootstrap.Modal(document.getElementById(id));
-    modal.show();
+  // ---------- Formulaire ----------
+  const nom = form.semestre.trim();
+  const doublon = nom && tries.some((s) => normaliser(s.semestre) === normaliser(nom) && s.id !== enEdition?.id);
+  const valide = nom.length > 0 && !doublon;
+
+  const ouvrir = (semestre = null) => {
+    setEnEdition(semestre);
+    setForm(semestre ? { semestre: semestre.semestre ?? '', code_semestre: semestre.code_semestre ?? '' } : { semestre: `Semestre ${tries.length + 1}`, code_semestre: `S${tries.length + 1}` });
+    setCodeManuel(Boolean(semestre));
+    fenetre('semestreModal').show();
   };
 
-  const handleSubmit = async (e) => {
+  const changerNom = (valeur) => setForm((f) => ({ semestre: valeur, code_semestre: codeManuel ? f.code_semestre : codePropose(valeur) }));
+
+  const enregistrer = async (e) => {
     e.preventDefault();
-    setLoadingSubmit(true);
+    if (!valide) return;
+    setEnCours(true);
+    const donnees = { semestre: nom, code_semestre: form.code_semestre.trim().toUpperCase() || null };
     try {
-      if (selected) {
-        await api.put(`/semestres/${selected.id}`, form);
-        showAlert('success', 'Semestre modifié avec succès.');
-      } else {
-        await api.post(`/semestres`, form);
-        showAlert('success', 'Semestre ajouté avec succès.');
-      }
-      fetchSemestres();
-      const modal = window.bootstrap.Modal.getInstance(
-        document.getElementById(selected ? 'editModal' : 'addModal')
-      );
-      modal.hide();
-      setForm({ semestre: '', code_semestre: '' });
-      setSelected(null);
+      if (enEdition) await api.put(`/semestres/${enEdition.id}`, donnees);
+      else await api.post('/semestres', donnees);
+      await fetchSemestres();
+      fenetre('semestreModal').hide();
+      notify.success(enEdition ? 'Semestre modifié.' : `${nom} ajouté.`);
     } catch (err) {
-      showAlert('danger', errorMessage(err, 'Erreur lors de l\'enregistrement.'));
-      console.error(err);
+      notify.error(errorMessage(err, "Erreur lors de l'enregistrement."));
     } finally {
-      setLoadingSubmit(false);
+      setEnCours(false);
     }
   };
 
-  const handleDelete = async () => {
-    setLoadingDeleteId(deleteId);
+  const supprimer = async (semestre) => {
+    const ok = await confirm({
+      title: `Supprimer « ${semestre.semestre} » ?`,
+      message: 'Il ne sera plus proposé pour les matières ni la publication des notes.',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await api.delete(`/semestres/${deleteId}`);
-      fetchSemestres();
-      showAlert('success', 'Semestre supprimé.');
-      const modal = window.bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
-      modal.hide();
+      await api.delete(`/semestres/${semestre.id}`);
+      await fetchSemestres();
+      notify.success(`${semestre.semestre} supprimé.`);
     } catch (err) {
-      showAlert('danger', errorMessage(err, 'Erreur lors de la suppression.'));
-    } finally {
-      setLoadingDeleteId(null);
+      notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
     }
   };
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
-      <h4 className="fw-bold py-3 mb-4">Gestion des Semestres</h4>
-
-      <input
-        type="text"
-        placeholder="Rechercher un semestre..."
-        className="form-control mb-3"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      <div className="mb-3">
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setForm({ semestre: '', code_semestre: '' });
-            setSelected(null);
-            openModal('addModal');
-          }}
-        >
-          Nouveau Semestre
+      <div className="gstf-page-header">
+        <div>
+          <h4 className="fw-bold mb-1">
+            <span className="text-muted fw-light">Administration /</span> Semestres
+          </h4>
+          <small className="text-muted">Chaque matière appartient à un semestre ; les notes sont publiées semestre par semestre.</small>
+        </div>
+        <button className="btn btn-primary" onClick={() => ouvrir()} disabled={loading}>
+          <i className="bx bx-plus me-1"></i>Nouveau semestre
         </button>
       </div>
 
       <div className="card">
-        <h5 className="card-header">Liste des semestres</h5>
-        <div className="table-responsive text-nowrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Semestre</th>
-                <th>Code</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.map((s) => (
-                <tr
-                  key={s.id}
-                  onClick={() => {
-                    setDetail(s);
-                    openModal('detailModal');
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>{s.id}</td>
-                  <td>{s.semestre}</td>
-                  <td>{s.code_semestre}</td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-outline-primary me-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelected(s);
-                        setForm({ semestre: s.semestre, code_semestre: s.code_semestre });
-                        openModal('editModal');
-                      }}
-                    >
-                      <i className="bx bx-edit"></i>
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteId(s.id);
-                        openModal('deleteModal');
-                      }}
-                    >
-                      <i className="bx bx-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Pagination controls */}
-          <div className="d-flex justify-content-center mt-3">
-            <nav>
-              <ul className="pagination">
-                {[...Array(totalPages).keys()].map((num) => (
-                  <li key={num} className={`page-item ${currentPage === num + 1 ? 'active' : ''}`}>
-                    <button className="page-link" onClick={() => setCurrentPage(num + 1)}>
-                      {num + 1}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </div>
-        </div>
-      </div>
-{/* Modal Ajouter */}
-<div className="modal fade" id="addModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content p-3">
-            <div className="modal-header"><h5 className="modal-title">Ajouter un semestre</h5></div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <input
-                  value={form.semestre}
-                  onChange={(e) => setForm({ ...form, semestre: e.target.value })}
-                  className="form-control mb-2"
-                  placeholder="Nom du semestre"
-                  required
-                />
-                <input
-                  value={form.code_semestre}
-                  onChange={(e) => setForm({ ...form, code_semestre: e.target.value })}
-                  className="form-control"
-                  placeholder="Code du semestre (facultatif)"
-                />
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="submit" className="btn btn-primary" disabled={loadingSubmit}>
-                  Ajouter
-                  {loadingSubmit && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal Modifier */}
-      <div className="modal fade" id="editModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content p-3">
-            <div className="modal-header"><h5 className="modal-title">Modifier le semestre</h5></div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <input
-                  value={form.semestre}
-                  onChange={(e) => setForm({ ...form, semestre: e.target.value })}
-                  className="form-control mb-2"
-                  placeholder="Nom du semestre"
-                  required
-                />
-                <input
-                  value={form.code_semestre}
-                  onChange={(e) => setForm({ ...form, code_semestre: e.target.value })}
-                  className="form-control"
-                  placeholder="Code du semestre"
-                />
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="submit" className="btn btn-primary" disabled={loadingSubmit}>
-                  Modifier
-                  {loadingSubmit && <span className="spinner-border spinner-border-sm ms-2" />}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal Détail */}
-      <div className="modal fade" id="detailModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content p-3">
-            <div className="modal-header"><h5 className="modal-title">Détail du semestre</h5></div>
-            <div className="modal-body">
-              {detail ? (
-                <>
-                  <p><strong>ID :</strong> {detail.id}</p>
-                  <p><strong>Semestre :</strong> {detail.semestre}</p>
-                  <p><strong>Code :</strong> {detail.code_semestre || '-'}</p>
-                  <p><strong>Créé le :</strong> {new Date(detail.created_at).toLocaleDateString()}</p>
-                </>
-              ) : (
-                <p>Aucune information disponible</p>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
+        {loading ? (
+          <ListeChargement lignes={2} />
+        ) : tries.length === 0 ? (
+          <div className="gstf-empty">
+            <i className="bx bx-calendar-check d-block"></i>
+            Aucun semestre n'est encore créé.
+            <div className="mt-3">
+              <button type="button" className="btn btn-sm btn-primary" onClick={() => ouvrir()}>Créer le premier semestre</button>
             </div>
           </div>
-        </div>
+        ) : (
+          <ul className="gstf-ref-liste">
+            {tries.map((s) => {
+              const matieres = s.matieres_count ?? 0;
+              return (
+                <li key={s.id} className="gstf-ref-ligne">
+                  <span className="gstf-ref-pastille" aria-hidden="true">{s.code_semestre || '—'}</span>
+                  <div className="flex-grow-1 min-w-0">
+                    <div className="gstf-ref-titre">{s.semestre}</div>
+                    <div className="gstf-ref-meta">
+                      <span><i className="bx bx-book" aria-hidden="true"></i>{pluriel(matieres, 'matière')}</span>
+                      {!s.code_semestre && <span>Sans code court</span>}
+                    </div>
+                  </div>
+                  <ActionsLigne
+                    nom={s.semestre}
+                    onModifier={() => ouvrir(s)}
+                    onSupprimer={() => supprimer(s)}
+                    suppressionImpossible={matieres > 0 && `Impossible de supprimer : ${pluriel(matieres, 'matière')} y ${matieres > 1 ? 'sont rattachées' : 'est rattachée'}`}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
-      {/* Modal Suppression */}
-      <div className="modal fade" id="deleteModal" tabIndex="-1">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header"><h5 className="modal-title">Supprimer un semestre</h5></div>
-            <div className="modal-body">
-              <p>Voulez-vous vraiment supprimer ce semestre ?</p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-              <button className="btn btn-danger" onClick={handleDelete} disabled={loadingDeleteId}>
-                Supprimer
-                {loadingDeleteId && <span className="spinner-border spinner-border-sm ms-2" />}
-              </button>
-            </div>
+      <FenetreFormulaire
+        id="semestreModal"
+        titre={enEdition ? `Modifier « ${enEdition.semestre} »` : 'Nouveau semestre'}
+        onSubmit={enregistrer}
+        valide={valide}
+        enCours={enCours}
+        libelleValider={enEdition ? 'Enregistrer' : 'Ajouter'}
+      >
+        <div className="row g-3">
+          <div className="col-8">
+            <label className="gstf-ref-champ" htmlFor="semestre-nom">Nom</label>
+            <input id="semestre-nom" type="text" className={`form-control ${doublon ? 'is-invalid' : ''}`} maxLength={100} required
+              placeholder="ex. Semestre 1" value={form.semestre} onChange={(e) => changerNom(e.target.value)} />
+            <div className="invalid-feedback">Ce semestre existe déjà.</div>
+          </div>
+          <div className="col-4">
+            <label className="gstf-ref-champ" htmlFor="semestre-code">Code court</label>
+            <input id="semestre-code" type="text" className="form-control" maxLength={20} placeholder="S1"
+              value={form.code_semestre} onChange={(e) => { setCodeManuel(true); setForm((f) => ({ ...f, code_semestre: e.target.value.toUpperCase() })); }} />
           </div>
         </div>
-      </div>
+        <div className="form-text mt-2">Le code court s'affiche dans les tableaux de notes et les bulletins.</div>
+      </FenetreFormulaire>
     </div>
   );
 };

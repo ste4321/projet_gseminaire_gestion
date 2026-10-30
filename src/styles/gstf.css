@@ -1240,6 +1240,10 @@
 }
 
 /* ─── Calendrier académique (admin) ──────────────────────── */
+/* Palette volontairement réduite : neutres + une seule couleur d'accent (--gstf-primary).
+   Couleurs d'état uniquement là où elles portent un sens : vert = affiché sur le site,
+   ambre = alerte (hors du semestre), rouge = suppression (au survol). */
+
 /* Sélecteur d'années : tuiles défilant horizontalement */
 .gstf-cal-annees {
   display: grid;
@@ -1253,7 +1257,6 @@
   scrollbar-width: thin;
 }
 .gstf-cal-annee {
-  --cal-statut: var(--gstf-text-muted);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1267,18 +1270,14 @@
   color: var(--gstf-text);
   text-align: left;
   scroll-snap-align: start;
-  box-shadow: 0 1px 3px var(--gstf-border);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.gstf-cal-annee:hover { border-color: var(--gstf-gold); transform: translateY(-2px); box-shadow: 0 6px 16px var(--gstf-border); }
+.gstf-cal-annee:hover { border-color: var(--gstf-text-muted); }
 .gstf-cal-annee:focus-visible { outline: 2px solid var(--gstf-primary); outline-offset: 2px; }
 .gstf-cal-annee.is-active {
   border-color: var(--gstf-primary);
-  background: linear-gradient(180deg, var(--gstf-primary-soft) 0%, var(--gstf-surface) 70%);
-  box-shadow: 0 0 0 1px var(--gstf-primary), 0 6px 18px var(--gstf-ombre);
+  box-shadow: inset 0 0 0 1px var(--gstf-primary);
 }
-.gstf-cal-annee--site { --cal-statut: var(--gstf-ok); }
-.gstf-cal-annee--cache { --cal-statut: var(--gstf-alerte); }
 
 .gstf-cal-annee__haut {
   display: flex;
@@ -1291,53 +1290,41 @@
   font-weight: 700;
   color: var(--gstf-heading);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
 }
+.gstf-cal-annee.is-active .gstf-cal-annee__annee { color: var(--gstf-primary); }
 .gstf-cal-annee__temps {
   flex-shrink: 0;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--gstf-badge);
-  color: var(--gstf-text);
+  font-size: 0.75rem;
+  color: var(--gstf-text-muted);
 }
-.gstf-cal-annee__temps--en-cours { background: var(--gstf-gold-soft); color: var(--gstf-gold-text); }
-.gstf-cal-annee__temps--a-venir { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
 
-/* Statut de publication : point coloré + texte (tuiles et en-tête du calendrier choisi) */
+/* Statut de publication : point + texte neutre ; seul « Affiché sur le site » a un point vert */
 .gstf-cal-statut {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--cal-statut, var(--gstf-text-muted));
+  font-weight: 500;
+  color: var(--gstf-text);
 }
-.gstf-cal-statut--site { --cal-statut: var(--gstf-ok); }
-.gstf-cal-statut--cache { --cal-statut: var(--gstf-alerte); }
 h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 999px; background: var(--gstf-badge); }
 .gstf-cal-statut__point {
   width: 0.5rem;
   height: 0.5rem;
   flex-shrink: 0;
   border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 3px var(--gstf-badge);
+  border: 1.5px solid var(--gstf-text-muted);
 }
 .gstf-cal-annee--site .gstf-cal-statut__point,
-.gstf-cal-statut--site .gstf-cal-statut__point { animation: gstf-cal-pulse 2.4s ease-in-out infinite; }
-@keyframes gstf-cal-pulse {
-  50% { box-shadow: 0 0 0 5px transparent; }
-}
+.gstf-cal-statut--site .gstf-cal-statut__point { border-color: var(--gstf-ok); background: var(--gstf-ok); }
+.gstf-cal-annee--cache .gstf-cal-statut__point,
+.gstf-cal-statut--cache .gstf-cal-statut__point { background: var(--gstf-text-muted); }
 
 /* Avancement de l'année en cours */
 .gstf-cal-annee__barre {
   display: block;
-  height: 4px;
-  border-radius: 4px;
+  height: 3px;
+  border-radius: 3px;
   background: var(--gstf-track);
   overflow: hidden;
 }
@@ -1345,8 +1332,9 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--gstf-gold), var(--gstf-primary));
+  background: var(--gstf-text-muted);
 }
+.gstf-cal-annee.is-active .gstf-cal-annee__barre span { background: var(--gstf-primary); }
 
 .gstf-cal-annee__meta {
   display: flex;
@@ -1369,7 +1357,7 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.gstf-cal-annee__prochain strong { color: var(--gstf-gold-text); }
+.gstf-cal-annee__prochain strong { color: var(--gstf-heading); font-weight: 600; }
 .gstf-cal-annee__prochain .bx { vertical-align: -0.15em; margin-right: 0.35rem; }
 
 /* Tuile d'ajout */
@@ -1379,52 +1367,40 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   gap: 0.25rem;
   min-height: 8.5rem;
   border-style: dashed;
-  border-width: 2px;
   background: transparent;
-  box-shadow: none;
   color: var(--gstf-text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
-.gstf-cal-annee--ajout .bx { font-size: 1.75rem; color: var(--gstf-gold); }
+.gstf-cal-annee--ajout .bx { font-size: 1.5rem; }
 .gstf-cal-annee--ajout small { font-weight: 400; }
-.gstf-cal-annee--ajout:hover { color: var(--gstf-primary); border-color: var(--gstf-primary); box-shadow: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .gstf-cal-annee, .gstf-cal-annee:hover { transition: none; transform: none; }
-  .gstf-cal-statut__point { animation: none !important; }
-}
-
+.gstf-cal-annee--ajout:hover { color: var(--gstf-primary); border-color: var(--gstf-primary); }
 
 /* Résumé de l'année choisie */
 .gstf-cal-chiffres {
   display: grid;
   grid-template-columns: repeat(3, minmax(5.5rem, auto)) minmax(0, 1fr);
-  gap: 0.75rem;
   margin: 1.25rem 0 0;
-  padding-top: 1.25rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--gstf-border-soft);
 }
 .gstf-cal-chiffres > div {
   min-width: 0;
-  padding: 0.65rem 0.9rem;
-  border-radius: 0.5rem;
-  background: var(--gstf-hover);
+  padding: 0.25rem 1.25rem;
+  border-left: 1px solid var(--gstf-border-soft);
 }
+.gstf-cal-chiffres > div:first-child { padding-left: 0; border-left: 0; }
 .gstf-cal-chiffres dt {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--gstf-text-muted);
 }
 .gstf-cal-chiffres dd {
   margin: 0.15rem 0 0;
   font-size: 1.375rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--gstf-heading);
   font-variant-numeric: tabular-nums;
 }
-.gstf-cal-chiffres__prochain { background: var(--gstf-gold-soft) !important; }
 .gstf-cal-lien {
   display: flex;
   flex-direction: column;
@@ -1433,17 +1409,17 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   padding: 0;
   border: 0;
   background: none;
-  color: var(--gstf-heading);
+  color: var(--gstf-text);
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 400;
   text-align: left;
 }
 .gstf-cal-lien > span { max-width: 100%; }
 .gstf-cal-lien:hover .text-truncate { text-decoration: underline; }
-.gstf-cal-chiffres__quand { font-size: 1.125rem; font-weight: 700; color: var(--gstf-gold-text); }
+.gstf-cal-chiffres__quand { font-size: 1.125rem; font-weight: 600; color: var(--gstf-heading); }
 @media (max-width: 767.98px) {
-  .gstf-cal-chiffres { grid-template-columns: repeat(3, 1fr); }
-  .gstf-cal-chiffres__prochain { grid-column: 1 / -1; }
+  .gstf-cal-chiffres { grid-template-columns: repeat(3, 1fr); row-gap: 0.75rem; }
+  .gstf-cal-chiffres__prochain { grid-column: 1 / -1; padding-left: 0 !important; border-left: 0 !important; }
 }
 
 /* Recherche et filtre */
@@ -1465,12 +1441,10 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 0.5rem 1.5rem 0.35rem;
+  padding: 0.75rem 1.5rem 0.35rem;
   background: var(--gstf-surface);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--gstf-text-muted);
 }
 .gstf-cal-evenement {
@@ -1478,17 +1452,18 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  padding: 0.65rem 1.5rem;
+  padding: 0.6rem 1.5rem;
   border-left: 3px solid transparent;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 .gstf-cal-evenement:hover { background: var(--gstf-hover); }
-.gstf-cal-evenement.is-prochain { border-left-color: var(--gstf-gold); background: var(--gstf-gold-soft); }
-.gstf-cal-evenement.is-aujourdhui { border-left-color: var(--gstf-ok); }
+/* Prochain événement et événement du jour : même repère, un liseré d'accent */
+.gstf-cal-evenement.is-prochain,
+.gstf-cal-evenement.is-aujourdhui { border-left-color: var(--gstf-primary); }
 .gstf-cal-evenement.is-recent { animation: gstf-cal-recent 2.6s ease-out; }
 @keyframes gstf-cal-recent {
-  0%, 30% { background: var(--gstf-primary-soft); box-shadow: inset 0 0 0 1px var(--gstf-primary); }
+  0%, 30% { background: var(--gstf-primary-soft); }
 }
 
 .gstf-cal-pastille {
@@ -1497,27 +1472,29 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.9rem;
-  height: 3.1rem;
-  border: 1px solid var(--gstf-border);
+  width: 2.75rem;
+  height: 3rem;
   border-radius: 0.5rem;
-  background: var(--gstf-surface);
+  background: var(--gstf-badge);
   line-height: 1;
 }
-.gstf-cal-pastille__jour { font-size: 1.15rem; font-weight: 700; color: var(--gstf-heading); }
-.gstf-cal-pastille__mois { margin-top: 0.2rem; font-size: 0.625rem; font-weight: 600; text-transform: uppercase; color: var(--gstf-gold-text); }
-.is-prochain .gstf-cal-pastille { border-color: var(--gstf-gold); }
+.gstf-cal-pastille__jour { font-size: 1.1rem; font-weight: 600; color: var(--gstf-heading); }
+.gstf-cal-pastille__mois { margin-top: 0.2rem; font-size: 0.625rem; font-weight: 500; text-transform: uppercase; color: var(--gstf-text-muted); }
+.is-prochain .gstf-cal-pastille,
+.is-aujourdhui .gstf-cal-pastille { background: var(--gstf-primary-soft); }
+.is-prochain .gstf-cal-pastille__jour,
+.is-aujourdhui .gstf-cal-pastille__jour { color: var(--gstf-primary); }
 
 .gstf-cal-evenement__date {
   font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--gstf-gold-text);
+  color: var(--gstf-text-muted);
 }
 .gstf-cal-evenement__libelle {
+  font-weight: 500;
   color: var(--gstf-heading);
   overflow-wrap: anywhere;
 }
-.gstf-cal-evenement__libelle mark { padding: 0 0.1em; border-radius: 0.2em; background: var(--gstf-gold-soft); color: inherit; }
+.gstf-cal-evenement__libelle mark { padding: 0 0.1em; border-radius: 0.2em; background: var(--gstf-primary-soft); color: inherit; }
 .gstf-cal-evenement__badges {
   display: flex;
   flex-wrap: wrap;
@@ -1525,7 +1502,8 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   margin-top: 0.35rem;
 }
 .gstf-cal-evenement__badges .badge { font-weight: 500; text-transform: none; }
-.gstf-cal-badge-prochain { background: var(--gstf-gold); color: #fff; }
+.gstf-cal-badge-accent { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+.gstf-cal-alerte { color: var(--gstf-alerte); }
 .gstf-cal-evenement.is-passe .gstf-cal-pastille,
 .gstf-cal-evenement.is-passe .gstf-cal-evenement__date,
 .gstf-cal-evenement.is-passe .gstf-cal-evenement__libelle { opacity: 0.5; }
@@ -1542,20 +1520,116 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   .gstf-cal-evenement:hover .gstf-cal-evenement__actions,
   .gstf-cal-evenement:focus-within .gstf-cal-evenement__actions { opacity: 1; }
 }
+.gstf-cal-supprimer:hover,
+.gstf-cal-supprimer:focus-visible {
+  color: var(--gstf-erreur) !important;
+  border-color: var(--gstf-erreur) !important;
+  background: transparent !important;
+}
 @media (max-width: 575.98px) {
-  .gstf-cal-evenement { padding: 0.65rem 1rem; align-items: flex-start; }
+  .gstf-cal-evenement { padding: 0.6rem 1rem; align-items: flex-start; }
   .gstf-cal-mois { padding-left: 1rem; }
   .gstf-cal-evenement__actions { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .gstf-cal-annee, .gstf-cal-evenement { transition: none; }
   .gstf-cal-evenement.is-recent { animation: none; background: var(--gstf-primary-soft); }
 }
-.gstf-cal-apercu {
-  padding: 0.75rem 1rem;
-  border-left: 3px solid var(--gstf-gold);
-  border-radius: 0.375rem;
-  background: var(--gstf-gold-soft);
+
+/* Fenêtres du calendrier */
+/* Croix intégrée à l'en-tête (le thème la fait flotter hors de la fenêtre sur fond blanc, devenu noir en mode sombre) */
+.gstf-cal-modal .modal-header { align-items: flex-start; }
+.gstf-cal-modal .btn-close {
+  flex-shrink: 0;
+  margin: -0.25rem -0.5rem 0 auto;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.6;
 }
+.gstf-cal-modal .btn-close:hover,
+.gstf-cal-modal .btn-close:focus-visible { opacity: 1; background-color: var(--gstf-badge); }
+
+/* Libellés de champ : sobres, sans majuscules forcées */
+.gstf-cal-champ {
+  display: block;
+  float: none;
+  width: auto;
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gstf-heading);
+}
+
+/* Choix segmenté (semestre, durée) : neutre, l'option choisie se détache en relief */
+.gstf-segment {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.6rem;
+  background: var(--gstf-badge);
+}
+.gstf-segment__option {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.gstf-segment__option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.gstf-segment__option > span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--gstf-text);
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.gstf-segment__option > span small {
+  margin-top: 0.15rem;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--gstf-text-muted);
+}
+.gstf-segment__option:hover > span { color: var(--gstf-heading); }
+.gstf-segment__option input:checked + span {
+  background: var(--gstf-surface);
+  color: var(--gstf-heading);
+  font-weight: 600;
+  box-shadow: 0 1px 3px var(--gstf-ombre), inset 0 0 0 1px var(--gstf-border);
+}
+.gstf-segment__option input:focus-visible + span { outline: 2px solid var(--gstf-primary); outline-offset: 1px; }
+
+/* Aperçu : reprend le rendu du panneau du site */
+.gstf-cal-apercu {
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--gstf-border);
+  border-radius: 0.6rem;
+}
+.gstf-cal-apercu__titre {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-cal-apercu__date { font-size: 0.8125rem; color: var(--gstf-text-muted); }
+.gstf-cal-apercu__libelle { font-weight: 600; color: var(--gstf-heading); overflow-wrap: anywhere; }
+
 /* « Deux jours » : second jour calculé, affiché en lecture seule */
 .gstf-cal-second-jour {
   background: var(--gstf-badge);
@@ -1565,3 +1639,199 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   overflow: hidden;
   text-overflow: ellipsis;
 }
+@media (prefers-reduced-motion: reduce) {
+  .gstf-segment__option > span { transition: none; }
+}
+
+/* Comptes et accès : identifiants provisoires restés sans usage */
+.gstf-comptes__alerte { font-size: 1.05rem; color: var(--gstf-alerte); cursor: help; }
+.gstf-comptes__alerte-lien { color: var(--gstf-alerte) !important; }
+
+/* Comptes et accès : statut de présence (vert uniquement pour « En ligne ») */
+.gstf-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.gstf-presence__point {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid var(--gstf-text-muted);
+}
+.gstf-presence--en-ligne { color: var(--gstf-ok) !important; font-weight: 600; }
+.gstf-presence--en-ligne .gstf-presence__point {
+  border-color: var(--gstf-ok);
+  background: var(--gstf-ok);
+  animation: gstf-presence-pulse 2s ease-in-out infinite;
+}
+@keyframes gstf-presence-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.45); }
+  50% { box-shadow: 0 0 0 4px rgba(46, 125, 50, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gstf-presence--en-ligne .gstf-presence__point { animation: none; }
+}
+/* Comptes et accès : suppression neutre, rouge au survol */
+.gstf-comptes__supprimer:hover:not(:disabled),
+.gstf-comptes__supprimer:focus-visible {
+  color: var(--gstf-erreur) !important;
+  border-color: var(--gstf-erreur) !important;
+  background: transparent !important;
+}
+/* Comptes et accès : colonne Matricule (onglet Étudiants) */
+.gstf-comptes__matricule {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--gstf-heading);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.gstf-comptes__matricule mark { padding: 0; background: var(--gstf-primary-soft); color: inherit; }
+
+/* ─── Référentiels (années, niveaux, semestres) ──────────── */
+/* Même langage que le calendrier : neutres, une seule couleur d'accent (--gstf-primary). */
+.gstf-ref-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gstf-ref-ligne {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  border-top: 1px solid var(--gstf-border-soft);
+  transition: background-color 0.15s ease;
+}
+.gstf-ref-ligne:first-child { border-top: 0; }
+.gstf-ref-ligne:hover { background: var(--gstf-hover); }
+.gstf-ref-pastille {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 3rem;
+  height: 3rem;
+  padding: 0 0.6rem;
+  border-radius: 0.6rem;
+  background: var(--gstf-badge);
+  color: var(--gstf-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.gstf-ref-pastille--large { min-width: 6.5rem; font-size: 0.95rem; }
+.gstf-ref-ligne.is-accent .gstf-ref-pastille { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+.gstf-ref-ligne.is-passe .gstf-ref-pastille { opacity: 0.6; }
+.gstf-ref-titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--gstf-heading);
+}
+.gstf-ref-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-ref-meta > span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.gstf-ref-meta .bx { font-size: 1rem; }
+.gstf-ref-badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--gstf-badge);
+  color: var(--gstf-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.gstf-ref-badge--accent { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+.gstf-ref-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  transition: opacity 0.15s ease;
+}
+@media (hover: hover) {
+  .gstf-ref-actions { opacity: 0; }
+  .gstf-ref-ligne:hover .gstf-ref-actions,
+  .gstf-ref-ligne:focus-within .gstf-ref-actions { opacity: 1; }
+}
+.gstf-ref-supprimer:hover:not(:disabled),
+.gstf-ref-supprimer:focus-visible {
+  color: var(--gstf-erreur) !important;
+  border-color: var(--gstf-erreur) !important;
+  background: transparent !important;
+}
+@media (max-width: 575.98px) {
+  .gstf-ref-ligne { padding: 0.75rem 1rem; align-items: flex-start; }
+  .gstf-ref-pastille { min-width: 2.6rem; height: 2.6rem; font-size: 0.9rem; }
+  .gstf-ref-pastille--large { min-width: 5.5rem; }
+}
+
+/* Bandeau d'explication (parcours des niveaux, année en cours) */
+.gstf-ref-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.9rem 1.5rem;
+  border-bottom: 1px solid var(--gstf-border-soft);
+  font-size: 0.875rem;
+  color: var(--gstf-text);
+}
+.gstf-ref-info .bx { font-size: 1.15rem; color: var(--gstf-text-muted); }
+.gstf-ref-chaine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.gstf-ref-chaine__etape {
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.35rem;
+  background: var(--gstf-badge);
+  color: var(--gstf-heading);
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+.gstf-ref-chaine__fin { color: var(--gstf-text-muted); font-style: italic; font-size: 0.8125rem; }
+.gstf-ref-chaine .bx-right-arrow-alt { font-size: 1rem; color: var(--gstf-text-muted); }
+
+/* Fenêtres : croix intégrée et libellés sobres (comme le calendrier) */
+.gstf-ref-modal .modal-header { align-items: flex-start; }
+.gstf-ref-modal .btn-close {
+  flex-shrink: 0;
+  margin: -0.25rem -0.5rem 0 auto;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.6;
+}
+.gstf-ref-modal .btn-close:hover,
+.gstf-ref-modal .btn-close:focus-visible { opacity: 1; background-color: var(--gstf-badge); }
+.gstf-ref-champ {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gstf-heading);
+}
+.gstf-ref-apercu {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px dashed var(--gstf-border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--gstf-text);
+}
+.gstf-ref-apercu strong { color: var(--gstf-heading); }

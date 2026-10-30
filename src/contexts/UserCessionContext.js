@@ -55,6 +55,15 @@ export const UserCessionProvider = ({ children }) => {
     });
   }, []);
 
+  // Statut de présence relu à part (GET /user-cessions/presence) : fusionné dans la liste déjà chargée
+  const mergePresence = useCallback((role, presences) => {
+    const parId = new Map(presences.map((p) => [p.id, p]));
+    setUsersByRole((prev) => {
+      if (!prev[role]) return prev;
+      return { ...prev, [role]: prev[role].map((u) => (parId.has(u.id) ? { ...u, ...parId.get(u.id) } : u)) };
+    });
+  }, []);
+
   const addUserLocal = useCallback((role, newUser) => {
     setUsersByRole((prev) => ({ ...prev, [role]: prev[role] ? [...prev[role], newUser] : [newUser] }));
   }, []);
@@ -71,9 +80,10 @@ export const UserCessionProvider = ({ children }) => {
     fetchUsers,
     fetchStats,
     updateUserLocal,
+    mergePresence,
     addUserLocal,
     deleteUserLocal,
-  }), [usersByRole, loadingByRole, erreurByRole, stats, fetchUsers, fetchStats, updateUserLocal, addUserLocal, deleteUserLocal]);
+  }), [usersByRole, loadingByRole, erreurByRole, stats, fetchUsers, fetchStats, updateUserLocal, mergePresence, addUserLocal, deleteUserLocal]);
 
   return <UserCessionContext.Provider value={value}>{children}</UserCessionContext.Provider>;
 };
