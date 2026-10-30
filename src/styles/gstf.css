@@ -1689,3 +1689,149 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   letter-spacing: 0.02em;
 }
 .gstf-comptes__matricule mark { padding: 0; background: var(--gstf-primary-soft); color: inherit; }
+
+/* ─── Référentiels (années, niveaux, semestres) ──────────── */
+/* Même langage que le calendrier : neutres, une seule couleur d'accent (--gstf-primary). */
+.gstf-ref-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.gstf-ref-ligne {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  border-top: 1px solid var(--gstf-border-soft);
+  transition: background-color 0.15s ease;
+}
+.gstf-ref-ligne:first-child { border-top: 0; }
+.gstf-ref-ligne:hover { background: var(--gstf-hover); }
+.gstf-ref-pastille {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 3rem;
+  height: 3rem;
+  padding: 0 0.6rem;
+  border-radius: 0.6rem;
+  background: var(--gstf-badge);
+  color: var(--gstf-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.gstf-ref-pastille--large { min-width: 6.5rem; font-size: 0.95rem; }
+.gstf-ref-ligne.is-accent .gstf-ref-pastille { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+.gstf-ref-ligne.is-passe .gstf-ref-pastille { opacity: 0.6; }
+.gstf-ref-titre {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: var(--gstf-heading);
+}
+.gstf-ref-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--gstf-text-muted);
+}
+.gstf-ref-meta > span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.gstf-ref-meta .bx { font-size: 1rem; }
+.gstf-ref-badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--gstf-badge);
+  color: var(--gstf-text);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.gstf-ref-badge--accent { background: var(--gstf-primary-soft); color: var(--gstf-primary); }
+.gstf-ref-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.25rem;
+  transition: opacity 0.15s ease;
+}
+@media (hover: hover) {
+  .gstf-ref-actions { opacity: 0; }
+  .gstf-ref-ligne:hover .gstf-ref-actions,
+  .gstf-ref-ligne:focus-within .gstf-ref-actions { opacity: 1; }
+}
+.gstf-ref-supprimer:hover:not(:disabled),
+.gstf-ref-supprimer:focus-visible {
+  color: var(--gstf-erreur) !important;
+  border-color: var(--gstf-erreur) !important;
+  background: transparent !important;
+}
+@media (max-width: 575.98px) {
+  .gstf-ref-ligne { padding: 0.75rem 1rem; align-items: flex-start; }
+  .gstf-ref-pastille { min-width: 2.6rem; height: 2.6rem; font-size: 0.9rem; }
+  .gstf-ref-pastille--large { min-width: 5.5rem; }
+}
+
+/* Bandeau d'explication (parcours des niveaux, année en cours) */
+.gstf-ref-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.9rem 1.5rem;
+  border-bottom: 1px solid var(--gstf-border-soft);
+  font-size: 0.875rem;
+  color: var(--gstf-text);
+}
+.gstf-ref-info .bx { font-size: 1.15rem; color: var(--gstf-text-muted); }
+.gstf-ref-chaine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.gstf-ref-chaine__etape {
+  padding: 0.1rem 0.55rem;
+  border-radius: 0.35rem;
+  background: var(--gstf-badge);
+  color: var(--gstf-heading);
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+.gstf-ref-chaine__fin { color: var(--gstf-text-muted); font-style: italic; font-size: 0.8125rem; }
+.gstf-ref-chaine .bx-right-arrow-alt { font-size: 1rem; color: var(--gstf-text-muted); }
+
+/* Fenêtres : croix intégrée et libellés sobres (comme le calendrier) */
+.gstf-ref-modal .modal-header { align-items: flex-start; }
+.gstf-ref-modal .btn-close {
+  flex-shrink: 0;
+  margin: -0.25rem -0.5rem 0 auto;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.6;
+}
+.gstf-ref-modal .btn-close:hover,
+.gstf-ref-modal .btn-close:focus-visible { opacity: 1; background-color: var(--gstf-badge); }
+.gstf-ref-champ {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gstf-heading);
+}
+.gstf-ref-apercu {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px dashed var(--gstf-border);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--gstf-text);
+}
+.gstf-ref-apercu strong { color: var(--gstf-heading); }

@@ -26,6 +26,7 @@ export const MENUS = {
 
     { section: 'Paramètres' },
     { to: '/admin/portal', label: 'Comptes et accès', icon: 'bx-lock-open-alt' },
+    { to: '/admin/annees', label: 'Années académiques', icon: 'bx-calendar-alt' },
     { to: '/admin/niveau', label: 'Niveaux', icon: 'bx-layer' },
     { to: '/admin/semestre', label: 'Semestres', icon: 'bx-calendar-check' },
   ],
