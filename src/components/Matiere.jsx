@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useNiveau } from '../contexts/NiveauContext';
 import { useSemestre } from '../contexts/SemestreContext';
 import { useAnnee } from '../contexts/AnneeContext';
+import { useProf } from '../contexts/ProfContext';
 import useMatieresAnnee from '../hooks/useMatieresAnnee';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
@@ -18,7 +19,7 @@ import { trierNiveaux } from '../utils/niveaux';
 // chaque année choisit ses matières et leur coefficient. Retirer une matière d'une année ou changer
 // son coefficient ne modifie pas les relevés des autres années.
 
-const FORMULAIRE_VIDE = { matiere: '', heures: '', id_niveau: '', id_semestre: '', code_matiere: '', coefficient: '' };
+const FORMULAIRE_VIDE = { matiere: '', heures: '', id_niveau: '', id_semestre: '', code_matiere: '', coefficient: '', id_enseignant: '' };
 const SANS_SEMESTRE = 'aucun';
 
 // Recherche sans tenir compte des majuscules ni des accents (« theologie » trouve « Théologie »)
@@ -40,6 +41,7 @@ const Matiere = () => {
   const { niveaux, loading: loadingNiveaux } = useNiveau();
   const { semestres, loading: loadingSemestres } = useSemestre();
   const { annees: anneesListe, loading: loadingAnnees, fetchAnnees } = useAnnee();
+  const { profs } = useProf();
   const { notify, confirm } = useFeedback();
   const role = localStorage.getItem('role');
   const admin = role === 'admin';
@@ -137,6 +139,7 @@ const Matiere = () => {
       id_semestre: matiere.id_semestre ?? '',
       code_matiere: matiere.code_matiere ?? '',
       coefficient: matiere.coefficient,
+      id_enseignant: matiere.id_enseignant ?? '',
     });
     modal('editModal').show();
   };
@@ -302,6 +305,9 @@ const Matiere = () => {
     { name: 'coefficient', label: `Coefficient en ${libelleAnnee}`, type: 'number', required: true, placeholder: 'ex. 2',
       help: selected ? 'Pour cette année seulement : les autres années gardent leur coefficient.' : undefined },
     { name: 'heures', label: `Volume horaire en ${libelleAnnee} (heures)`, type: 'number', required: true, placeholder: 'ex. 30' },
+    { name: 'id_enseignant', label: `Enseignant en ${libelleAnnee}`, type: 'select', optional: true, placeholder: 'Non attribuée',
+      options: [...profs].sort((a, b) => a.nom_prenom.localeCompare(b.nom_prenom)).map((p) => ({ value: p.id, label: p.nom_prenom })),
+      help: 'Il pourra saisir les notes de cette matière et y déposer ses leçons.' },
   ];
   const champsAjout = [...champsCommuns, ...champsAnnee];
   const champsModification = [
@@ -316,6 +322,7 @@ const Matiere = () => {
     { label: 'Coef.', field: 'coefficient' },
     { label: 'Heures', field: 'heures' },
     { label: 'Semestre', field: 'semestre' },
+    { label: 'Enseignant', field: 'enseignant' },
   ];
 
   const chargement = !aucuneAnnee && !aucunNiveau && (chargementMatieres || onglets.length === 0);

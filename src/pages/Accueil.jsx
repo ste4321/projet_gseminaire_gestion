@@ -16,9 +16,9 @@ const salutation = () => {
 
 /**
  * Accueil de l'espace enseignant : dernières annonces et accès rapides (l'étudiant a le sien : EtudiantDashboard).
- * Props : liens = [{ to, icon, label }], annoncesTo = lien vers la page des annonces
+ * Props : liens = [{ to, icon, label }], annoncesTo = lien vers la page des annonces, enTete = contenu sous la salutation
  */
-const Accueil = ({ liens, annoncesTo, aVenir }) => {
+const Accueil = ({ liens, annoncesTo, aVenir, enTete }) => {
   const { annonces = [], loading } = useAnnonce() || {};
   const { nonLues, ouvrir } = useNotificationsAnnonces();
   const idsNonLues = new Set(nonLues.map((a) => a.id));
@@ -36,6 +36,8 @@ const Accueil = ({ liens, annoncesTo, aVenir }) => {
           </div>
         </div>
       </div>
+
+      {enTete}
 
       <div className="row">
         <div className="col-lg-7 mb-4">

@@ -33,12 +33,17 @@ export const MENUS = {
 
   prof: [
     { to: '/prof/dashboard', label: 'Accueil', icon: 'bx-home-circle' },
+    { to: '/prof/matieres', label: 'Mes matières', icon: 'bx-book' },
+    { to: '/prof/notes', label: 'Saisie des notes', icon: 'bx-spreadsheet' },
+    { to: '/prof/lecons', label: 'Mes leçons', icon: 'bx-book-open' },
+    { to: '/prof/edt', label: 'Emploi du temps', icon: 'bx-calendar' },
     { to: '/prof/annonce', label: 'Annonces', icon: 'bx-message-square-dots' },
   ],
 
   etudiant: [
     { to: '/etudiant/dashboard', label: 'Accueil', icon: 'bx-home-circle' },
     { to: '/etudiant/notes', label: 'Mes notes', icon: 'bx-spreadsheet' },
+    { to: '/etudiant/cours', label: 'Mes cours', icon: 'bx-book-open' },
     { to: '/etudiant/edt', label: 'Emploi du temps', icon: 'bx-calendar' },
     { to: '/etudiant/listeProf', label: 'Enseignants', icon: 'bx-user-voice' },
     { to: '/etudiant/annonce', label: 'Annonces', icon: 'bx-message-square-dots' },

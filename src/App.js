@@ -15,10 +15,14 @@ import Niveau from './pages/admin/Niveau';
 
 import ProfLayout from './layouts/ProfLayout';
 import ProfDashboard from './pages/prof/ProfDashboard';
+import MesMatieres from './pages/prof/MesMatieres';
+import SaisieNotes from './pages/prof/SaisieNotes';
+import MesLecons from './pages/prof/MesLecons';
 
 import EtudiantLayout from './layouts/EtudiantLayout';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import MesNotes from './pages/etudiant/MesNotes';
+import MesCours from './pages/etudiant/MesCours';
 
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
@@ -63,6 +67,10 @@ function App() {
               <Route path="/prof" element={<ProfLayout />}>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<ProfDashboard />} />
+                <Route path="matieres" element={<MesMatieres />} />
+                <Route path="notes" element={<SaisieNotes />} />
+                <Route path="lecons" element={<MesLecons />} />
+                <Route path="edt" element={<EmploiDuTemps />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />
               </Route>
             </Route>
@@ -72,6 +80,7 @@ function App() {
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<EtudiantDashboard />} />
                 <Route path="notes" element={<MesNotes />} />
+                <Route path="cours" element={<MesCours />} />
                 <Route path="edt" element={<EmploiDuTemps />} />
                 <Route path="listeProf" element={<ListeProf />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />
