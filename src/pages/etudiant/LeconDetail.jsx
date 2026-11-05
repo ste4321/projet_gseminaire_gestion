@@ -163,7 +163,7 @@ const LeconDetail = () => {
             <div className="list-group list-group-flush">
               {autres.map((l) => (
                 <Link key={l.id} to={`/etudiant/cours/${l.id}`}
-                  className={`list-group-item list-group-item-action ${l.id === lecon.id ? 'active' : ''}`}
+                  className={`list-group-item list-group-item-action gstf-lecon-nav${l.id === lecon.id ? ' is-actuelle' : ''}`}
                   aria-current={l.id === lecon.id ? 'page' : undefined}>
                   <span className="d-block text-truncate fw-semibold">{l.titre}</span>
                   <small className={l.id === lecon.id ? '' : 'text-muted'}>{dateCourte(l.publie_le)}</small>

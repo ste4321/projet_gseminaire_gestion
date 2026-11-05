@@ -2029,3 +2029,53 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 0.71rem), #000 calc(100% - 0.7rem));
   mask: radial-gradient(farthest-side, transparent calc(100% - 0.71rem), #000 calc(100% - 0.7rem));
 }
+
+/* ─── Mes cours (étudiant) : cartes par matière ─────────── */
+.gstf-cours-filtre { min-width: 12rem; max-width: 100%; }
+.gstf-cours-resultats { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem; margin: -0.25rem 0 1rem; font-size: 0.875rem; color: var(--gstf-text-muted); }
+.gstf-cours-resultats strong { color: var(--gstf-heading); }
+.gstf-cours-matiere { overflow: hidden; }
+.gstf-cours-matiere__entete { display: flex; align-items: center; gap: 0.9rem; padding: 1.1rem 1.5rem 0.9rem; }
+.gstf-cours-matiere__pastille {
+  flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 0.6rem;
+  background: var(--gstf-gold-soft); color: var(--gstf-gold-text); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.02em;
+}
+.gstf-cours-matiere__nom { margin: 0 0 0.1rem; font-size: 1.1rem; font-weight: 600; color: var(--gstf-heading); overflow-wrap: anywhere; }
+.gstf-cours-matiere__prof { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--gstf-text-muted); }
+.gstf-cours-matiere__compte { padding: 0.15rem 0.6rem; border-radius: 2rem; background: var(--gstf-badge); color: var(--gstf-heading); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+/* Leçons en retrait, dans un bloc gris clair : un sous-niveau de la matière */
+.gstf-cours-liste {
+  list-style: none; margin: 0 1.5rem 1.25rem calc(1.5rem + 2.75rem + 0.9rem); padding: 0;
+  border: 1px solid var(--gstf-border); border-radius: 0.5rem; background: var(--gstf-surface-2); overflow: hidden;
+}
+.gstf-cours-liste > li + li { border-top: 1px solid var(--gstf-border); }
+.gstf-cours-liste .gstf-cours-ligne { padding: 0.75rem 1rem; }
+.gstf-cours-liste .gstf-cours-ligne:hover, .gstf-cours-liste .gstf-cours-ligne:focus-visible { background: var(--gstf-surface); }
+.gstf-cours-liste .gstf-cours-ligne__icone { background: var(--gstf-surface); }
+.gstf-cours-ligne.is-nouvelle { box-shadow: inset 3px 0 0 var(--gstf-primary); }
+.gstf-cours-ligne:hover .gstf-cours-ligne__fleche { color: var(--gstf-primary); transform: translateX(2px); }
+.gstf-cours-ligne__fleche { transition: transform 0.15s ease, color 0.15s ease; }
+.gstf-cours-ligne__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.9rem; font-size: 0.78rem; color: var(--gstf-text-muted); }
+.gstf-cours-ligne__meta .bx { vertical-align: -0.1em; }
+.gstf-cours-ligne__fichier { padding: 0 0.45rem; border: 1px solid var(--gstf-border); border-radius: 0.25rem; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; }
+.gstf-cours-matiere mark, .gstf-cours-ligne mark { padding: 0 0.1em; border-radius: 0.2em; background: var(--gstf-primary-soft); color: inherit; }
+@media (max-width: 575.98px) {
+  .gstf-cours-matiere__entete { padding: 0.85rem 1rem 0.75rem; flex-wrap: wrap; }
+  .gstf-cours-liste { margin: 0 0.75rem 0.75rem 1.5rem; }
+  .gstf-cours-liste .gstf-cours-ligne { padding: 0.7rem 0.75rem; }
+  .gstf-cours-filtre { width: 100% !important; }
+}
+@media (prefers-reduced-motion: reduce) { .gstf-cours-ligne__fleche { transition: none; } }
+
+/* Leçon affichée dans « Dans cette matière » : marquée en bordeaux, quel que soit le chemin d'arrivée
+   (liste, Précédente / Suivante, lien direct). La classe « active » du thème est presque transparente. */
+.list-group-item.gstf-lecon-nav.is-actuelle,
+.list-group-item.gstf-lecon-nav.is-actuelle:hover,
+.list-group-item.gstf-lecon-nav.is-actuelle:focus {
+  z-index: 2;
+  /* Bordeaux de la marque, identique en mode clair et sombre (comme le marqueur d'origine) */
+  background-color: #8c2f39;
+  border-color: #8c2f39;
+  color: #fff;
+}
+.list-group-item.gstf-lecon-nav.is-actuelle small { color: rgba(255, 255, 255, 0.85); }

@@ -152,6 +152,43 @@ export const NotesEtudiantChargement = ({ lignes = 5, libelle }) => (
   </div>
 );
 
+/** Mes cours (étudiant) : barre de recherche, puis une carte par matière (mêmes classes que la page) */
+export const CoursChargement = ({ matieres = [2, 1], libelle }) => (
+  <div aria-busy="true">
+    {libelle && <Annonce libelle={libelle} />}
+    <div className="gstf-filtres" aria-hidden="true">
+      <Os className="gstf-filtres__recherche" hauteur="2.4rem" />
+      <Os largeur="12rem" hauteur="2.4rem" />
+    </div>
+    {matieres.map((lignes, k) => (
+      <div className="card mb-4 gstf-cours-matiere" key={k} aria-hidden="true">
+        <div className="gstf-cours-matiere__entete">
+          <span className="gstf-squelette gstf-cours-matiere__pastille" />
+          <div className="flex-grow-1 min-w-0">
+            <Os className="d-block mb-2" largeur={largeur(k, 9, 3)} hauteur="1.1rem" />
+            <Os className="d-block" largeur="7rem" hauteur="0.75rem" />
+          </div>
+          <Os largeur="4.5rem" hauteur="1.4rem" />
+        </div>
+        <ul className="gstf-cours-liste">
+          {Array.from({ length: lignes }, (_, i) => (
+            <li key={i}>
+              <div className="gstf-cours-ligne">
+                <span className="gstf-squelette gstf-cours-ligne__icone" />
+                <span className="gstf-cours-ligne__texte">
+                  <Os className="d-block" largeur={largeur(i + k, 10, 3)} hauteur="1rem" />
+                  <Os className="d-block" largeur="90%" hauteur="0.75rem" />
+                  <Os className="d-block" largeur="8rem" hauteur="0.7rem" />
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+);
+
 /** Lignes de matières de l'enseignant (même grille que gstf-matiere-prof) */
 export const MatieresChargement = ({ nombre = 2, libelle }) => (
   <div aria-busy="true">

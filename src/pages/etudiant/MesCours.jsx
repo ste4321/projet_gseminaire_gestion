@@ -2,18 +2,36 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLecons, useParcours } from '../../contexts/EspaceEtudiantContext';
 import { useNotificationsEtudiant } from '../../contexts/NotificationsEtudiantContext';
-import { ListeCarteChargement } from '../../components/Squelettes';
-import { dateCourte, extension } from '../../utils/lecons';
+import SearchBar from '../../components/SearchBar';
+import { CoursChargement } from '../../components/Squelettes';
+import { dateCourte, extension, iconeFichier } from '../../utils/lecons';
 
 // Première visite (rien de mémorisé) : seules les leçons des 14 derniers jours sont marquées « Nouveau »
 const RECENT = 14 * 24 * 60 * 60 * 1000;
 const instant = (iso) => (iso ? new Date(iso).getTime() : 0);
+
+const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+// Terme recherché surligné (comparaison sans accents ni majuscules)
+const surligner = (texte, recherche) => {
+  const terme = normaliser(recherche);
+  const i = terme ? normaliser(texte).indexOf(terme) : -1;
+  if (i < 0) return texte;
+  return <>{texte.slice(0, i)}<mark>{texte.slice(i, i + terme.length)}</mark>{texte.slice(i + terme.length)}</>;
+};
+// Extrait centré sur le terme trouvé dans le contenu, pour qu'il reste visible malgré la coupe à deux lignes
+const extrait = (contenu, recherche) => {
+  const terme = normaliser(recherche);
+  const i = terme ? normaliser(contenu).indexOf(terme) : -1;
+  return i > 60 ? `…${contenu.slice(i - 40)}` : contenu;
+};
+const initiales = (nom) => String(nom || '?').split(/\s+/).filter((m) => m.length > 2 || /^[A-Z]/.test(m)).slice(0, 2).map((m) => m[0].toUpperCase()).join('') || '?';
 
 // Leçons publiées par les enseignants, rangées par matière ; chaque leçon s'ouvre sur sa page de détail
 const MesCours = () => {
   const parcours = useParcours();
   const [parcoursId, setParcoursId] = useState(''); // '' = inscription la plus récente
   const [matiere, setMatiere] = useState(''); // '' = toutes
+  const [recherche, setRecherche] = useState('');
   // Gardées en mémoire : revenir sur la page l'affiche aussitôt, et une leçon publiée entre-temps s'ajoute en direct
   const { lecons, loading, erreur, recharger } = useLecons(parcoursId);
 
@@ -25,14 +43,26 @@ const MesCours = () => {
     if (lecons && !parcoursId) marquerCoursLus();
   }, [lecons, parcoursId, marquerCoursLus]);
 
-  useEffect(() => setMatiere(''), [parcoursId]);
+  useEffect(() => { setMatiere(''); setRecherche(''); }, [parcoursId]);
 
   const parMatiere = useMemo(() => {
     const groupes = new Map();
     (lecons || []).forEach((l) => groupes.set(l.matiere, [...(groupes.get(l.matiere) || []), l]));
     return [...groupes.entries()].sort(([a], [b]) => String(a).localeCompare(String(b)));
   }, [lecons]);
-  const affiches = matiere ? parMatiere.filter(([m]) => m === matiere) : parMatiere;
+
+  // Filtre matière puis recherche (titre, contenu, matière, enseignant, type de fichier)
+  const terme = normaliser(recherche);
+  const affiches = useMemo(() => parMatiere
+    .filter(([m]) => !matiere || m === matiere)
+    .map(([m, liste]) => [m, terme
+      ? liste.filter((l) => normaliser([l.titre, l.contenu, l.matiere, l.enseignant, l.nom_fichier].join(' ')).includes(terme))
+      : liste])
+    .filter(([, liste]) => liste.length > 0), [parMatiere, matiere, terme]);
+  const nbTrouvees = affiches.reduce((n, [, liste]) => n + liste.length, 0);
+  const filtre = Boolean(terme || matiere);
+
+  const effacer = () => { setRecherche(''); setMatiere(''); };
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
@@ -53,19 +83,6 @@ const MesCours = () => {
         )}
       </div>
 
-      {/* Filtre par matière, seulement s'il y a de quoi filtrer */}
-      {parMatiere.length > 1 && (
-        <div className="gstf-segments mb-4" role="group" aria-label="Filtrer par matière">
-          {[['', 'Toutes', lecons.length], ...parMatiere.map(([m, liste]) => [m, m, liste.length])].map(([valeur, libelle, total]) => (
-            <button key={valeur || 'toutes'} type="button" className={`gstf-segments__item ${matiere === valeur ? 'is-active' : ''}`}
-              aria-pressed={matiere === valeur} onClick={() => setMatiere(valeur)}>
-              {libelle}
-              <span className="gstf-segments__nombre">{total}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {erreur ? (
         <div className="card">
           <div className="gstf-empty">
@@ -75,10 +92,7 @@ const MesCours = () => {
           </div>
         </div>
       ) : loading ? (
-        <>
-          <ListeCarteChargement titre lignes={2} libelle="Chargement de vos cours…" />
-          <ListeCarteChargement titre lignes={1} />
-        </>
+        <CoursChargement libelle="Chargement de vos cours…" />
       ) : lecons.length === 0 ? (
         <div className="card">
           <div className="gstf-empty">
@@ -87,41 +101,91 @@ const MesCours = () => {
           </div>
         </div>
       ) : (
-        affiches.map(([nom, liste]) => (
-          <section className="card mb-4" key={nom} aria-label={nom}>
-            <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-              <h5 className="card-title gstf-section-title mb-0">{nom}</h5>
-              <small className="text-muted">
-                {liste[0].enseignant ? `${liste[0].enseignant} · ` : ''}{liste.length} leçon{liste.length > 1 ? 's' : ''}
-              </small>
+        <>
+          <div className="gstf-filtres">
+            <SearchBar
+              className="gstf-filtres__recherche"
+              searchTerm={recherche}
+              onSearchChange={setRecherche}
+              placeholder="Rechercher une leçon, une matière, un enseignant…"
+            />
+            {parMatiere.length > 1 && (
+              <select className="form-select w-auto gstf-cours-filtre" aria-label="Filtrer par matière" value={matiere}
+                onChange={(e) => setMatiere(e.target.value)}>
+                <option value="">Toutes les matières ({lecons.length})</option>
+                {parMatiere.map(([m, liste]) => <option key={m} value={m}>{m} ({liste.length})</option>)}
+              </select>
+            )}
+          </div>
+
+          {filtre && (
+            <p className="gstf-cours-resultats" role="status">
+              {nbTrouvees === 0 ? 'Aucune leçon trouvée' : `${nbTrouvees} leçon${nbTrouvees > 1 ? 's' : ''} trouvée${nbTrouvees > 1 ? 's' : ''}`}
+              {terme && <> pour « <strong>{recherche.trim()}</strong> »</>}
+              <button type="button" className="btn btn-link btn-sm p-0 ms-2" onClick={effacer}>Effacer les filtres</button>
+            </p>
+          )}
+
+          {affiches.length === 0 ? (
+            <div className="card">
+              <div className="gstf-empty">
+                <i className="bx bx-search-alt d-block"></i>
+                <p className="mb-3">Aucune leçon ne correspond à votre recherche.</p>
+                <button type="button" className="btn btn-outline-primary btn-sm" onClick={effacer}>Voir toutes les leçons</button>
+              </div>
             </div>
-            <ul className="list-group list-group-flush">
-              {liste.map((l) => (
-                <li className="list-group-item p-0" key={l.id}>
-                  <Link to={`/etudiant/cours/${l.id}`} className="gstf-cours-ligne">
-                    <span className="gstf-cours-ligne__icone" aria-hidden="true">
-                      <i className={`bx ${l.fichier ? 'bx-file' : 'bx-text'}`}></i>
-                    </span>
-                    <span className="gstf-cours-ligne__texte">
-                      <span className="d-flex flex-wrap align-items-center gap-2">
-                        <strong className="gstf-cours-ligne__titre">{l.titre}</strong>
-                        {estNouvelle(l) && <span className="badge bg-label-primary">Nouveau</span>}
-                      </span>
-                      {l.contenu && <span className="gstf-cours-ligne__extrait">{l.contenu}</span>}
-                      <small className="text-muted d-flex flex-wrap gap-2">
-                        <span>Publiée le {dateCourte(l.publie_le)}</span>
-                        {l.fichier && (
-                          <span><i className="bx bx-paperclip"></i> {extension(l.nom_fichier || l.fichier).toUpperCase() || 'Fichier'}</span>
-                        )}
-                      </small>
-                    </span>
-                    <i className="bx bx-chevron-right gstf-cours-ligne__fleche" aria-hidden="true"></i>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))
+          ) : (
+            affiches.map(([nom, liste]) => {
+              const enseignant = liste[0].enseignant;
+              const nouvelles = liste.filter(estNouvelle).length;
+              return (
+                <section className="card mb-4 gstf-cours-matiere" key={nom} aria-label={nom}>
+                  <div className="gstf-cours-matiere__entete">
+                    <span className="gstf-cours-matiere__pastille" aria-hidden="true">{initiales(nom)}</span>
+                    <div className="flex-grow-1 min-w-0">
+                      <h5 className="gstf-cours-matiere__nom">{surligner(nom, recherche)}</h5>
+                      {enseignant && (
+                        <span className="gstf-cours-matiere__prof">
+                          <i className="bx bx-user" aria-hidden="true"></i> {surligner(enseignant, recherche)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                      {nouvelles > 0 && <span className="badge bg-label-primary">{nouvelles} nouvelle{nouvelles > 1 ? 's' : ''}</span>}
+                      <span className="gstf-cours-matiere__compte">{liste.length} leçon{liste.length > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  <ul className="gstf-cours-liste">
+                    {liste.map((l) => {
+                      const ext = l.fichier ? extension(l.nom_fichier || l.fichier) : '';
+                      return (
+                        <li key={l.id}>
+                          <Link to={`/etudiant/cours/${l.id}`} className={`gstf-cours-ligne${estNouvelle(l) ? ' is-nouvelle' : ''}`}>
+                            <span className="gstf-cours-ligne__icone" aria-hidden="true">
+                              <i className={`bx ${l.fichier ? iconeFichier(l.nom_fichier || l.fichier) : 'bx-text'}`}></i>
+                            </span>
+                            <span className="gstf-cours-ligne__texte">
+                              <span className="d-flex flex-wrap align-items-center gap-2">
+                                <strong className="gstf-cours-ligne__titre">{surligner(l.titre, recherche)}</strong>
+                                {estNouvelle(l) && <span className="badge bg-label-primary">Nouveau</span>}
+                              </span>
+                              {l.contenu && <span className="gstf-cours-ligne__extrait">{surligner(extrait(l.contenu, recherche), recherche)}</span>}
+                              <span className="gstf-cours-ligne__meta">
+                                <span><i className="bx bx-calendar" aria-hidden="true"></i> {dateCourte(l.publie_le)}</span>
+                                {l.fichier && <span className="gstf-cours-ligne__fichier">{ext.toUpperCase() || 'Fichier'}</span>}
+                              </span>
+                            </span>
+                            <i className="bx bx-chevron-right gstf-cours-ligne__fleche" aria-hidden="true"></i>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })
+          )}
+        </>
       )}
     </div>
   );
