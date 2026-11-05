@@ -29,8 +29,8 @@ const FicheEnseignant = ({ modalId, enseignant, role, onModifier, onSupprimer, o
                     <h5 className="modal-title mb-1 text-truncate" id={`${modalId}-titre`}>{enseignant.nom_prenom}</h5>
                     {admin ? (
                       enseignant.id_user_cession
-                        ? <span className="badge bg-label-primary">Compte de connexion</span>
-                        : <span className="badge bg-label-secondary">Sans compte de connexion</span>
+                        ? <span className="gstf-etat gstf-etat--publie"><i className="bx bx-user-check" aria-hidden="true"></i>Compte de connexion</span>
+                        : <span className="gstf-etat gstf-etat--masque"><i className="bx bx-user-x" aria-hidden="true"></i>Sans compte de connexion</span>
                     ) : (
                       <small className="text-muted">Enseignant</small>
                     )}

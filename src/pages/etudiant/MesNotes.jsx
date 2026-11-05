@@ -208,7 +208,7 @@ const MesNotes = () => {
                     {semestre.statut && <StatutResultat statut={semestre.statut} />}
                   </div>
                 ) : (
-                  <span className="badge bg-label-secondary">Pas encore publié</span>
+                  <span className="gstf-etat gstf-etat--masque"><i className="bx bx-lock-alt" aria-hidden="true"></i>Pas encore publié</span>
                 )}
               </div>
               {!semestre.publie ? (

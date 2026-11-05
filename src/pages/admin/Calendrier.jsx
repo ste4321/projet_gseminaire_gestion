@@ -531,8 +531,8 @@ const Calendrier = () => {
                                       {estProchain && <span className="badge gstf-cal-badge-accent"><i className="bx bx-right-arrow-alt me-1" aria-hidden="true"></i>Prochain · {dans(ev.date_debut, today)}</span>}
                                       {duree > 1 && <span className="badge gstf-badge-neutre">{duree} jours</span>}
                                       {hors && (
-                                        <span className="badge gstf-badge-neutre" title="En dehors des dates saisies pour ce semestre">
-                                          <i className="bx bx-error me-1 gstf-cal-alerte" aria-hidden="true"></i>Hors du semestre
+                                        <span className="gstf-etat gstf-etat--alerte" title="En dehors des dates saisies pour ce semestre">
+                                          <i className="bx bx-error" aria-hidden="true"></i>Hors du semestre
                                         </span>
                                       )}
                                     </div>

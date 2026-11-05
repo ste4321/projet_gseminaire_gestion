@@ -174,8 +174,8 @@ const FicheEtudiant = ({ modalId, etudiant, role, onModifier, onDepart, onRetour
                           <span className="d-flex flex-wrap align-items-center gap-2 min-w-0">
                             <h6 className="mb-0">{s.semestre}</h6>
                             {!s.publie && (
-                              <span className="gstf-releve-semestre__prive" title="Les étudiants ne voient pas encore ces notes">
-                                <i className="bx bx-hide" aria-hidden="true"></i>Non publié
+                              <span className="gstf-etat gstf-etat--masque" title="Les étudiants ne voient pas encore ces notes">
+                                <i className="bx bx-lock-alt" aria-hidden="true"></i>Non publié
                               </span>
                             )}
                           </span>

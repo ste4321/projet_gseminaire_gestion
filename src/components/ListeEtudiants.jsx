@@ -487,8 +487,8 @@ const ListeEtudiant = () => {
               return (
                 <span className="d-inline-flex align-items-center gap-2">
                   <span className="text-muted">{value}</span>
-                  <span className="badge gstf-badge-neutre" title={`Depuis le ${dateCourte(etudiant.date_sortie)}`}>
-                    {libelleStatut(etudiant.statut) || 'Sorti'}
+                  <span className="gstf-etat gstf-etat--masque" title={`Depuis le ${dateCourte(etudiant.date_sortie)}`}>
+                    <i className="bx bx-log-out" aria-hidden="true"></i>{libelleStatut(etudiant.statut) || 'Sorti'}
                   </span>
                 </span>
               );

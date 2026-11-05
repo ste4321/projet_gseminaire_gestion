@@ -18,11 +18,11 @@ const pastille = (m) =>
 
 // Où en sont les notes : une seule étiquette, celle qui demande (ou non) une action
 const etatNotes = (m) => {
-  if (m.publie) return { libelle: 'Notes publiées', classe: 'bg-label-success', icone: 'bx-lock-alt' };
-  if (m.etudiants === 0) return { libelle: 'Aucun étudiant inscrit', classe: 'bg-label-secondary', icone: 'bx-group' };
+  if (m.publie) return { libelle: 'Notes publiées', classe: 'gstf-etat--publie', icone: 'bx-show' };
+  if (m.etudiants === 0) return { libelle: 'Aucun étudiant inscrit', classe: 'gstf-etat--masque', icone: 'bx-group' };
   const reste = m.etudiants - m.notes_saisies;
-  if (reste <= 0) return { libelle: 'Notes complètes', classe: 'bg-label-info', icone: 'bx-check' };
-  return { libelle: `${pluriel(reste, 'note')} à saisir`, classe: 'bg-label-warning', icone: 'bx-edit-alt' };
+  if (reste <= 0) return { libelle: 'Notes complètes', classe: 'gstf-etat--info', icone: 'bx-check' };
+  return { libelle: `${pluriel(reste, 'note')} à saisir`, classe: 'gstf-etat--alerte', icone: 'bx-edit-alt' };
 };
 
 const LigneMatiere = ({ m, annee }) => {
@@ -60,7 +60,7 @@ const LigneMatiere = ({ m, annee }) => {
             <span style={{ width: `${progression}%` }}></span>
           </div>
           <div className="d-flex flex-wrap gap-2 mt-2">
-            <span className={`badge ${etat.classe}`}><i className={`bx ${etat.icone} me-1`}></i>{etat.libelle}</span>
+            <span className={`gstf-etat ${etat.classe}`}><i className={`bx ${etat.icone}`} aria-hidden="true"></i>{etat.libelle}</span>
             <span className="badge bg-label-secondary"><i className="bx bx-book-open me-1"></i>{pluriel(m.lecons, 'leçon')}</span>
           </div>
         </div>

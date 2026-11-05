@@ -519,9 +519,9 @@ const Portal = () => {
                           <td className="text-nowrap">
                             {u.must_change_password ? (
                               <span className="d-inline-flex align-items-center gap-1">
-                                <span className="badge gstf-badge-neutre"
+                                <span className="gstf-etat gstf-etat--alerte"
                                   title={`À changer à la prochaine connexion${u.provisoire_depuis ? `\nProvisoire depuis le ${dateComplete(u.provisoire_depuis)}` : ''}`}>
-                                  <i className="bx bx-time-five me-1" aria-hidden="true"></i>Provisoire
+                                  <i className="bx bx-time-five" aria-hidden="true"></i>Provisoire
                                   {u.provisoire_depuis && <span className="fw-normal ms-1">· {depuis(joursDepuis(u.provisoire_depuis))}</span>}
                                 </span>
                                 {provisoireEnSouffrance(u) && (

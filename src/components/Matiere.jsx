@@ -676,7 +676,7 @@ const Matiere = () => {
                       <span>{detailAJour.niveau?.niveau} · {libelleSemestre} · {libelleAnnee}</span>
                       {detailAJour.code_matiere
                         ? <span className="badge bg-label-primary">Code {detailAJour.code_matiere}</span>
-                        : <span className="badge bg-label-warning" title="Notes à saisir à la main : l'import par fichier demande un code">Sans code</span>}
+                        : <span className="gstf-etat gstf-etat--alerte" title="Notes à saisir à la main : l'import par fichier demande un code"><i className="bx bx-error" aria-hidden="true"></i>Sans code</span>}
                     </div>
                   </div>
                   <button type="button" className="btn-close align-self-start" data-bs-dismiss="modal" aria-label="Fermer"></button>

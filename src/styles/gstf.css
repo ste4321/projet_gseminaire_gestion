@@ -2119,3 +2119,7 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
 .gstf-etat .bx { font-size: 1rem; }
 .gstf-etat--publie { color: var(--gstf-ok); background: color-mix(in srgb, var(--gstf-ok) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gstf-ok) 35%, transparent); }
 .gstf-etat--masque { color: var(--gstf-text-muted); background: transparent; border: 1px dashed var(--gstf-border); }
+
+/* Autres tons de la pastille d'état : à faire (alerte), terminé sans être publié (info) */
+.gstf-etat--alerte { color: var(--gstf-alerte); background: color-mix(in srgb, var(--gstf-alerte) 12%, transparent); border: 1px solid color-mix(in srgb, var(--gstf-alerte) 35%, transparent); }
+.gstf-etat--info { color: var(--gstf-info); background: color-mix(in srgb, var(--gstf-info) 12%, transparent); border: 1px solid color-mix(in srgb, var(--gstf-info) 35%, transparent); }

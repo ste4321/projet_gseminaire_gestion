@@ -661,9 +661,13 @@ const NoteEtudiant = () => {
                 <section className="mb-4" key={s.id ?? 'hors'}>
                   <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
                     <h6 className="gstf-section-title mb-0">{s.semestre}</h6>
-                    {s.publie
-                      ? <span className="badge bg-label-success">Publié</span>
-                      : <span className="badge bg-label-secondary">Non publié</span>}
+                    {s.publie ? (
+                      <span className="gstf-etat gstf-etat--publie"><i className="bx bx-show" aria-hidden="true"></i>Visible par les étudiants</span>
+                    ) : (
+                      <span className="gstf-etat gstf-etat--masque" title="Les étudiants ne voient pas encore ces notes">
+                        <i className="bx bx-lock-alt" aria-hidden="true"></i>Non publié
+                      </span>
+                    )}
                     <span className="ms-auto small text-muted d-flex align-items-center gap-2">
                       Moyenne : <strong className="text-body">{moyenneTexte(direct.semestres[indexSemestre].moyenne)}</strong>
                       <StatutResultat statut={direct.semestres[indexSemestre].statut} attente="Notes incomplètes" />
