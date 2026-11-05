@@ -143,9 +143,16 @@ const PublicationNotes = ({ anneeId, niveau, version, enAttente = false }) => {
                       <strong>{s.semestre}</strong>
                       <div className="small text-muted">{s.matieres} matière(s) · {s.etudiants} étudiant(s)</div>
                     </div>
-                    {s.publie
-                      ? <span className="badge bg-label-success">Publié</span>
-                      : <span className="badge bg-label-secondary">Non publié</span>}
+                    {/* État du semestre : pastille avec icône (détail de la publication au survol) */}
+                    {s.publie ? (
+                      <span className="gstf-etat gstf-etat--publie" title={s.publie_le ? `Publié le ${dateCourte(s.publie_le)}${s.publie_par ? ` par ${s.publie_par}` : ''}` : undefined}>
+                        <i className="bx bx-show" aria-hidden="true"></i>Visible par les étudiants
+                      </span>
+                    ) : (
+                      <span className="gstf-etat gstf-etat--masque" title="Les étudiants ne voient pas encore ces notes">
+                        <i className="bx bx-lock-alt" aria-hidden="true"></i>Non publié
+                      </span>
+                    )}
                   </div>
                   <div className="small mt-3 d-flex justify-content-between">
                     <span>Notes saisies</span>

@@ -18,6 +18,7 @@ import ProfDashboard from './pages/prof/ProfDashboard';
 import MesMatieres from './pages/prof/MesMatieres';
 import SaisieNotes from './pages/prof/SaisieNotes';
 import MesLecons from './pages/prof/MesLecons';
+import LeconProf from './pages/prof/LeconProf';
 
 import EtudiantLayout from './layouts/EtudiantLayout';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
@@ -71,6 +72,7 @@ function App() {
                 <Route path="matieres" element={<MesMatieres />} />
                 <Route path="notes" element={<SaisieNotes />} />
                 <Route path="lecons" element={<MesLecons />} />
+                <Route path="lecons/:id" element={<LeconProf />} />
                 <Route path="edt" element={<EmploiDuTemps />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />
               </Route>

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api, { errorMessage } from '../../api/client';
 import { storageUrl } from '../../config';
 import { useFeedback } from '../../contexts/FeedbackContext';
@@ -26,7 +26,7 @@ const CHAMPS_AFFICHES = ['titre', 'contenu', 'fichier'];
 const DELAI_ENVOI = 120000;
 const tailleLisible = (octets) => `${(octets / 1024 / 1024).toFixed(1).replace('.', ',')} Mo`;
 
-const versFormulaire = ({ titre, contenu, publier }) => {
+export const versFormulaire = ({ titre, contenu, publier }) => {
   const donnees = new FormData();
   donnees.append('titre', titre);
   donnees.append('contenu', contenu || '');
@@ -35,7 +35,7 @@ const versFormulaire = ({ titre, contenu, publier }) => {
 };
 
 // Fenêtre d'ajout ou de modification. Elle n'existe à l'écran que lorsqu'elle est ouverte.
-const FenetreLecon = ({ lecon, matieres, matiereParDefaut, annee, onEnregistree, onClose }) => {
+export const FenetreLecon = ({ lecon, matieres, matiereParDefaut, annee, onEnregistree, onClose }) => {
   const [form, setForm] = useState({
     id_matiere: lecon?.id_matiere ?? (matiereParDefaut || matieres[0]?.id || ''),
     titre: lecon?.titre ?? '',
@@ -400,7 +400,9 @@ const MesLecons = () => {
                                 <i className={`bx ${l.fichier ? iconeFichier(l.nom_fichier || l.fichier) : 'bx-text'}`}></i>
                               </span>
                               <span className="gstf-cours-ligne__texte">
-                                <strong className="gstf-cours-ligne__titre">{surligner(l.titre, recherche)}</strong>
+                                <Link to={`/prof/lecons/${l.id}${annee ? `?annee=${annee}` : ''}`} className="gstf-cours-ligne__titre gstf-lecons-prof__titre">
+                                  {surligner(l.titre, recherche)}
+                                </Link>
                                 {l.contenu && <span className="gstf-cours-ligne__extrait">{surligner(l.contenu, recherche)}</span>}
                                 <span className="gstf-cours-ligne__meta">
                                   <span>
@@ -425,6 +427,10 @@ const MesLecons = () => {
                                     {occupe ? <span className="spinner-border spinner-border-sm" role="status" aria-label="En cours" /> : l.publie_le ? 'Visible' : 'Masquée'}
                                   </label>
                                 </div>
+                                <Link to={`/prof/lecons/${l.id}${annee ? `?annee=${annee}` : ''}`} className="btn btn-sm btn-icon btn-outline-secondary"
+                                  title="Voir le détail" aria-label={`Voir le détail de ${l.titre}`}>
+                                  <i className="bx bx-show"></i>
+                                </Link>
                                 <button type="button" className="btn btn-sm btn-icon btn-outline-secondary" onClick={() => setFenetre({ lecon: l })} disabled={occupe}
                                   title="Modifier" aria-label={`Modifier ${l.titre}`}>
                                   <i className="bx bx-edit"></i>

@@ -2105,3 +2105,17 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
 .gstf-lecons-prof__visible .form-check-label { font-size: 0.8rem; font-weight: 600; color: var(--gstf-text-muted); cursor: pointer; white-space: nowrap; }
 .gstf-lecons-prof__visible.is-visible .form-check-label { color: var(--gstf-ok); }
 .gstf-lecons-prof__visible.is-visible .form-check-input { background-color: var(--gstf-ok); border-color: var(--gstf-ok); }
+
+/* Titre de leçon cliquable (ouvre le détail) */
+.gstf-lecons-prof__titre { font-weight: 600; text-decoration: none; }
+.gstf-lecons-prof__titre:hover, .gstf-lecons-prof__titre:focus-visible { color: var(--gstf-primary); text-decoration: underline; }
+
+/* État d'un semestre (publication des notes) : pastille arrondie avec icône */
+.gstf-etat {
+  display: inline-flex; align-items: center; gap: 0.35rem; flex-shrink: 0;
+  padding: 0.25rem 0.7rem 0.25rem 0.55rem; border-radius: 2rem;
+  font-size: 0.75rem; font-weight: 600; line-height: 1.3; white-space: nowrap;
+}
+.gstf-etat .bx { font-size: 1rem; }
+.gstf-etat--publie { color: var(--gstf-ok); background: color-mix(in srgb, var(--gstf-ok) 14%, transparent); border: 1px solid color-mix(in srgb, var(--gstf-ok) 35%, transparent); }
+.gstf-etat--masque { color: var(--gstf-text-muted); background: transparent; border: 1px dashed var(--gstf-border); }

@@ -185,6 +185,7 @@ export const CoursChargement = ({ matieres = [2, 1], actions = false, libelle })
                     <Os largeur="4.5rem" hauteur="1.9rem" />
                     <Os largeur="1.9rem" hauteur="1.9rem" />
                     <Os largeur="1.9rem" hauteur="1.9rem" />
+                    <Os largeur="1.9rem" hauteur="1.9rem" />
                   </span>
                 )}
               </div>
