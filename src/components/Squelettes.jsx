@@ -153,7 +153,7 @@ export const NotesEtudiantChargement = ({ lignes = 5, libelle }) => (
 );
 
 /** Mes cours (étudiant) : barre de recherche, puis une carte par matière (mêmes classes que la page) */
-export const CoursChargement = ({ matieres = [2, 1], libelle }) => (
+export const CoursChargement = ({ matieres = [2, 1], actions = false, libelle }) => (
   <div aria-busy="true">
     {libelle && <Annonce libelle={libelle} />}
     <div className="gstf-filtres" aria-hidden="true">
@@ -180,6 +180,13 @@ export const CoursChargement = ({ matieres = [2, 1], libelle }) => (
                   <Os className="d-block" largeur="90%" hauteur="0.75rem" />
                   <Os className="d-block" largeur="8rem" hauteur="0.7rem" />
                 </span>
+                {actions && (
+                  <span className="gstf-lecons-prof__actions">
+                    <Os largeur="4.5rem" hauteur="1.9rem" />
+                    <Os largeur="1.9rem" hauteur="1.9rem" />
+                    <Os largeur="1.9rem" hauteur="1.9rem" />
+                  </span>
+                )}
               </div>
             </li>
           ))}

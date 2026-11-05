@@ -2079,3 +2079,29 @@ h5 .gstf-cal-statut { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius:
   color: #fff;
 }
 .list-group-item.gstf-lecon-nav.is-actuelle small { color: rgba(255, 255, 255, 0.85); }
+
+/* ─── Mes leçons (enseignant) : mêmes cartes que « Mes cours », avec les actions ─── */
+.gstf-lecons-prof__ligne:hover { background: var(--gstf-surface); }
+.gstf-lecons-prof__ligne.is-brouillon .gstf-cours-ligne__icone { opacity: 0.6; }
+.gstf-lecons-prof__ligne.is-brouillon { box-shadow: inset 3px 0 0 var(--gstf-border); }
+.gstf-lecons-prof__actions { flex: none; display: flex; align-items: center; gap: 0.4rem; }
+.gstf-lecons-prof__fichier { display: inline-flex; align-items: center; gap: 0.35rem; max-width: 16rem; min-width: 0; color: var(--gstf-primary); }
+.gstf-lecons-prof__fichier:hover { text-decoration: underline; }
+.gstf-lecons-prof__vide {
+  margin: 0 1.5rem 1.25rem calc(1.5rem + 2.75rem + 0.9rem); padding: 0.85rem 1rem;
+  border: 1px dashed var(--gstf-border); border-radius: 0.5rem; font-size: 0.875rem; color: var(--gstf-text-muted);
+}
+@media (max-width: 767.98px) {
+  .gstf-lecons-prof__ligne { flex-wrap: wrap; }
+  .gstf-lecons-prof__actions { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 575.98px) {
+  .gstf-lecons-prof__vide { margin: 0 0.75rem 0.75rem 1.5rem; }
+}
+
+/* Interrupteur Visible / Masquée (remplace le badge et le bouton Publier / Retirer) */
+.gstf-lecons-prof__visible { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 6.5rem; margin: 0 0.4rem 0 0; padding-left: 0; }
+.gstf-lecons-prof__visible .form-check-input { float: none; margin: 0; cursor: pointer; }
+.gstf-lecons-prof__visible .form-check-label { font-size: 0.8rem; font-weight: 600; color: var(--gstf-text-muted); cursor: pointer; white-space: nowrap; }
+.gstf-lecons-prof__visible.is-visible .form-check-label { color: var(--gstf-ok); }
+.gstf-lecons-prof__visible.is-visible .form-check-input { background-color: var(--gstf-ok); border-color: var(--gstf-ok); }

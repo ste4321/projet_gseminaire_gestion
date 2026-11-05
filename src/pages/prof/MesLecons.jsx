@@ -4,10 +4,20 @@ import api, { errorMessage } from '../../api/client';
 import { storageUrl } from '../../config';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import { useDonneesEnseignant } from '../../contexts/EspaceEnseignantContext';
-import { ListeCarteChargement } from '../../components/Squelettes';
+import { CoursChargement } from '../../components/Squelettes';
+import SearchBar from '../../components/SearchBar';
 import useMesMatieres from '../../hooks/useMesMatieres';
+import { dateCourte, extension, iconeFichier } from '../../utils/lecons';
 
-const dateCourte = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+// Terme recherché surligné (comparaison sans accents ni majuscules)
+const surligner = (texte, recherche) => {
+  const terme = normaliser(recherche);
+  const i = terme ? normaliser(texte).indexOf(terme) : -1;
+  if (i < 0) return texte;
+  return <>{texte.slice(0, i)}<mark>{texte.slice(i, i + terme.length)}</mark>{texte.slice(i + terme.length)}</>;
+};
+const initiales = (nom) => String(nom || '?').split(/\s+/).filter((m) => m.length > 2 || /^[A-Z]/.test(m)).slice(0, 2).map((m) => m[0].toUpperCase()).join('') || '?';
 
 // Même limite que le serveur (EspaceEnseignantController::reglesLecon) : vérifiée avant l'envoi
 const TAILLE_MAX = 10 * 1024 * 1024;
@@ -164,6 +174,12 @@ const FenetreLecon = ({ lecon, matieres, matiereParDefaut, annee, onEnregistree,
   );
 };
 
+const STATUTS = [
+  { valeur: '', libelle: 'Toutes' },
+  { valeur: 'publiee', libelle: 'Publiées' },
+  { valeur: 'brouillon', libelle: 'Brouillons' },
+];
+
 const MesLecons = () => {
   const { notify, confirm } = useFeedback();
   const [params, setParams] = useSearchParams();
@@ -176,23 +192,44 @@ const MesLecons = () => {
     { annee },
     'Impossible de charger vos leçons.'
   );
-  const [fenetre, setFenetre] = useState(null); // null, 'nouvelle' ou la leçon modifiée
+  const [fenetre, setFenetre] = useState(null); // null, { lecon } (modification) ou { matiere } (nouvelle leçon)
   const [enCours, setEnCours] = useState(null);
+  const [recherche, setRecherche] = useState('');
+  const [statut, setStatut] = useState(''); // '', 'publiee' ou 'brouillon'
 
   const actualiser = useCallback(() => {
     rechargerLecons();
     rechargerMatieres();
   }, [rechargerLecons, rechargerMatieres]);
 
-  const affichees = useMemo(
-    () => (lecons || []).filter((l) => !filtreMatiere || String(l.id_matiere) === filtreMatiere),
-    [lecons, filtreMatiere]
-  );
+  const terme = normaliser(recherche);
+  const toutes = useMemo(() => lecons || [], [lecons]);
+  const nombres = {
+    '': toutes.length,
+    publiee: toutes.filter((l) => l.publie_le).length,
+    brouillon: toutes.filter((l) => !l.publie_le).length,
+  };
+
+  // Une carte par matière attribuée (même sans leçon, pour pouvoir en déposer une), filtres appliqués
+  const groupes = useMemo(() => matieres
+    .filter((m) => !filtreMatiere || String(m.id) === filtreMatiere)
+    .map((m) => {
+      const correspondMatiere = terme && normaliser(m.matiere).includes(terme);
+      const liste = toutes
+        .filter((l) => String(l.id_matiere) === String(m.id))
+        .filter((l) => !statut || (statut === 'publiee') === Boolean(l.publie_le))
+        .filter((l) => !terme || correspondMatiere || normaliser([l.titre, l.contenu, l.nom_fichier].join(' ')).includes(terme));
+      return { matiere: m, liste };
+    })
+    .filter(({ liste }) => liste.length > 0 || (!terme && !statut)), [matieres, toutes, filtreMatiere, terme, statut]);
+  const nbTrouvees = groupes.reduce((n, g) => n + g.liste.length, 0);
+  const filtre = Boolean(terme || statut);
 
   const filtrer = (changements) => {
     const suivants = { annee: annee ?? '', matiere: filtreMatiere, ...changements };
     setParams(Object.fromEntries(Object.entries(suivants).filter(([, v]) => v)));
   };
+  const effacer = () => { setRecherche(''); setStatut(''); };
 
   const enregistree = (publiee) => {
     setFenetre(null);
@@ -242,30 +279,25 @@ const MesLecons = () => {
       <div className="gstf-page-header">
         <div>
           <h4 className="fw-bold mb-1">Mes leçons</h4>
-          <small className="text-muted">Vos supports de cours, visibles par les étudiants de la matière une fois publiés.</small>
+          <small className="text-muted">
+            {toutes.length > 0
+              ? `${nombres.publiee} publiée${nombres.publiee > 1 ? 's' : ''} · ${nombres.brouillon} brouillon${nombres.brouillon > 1 ? 's' : ''}`
+              : 'Vos supports de cours, visibles par les étudiants de la matière une fois publiés.'}
+          </small>
         </div>
-        {matieres.length > 0 && (
-          <button type="button" className="btn btn-primary" onClick={() => setFenetre('nouvelle')}>
-            <i className="bx bx-plus me-1"></i>Nouvelle leçon
-          </button>
-        )}
-      </div>
-
-      {(annees.length > 1 || matieres.length > 1) && (
-        <div className="d-flex flex-wrap gap-2 mb-3">
+        <div className="d-flex flex-wrap gap-2">
           {annees.length > 1 && (
             <select className="form-select w-auto" aria-label="Année académique" value={annee ?? ''} onChange={(e) => filtrer({ annee: e.target.value, matiere: '' })}>
               {annees.map((a) => <option key={a.id} value={a.id}>{a.annee_aca}</option>)}
             </select>
           )}
-          {matieres.length > 1 && (
-            <select className="form-select w-auto" aria-label="Filtrer par matière" value={filtreMatiere} onChange={(e) => filtrer({ matiere: e.target.value })}>
-              <option value="">Toutes les matières</option>
-              {matieres.map((m) => <option key={m.id} value={m.id}>{m.matiere} ({m.niveau})</option>)}
-            </select>
+          {matieres.length > 0 && (
+            <button type="button" className="btn btn-primary" onClick={() => setFenetre({ matiere: filtreMatiere })}>
+              <i className="bx bx-plus me-1"></i>Nouvelle leçon
+            </button>
           )}
         </div>
-      )}
+      </div>
 
       {probleme ? (
         <div className="card">
@@ -276,7 +308,7 @@ const MesLecons = () => {
           </div>
         </div>
       ) : chargementListe ? (
-        <ListeCarteChargement actions lignes={4} libelle="Chargement de vos leçons…" />
+        <CoursChargement actions libelle="Chargement de vos leçons…" />
       ) : matieres.length === 0 ? (
         <div className="card">
           <div className="gstf-empty">
@@ -284,62 +316,142 @@ const MesLecons = () => {
             Aucune matière ne vous est attribuée pour le moment : les leçons se déposent par matière.
           </div>
         </div>
-      ) : affichees.length === 0 ? (
-        <div className="card">
-          <div className="gstf-empty">
-            <i className="bx bx-book-open d-block"></i>
-            Aucune leçon pour le moment.
-            <div className="mt-3">
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => setFenetre('nouvelle')}>Déposer une leçon</button>
+      ) : (
+        <>
+          <div className="gstf-filtres">
+            <SearchBar
+              className="gstf-filtres__recherche"
+              searchTerm={recherche}
+              onSearchChange={setRecherche}
+              placeholder="Rechercher une leçon, un fichier…"
+            />
+            {matieres.length > 1 && (
+              <select className="form-select w-auto gstf-cours-filtre" aria-label="Filtrer par matière" value={filtreMatiere}
+                onChange={(e) => filtrer({ matiere: e.target.value })}>
+                <option value="">Toutes les matières</option>
+                {matieres.map((m) => <option key={m.id} value={m.id}>{m.matiere} ({m.niveau})</option>)}
+              </select>
+            )}
+            <div className="gstf-segments" role="group" aria-label="Filtrer par état">
+              {STATUTS.map((s) => (
+                <button key={s.valeur || 'toutes'} type="button" aria-pressed={statut === s.valeur}
+                  className={`gstf-segments__item ${statut === s.valeur ? 'is-active' : ''}`} onClick={() => setStatut(s.valeur)}>
+                  {s.libelle}
+                  <span className="gstf-segments__nombre">{nombres[s.valeur]}</span>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="card">
-          <ul className="list-group list-group-flush">
-            {affichees.map((l) => (
-              <li className="list-group-item d-flex flex-wrap align-items-center gap-3 py-3" key={l.id}>
-                <div className="flex-grow-1 min-w-0">
-                  <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
-                    <strong>{l.titre}</strong>
-                    {l.publie_le
-                      ? <span className="badge bg-label-success">Publiée</span>
-                      : <span className="badge bg-label-secondary">Brouillon</span>}
+
+          {filtre && (
+            <p className="gstf-cours-resultats" role="status">
+              {nbTrouvees === 0 ? 'Aucune leçon trouvée' : `${nbTrouvees} leçon${nbTrouvees > 1 ? 's' : ''} trouvée${nbTrouvees > 1 ? 's' : ''}`}
+              {terme && <> pour « <strong>{recherche.trim()}</strong> »</>}
+              <button type="button" className="btn btn-link btn-sm p-0 ms-2" onClick={effacer}>Effacer les filtres</button>
+            </p>
+          )}
+
+          {groupes.length === 0 ? (
+            <div className="card">
+              <div className="gstf-empty">
+                <i className="bx bx-search-alt d-block"></i>
+                <p className="mb-3">Aucune leçon ne correspond à votre recherche.</p>
+                <button type="button" className="btn btn-outline-primary btn-sm" onClick={effacer}>Voir toutes les leçons</button>
+              </div>
+            </div>
+          ) : (
+            groupes.map(({ matiere: m, liste }) => {
+              const total = toutes.filter((l) => String(l.id_matiere) === String(m.id));
+              const brouillons = total.filter((l) => !l.publie_le).length;
+              return (
+                <section className="card mb-4 gstf-cours-matiere" key={m.id} aria-label={m.matiere}>
+                  <div className="gstf-cours-matiere__entete">
+                    <span className="gstf-cours-matiere__pastille" aria-hidden="true">{initiales(m.matiere)}</span>
+                    <div className="flex-grow-1 min-w-0">
+                      <h5 className="gstf-cours-matiere__nom">{surligner(m.matiere, recherche)}</h5>
+                      <span className="gstf-cours-matiere__prof">
+                        {m.niveau}{m.semestre ? ` · ${m.semestre}` : ''}
+                      </span>
+                    </div>
+                    <div className="d-flex flex-wrap align-items-center justify-content-end gap-2 flex-shrink-0">
+                      {brouillons > 0 && <span className="badge bg-label-secondary">{brouillons} brouillon{brouillons > 1 ? 's' : ''}</span>}
+                      <span className="gstf-cours-matiere__compte">{total.length} leçon{total.length > 1 ? 's' : ''}</span>
+                      <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setFenetre({ matiere: String(m.id) })}
+                        title={`Nouvelle leçon en ${m.matiere}`} aria-label={`Nouvelle leçon en ${m.matiere}`}>
+                        <i className="bx bx-plus"></i>
+                      </button>
+                    </div>
                   </div>
-                  <small className="text-muted d-block">
-                    {l.matiere?.matiere}
-                    {l.publie_le ? ` · publiée le ${dateCourte(l.publie_le)}` : ''}
-                  </small>
-                  {l.fichier && (
-                    <a href={storageUrl(l.fichier)} target="_blank" rel="noreferrer" className="small">
-                      <i className="bx bx-paperclip me-1"></i>{l.nom_fichier || 'Fichier joint'}
-                    </a>
+
+                  {liste.length === 0 ? (
+                    <div className="gstf-lecons-prof__vide">
+                      Aucune leçon dans cette matière.
+                      <button type="button" className="btn btn-link btn-sm p-0 ms-1" onClick={() => setFenetre({ matiere: String(m.id) })}>Déposer la première</button>
+                    </div>
+                  ) : (
+                    <ul className="gstf-cours-liste">
+                      {liste.map((l) => {
+                        const ext = l.fichier ? extension(l.nom_fichier || l.fichier) : '';
+                        const occupe = enCours === l.id;
+                        return (
+                          <li key={l.id}>
+                            <div className={`gstf-cours-ligne gstf-lecons-prof__ligne${l.publie_le ? '' : ' is-brouillon'}`}>
+                              <span className="gstf-cours-ligne__icone" aria-hidden="true">
+                                <i className={`bx ${l.fichier ? iconeFichier(l.nom_fichier || l.fichier) : 'bx-text'}`}></i>
+                              </span>
+                              <span className="gstf-cours-ligne__texte">
+                                <strong className="gstf-cours-ligne__titre">{surligner(l.titre, recherche)}</strong>
+                                {l.contenu && <span className="gstf-cours-ligne__extrait">{surligner(l.contenu, recherche)}</span>}
+                                <span className="gstf-cours-ligne__meta">
+                                  <span>
+                                    <i className="bx bx-calendar" aria-hidden="true"></i>{' '}
+                                    {l.publie_le ? `Publiée le ${dateCourte(l.publie_le)}` : `Modifiée le ${dateCourte(l.updated_at)}`}
+                                  </span>
+                                  {l.fichier && (
+                                    <a href={storageUrl(l.fichier)} target="_blank" rel="noreferrer" className="gstf-lecons-prof__fichier" title={l.nom_fichier || 'Fichier joint'}>
+                                      <span className="gstf-cours-ligne__fichier">{ext.toUpperCase() || 'Fichier'}</span>
+                                      <span className="text-truncate">{surligner(l.nom_fichier || 'Fichier joint', recherche)}</span>
+                                    </a>
+                                  )}
+                                </span>
+                              </span>
+                              <div className="gstf-lecons-prof__actions">
+                                {/* Interrupteur : montre l'état et le change d'un clic (publier / retirer) */}
+                                <div className={`form-check form-switch gstf-lecons-prof__visible${l.publie_le ? ' is-visible' : ''}`}
+                                  title={l.publie_le ? 'Visible par les étudiants : cliquer pour la retirer' : 'Brouillon : cliquer pour la publier'}>
+                                  <input className="form-check-input" type="checkbox" role="switch" id={`visible-${l.id}`}
+                                    checked={Boolean(l.publie_le)} onChange={() => basculer(l)} disabled={occupe} />
+                                  <label className="form-check-label" htmlFor={`visible-${l.id}`}>
+                                    {occupe ? <span className="spinner-border spinner-border-sm" role="status" aria-label="En cours" /> : l.publie_le ? 'Visible' : 'Masquée'}
+                                  </label>
+                                </div>
+                                <button type="button" className="btn btn-sm btn-icon btn-outline-secondary" onClick={() => setFenetre({ lecon: l })} disabled={occupe}
+                                  title="Modifier" aria-label={`Modifier ${l.titre}`}>
+                                  <i className="bx bx-edit"></i>
+                                </button>
+                                <button type="button" className="btn btn-sm btn-icon btn-outline-danger" onClick={() => supprimer(l)} disabled={occupe}
+                                  title="Supprimer" aria-label={`Supprimer ${l.titre}`}>
+                                  <i className="bx bx-trash"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
-                </div>
-                <div className="d-flex gap-2">
-                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => basculer(l)} disabled={enCours === l.id}>
-                    {l.publie_le ? 'Retirer' : 'Publier'}
-                  </button>
-                  <button type="button" className="btn btn-sm btn-icon btn-outline-secondary" onClick={() => setFenetre(l)} disabled={enCours === l.id}
-                    title="Modifier" aria-label={`Modifier ${l.titre}`}>
-                    <i className="bx bx-edit"></i>
-                  </button>
-                  <button type="button" className="btn btn-sm btn-icon btn-outline-danger" onClick={() => supprimer(l)} disabled={enCours === l.id}
-                    title="Supprimer" aria-label={`Supprimer ${l.titre}`}>
-                    <i className="bx bx-trash"></i>
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </section>
+              );
+            })
+          )}
+        </>
       )}
 
       {fenetre && (
         <FenetreLecon
-          lecon={fenetre === 'nouvelle' ? null : fenetre}
+          lecon={fenetre.lecon || null}
           matieres={matieres}
-          matiereParDefaut={filtreMatiere}
+          matiereParDefaut={fenetre.matiere || filtreMatiere}
           annee={annee}
           onEnregistree={enregistree}
           onClose={() => setFenetre(null)}
