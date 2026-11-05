@@ -23,6 +23,7 @@ import EtudiantLayout from './layouts/EtudiantLayout';
 import EtudiantDashboard from './pages/etudiant/EtudiantDashboard';
 import MesNotes from './pages/etudiant/MesNotes';
 import MesCours from './pages/etudiant/MesCours';
+import LeconDetail from './pages/etudiant/LeconDetail';
 
 import EmploiDuTemps from './components/EmploiDuTemps';
 import ListeProf from './components/ListeProf';
@@ -81,6 +82,7 @@ function App() {
                 <Route path="dashboard" element={<EtudiantDashboard />} />
                 <Route path="notes" element={<MesNotes />} />
                 <Route path="cours" element={<MesCours />} />
+                <Route path="cours/:id" element={<LeconDetail />} />
                 <Route path="edt" element={<EmploiDuTemps />} />
                 <Route path="listeProf" element={<ListeProf />} />
                 <Route path="annonce" element={<AnnonceAdminProf />} />

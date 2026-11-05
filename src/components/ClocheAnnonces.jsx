@@ -8,7 +8,7 @@ const instant = (iso) => (iso ? new Date(iso).getTime() : 0);
 
 /**
  * Cloche de l'en-tête : tout ce qui est nouveau depuis la dernière visite, au même endroit.
- * Enseignants : annonces. Étudiants : annonces, notes publiées, emploi du temps mis à jour.
+ * Enseignants : annonces. Étudiants : annonces, notes publiées, emploi du temps mis à jour, nouvelles leçons.
  */
 const ClocheAnnonces = () => {
   const { actif, nonLues, marquerLues, ouvrir } = useNotificationsAnnonces();

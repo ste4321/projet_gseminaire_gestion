@@ -4,15 +4,19 @@ import { ProfProvider } from '../contexts/ProfContext';
 import { AnnonceProvider } from '../contexts/AnnonceContext';
 import { NiveauProvider } from '../contexts/NiveauContext';
 import { AnneeProvider } from '../contexts/AnneeContext';
+import { EspaceEnseignantProvider } from '../contexts/EspaceEnseignantContext';
 
-// Niveaux et années : utilisés par la page Annonces (filtres et formulaires)
+// Niveaux et années : utilisés par la page Annonces (filtres et formulaires).
+// Matières, leçons et notes de l'enseignant : gardées en mémoire d'une page à l'autre (EspaceEnseignantContext).
 const ProfLayout = () => (
   <AnneeProvider>
     <NiveauProvider>
       <AnnonceProvider>
         <ProfProvider>
           <EmploiProvider>
-            <AppShell />
+            <EspaceEnseignantProvider>
+              <AppShell />
+            </EspaceEnseignantProvider>
           </EmploiProvider>
         </ProfProvider>
       </AnnonceProvider>

@@ -57,6 +57,17 @@ export default api;
 // Requête annulée volontairement (filtre changé, page quittée) : ce n'est pas une erreur à afficher
 export const estAnnulee = (error) => error?.code === 'ERR_CANCELED';
 
-// Message lisible à afficher à l'utilisateur : celui renvoyé par l'API, sinon un message par défaut
-export const errorMessage = (error, fallback = 'Une erreur est survenue.') =>
-  error?.response?.data?.message || fallback;
+// Message lisible à afficher à l'utilisateur : celui renvoyé par l'API ; à défaut, la cause quand on la connaît
+// (serveur injoignable, délai dépassé, envoi trop gros), sinon le message par défaut de l'écran
+export const errorMessage = (error, fallback = 'Une erreur est survenue.') => {
+  const message = error?.response?.data?.message;
+  if (message) return message;
+  if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') {
+    return 'Le serveur met trop de temps à répondre. Vérifiez votre connexion, puis réessayez.';
+  }
+  if (error && !error.response && error.request) {
+    return 'Impossible de joindre le serveur. Vérifiez votre connexion, puis réessayez.';
+  }
+  if (error?.response?.status === 413) return 'Le fichier est trop volumineux pour le serveur.';
+  return fallback;
+};

@@ -1,6 +1,7 @@
 // Nouvelles de l'espace étudiant, en plus des annonces (NotificationAnnonceContext) :
 // - notes d'un semestre publiées ;
-// - emploi du temps ajouté ou remplacé.
+// - emploi du temps ajouté ou remplacé ;
+// - leçon publiée par un enseignant (matière de son niveau).
 // Reçues en direct (WebSocket) : données à jour + notification en bas à droite.
 // Non lues (cloche de l'en-tête) : publiées depuis la dernière visite de la page concernée (mémorisé dans ce navigateur),
 // calculées à partir des données elles-mêmes : ce qui a été publié pendant l'absence de l'étudiant compte aussi.
@@ -8,12 +9,15 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useNavigate } from 'react-router-dom';
 import { useFeedback } from './FeedbackContext';
 import { useEmploi } from './EmploiContext';
-import { useActualiserReleves, useReleve } from './EspaceEtudiantContext';
+import { useActualiserLecons, useActualiserReleves, useLecons, useReleve } from './EspaceEtudiantContext';
 import { getUser } from '../auth/session';
 import { ecouterUtilisateur, onConnectionChange } from '../realtime';
 
 const NotificationsEtudiantContext = createContext(null);
-const SANS_FOURNISSEUR = { elements: [], marquerNotesLues: () => {}, marquerEdtLu: () => {}, toutMarquerLu: () => {} };
+const SANS_FOURNISSEUR = {
+  elements: [], coursLusJusqua: '', leconsVues: [],
+  marquerNotesLues: () => {}, marquerEdtLu: () => {}, marquerCoursLus: () => {}, marquerLeconVue: () => {}, toutMarquerLu: () => {},
+};
 
 // Première visite (rien de mémorisé) : seules les nouveautés des 14 derniers jours comptent
 const RECENT = 14 * 24 * 60 * 60 * 1000;
@@ -43,11 +47,18 @@ export const NotificationsEtudiantProvider = ({ children }) => {
   const { emploiSemestre1, emploiSemestre2, fetchEmplois } = useEmploi();
   const { releve } = useReleve(); // inscription en cours : partagé avec l'accueil et « Mes notes »
   const actualiserReleves = useActualiserReleves();
+  const { lecons } = useLecons(); // inscription en cours : partagé avec « Mes cours »
+  const actualiserLecons = useActualiserLecons();
 
   const cleNotes = `notes_lues_${userId}`;
   const cleEdt = `edt_lu_${userId}`;
   const [notesLuesJusqua, setNotesLuesJusqua] = useState(() => lire(cleNotes));
   const [edtLuJusqua, setEdtLuJusqua] = useState(() => lire(cleEdt));
+  const cleCours = `cours_lus_${userId}`;
+  const [coursLusJusqua, setCoursLusJusqua] = useState(() => lire(cleCours));
+  // Leçons ouvertes une à une (depuis la cloche ou une notification) : elles ne comptent plus comme nouvelles
+  const cleVues = `lecons_vues_${userId}`;
+  const [leconsVues, setLeconsVues] = useState(() => lire(cleVues).split(',').filter(Boolean).map(Number));
   const [ouverture] = useState(() => Date.now());
   const seuil = (lu) => (lu ? instant(lu) : ouverture - RECENT);
 
@@ -82,6 +93,21 @@ export const NotificationsEtudiantProvider = ({ children }) => {
     [userId, fetchEmplois, notify, navigate]
   );
 
+  useEffect(
+    () => ecouterUtilisateur(userId, 'lecons.maj', ({ action, id, titre, matiere, enseignant }) => {
+      actualiserLecons();
+      if (action === 'publiee') {
+        notify.annonce(null, {
+          icone: 'bx-book-open',
+          title: `Nouvelle leçon · ${matiere || 'Mes cours'}`,
+          meta: [titre, enseignant].filter(Boolean).join(' · '),
+          action: { label: 'Voir', onClick: () => navigate(`/etudiant/cours/${id}`) },
+        });
+      }
+    }),
+    [userId, actualiserLecons, notify, navigate]
+  );
+
   // Connexion rétablie après une coupure : rattrape ce qui a pu être publié entre-temps
   useEffect(() => {
     let dejaConnecte = false;
@@ -89,11 +115,12 @@ export const NotificationsEtudiantProvider = ({ children }) => {
       if (etat !== 'connected') return;
       if (dejaConnecte) {
         actualiserReleves();
+        actualiserLecons();
         fetchEmplois();
       }
       dejaConnecte = true;
     });
-  }, [actualiserReleves, fetchEmplois]);
+  }, [actualiserReleves, actualiserLecons, fetchEmplois]);
 
   // ---------- Non lues ----------
   const semestresPublies = useMemo(() => (releve?.semestres || []).filter((s) => s.publie && s.publie_le), [releve]);
@@ -128,9 +155,21 @@ export const NotificationsEtudiantProvider = ({ children }) => {
       ouvrir: () => navigate('/etudiant/edt', { state: { semestre: Number(s) } }),
     }));
 
-    return [...notes, ...edt];
+    // Une ligne par leçon publiée depuis la dernière visite de « Mes cours »
+    const cours = (lecons || [])
+      .filter((l) => instant(l.publie_le) > seuil(coursLusJusqua) && !leconsVues.includes(l.id))
+      .map((l) => ({
+        cle: `lecon-${l.id}`,
+        icone: 'bx-book-open',
+        titre: `Nouvelle leçon · ${l.matiere}`,
+        detail: [l.titre, l.enseignant].filter(Boolean).join(' · '),
+        quand: l.publie_le,
+        ouvrir: () => navigate(`/etudiant/cours/${l.id}`),
+      }));
+
+    return [...notes, ...edt, ...cours];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [semestresPublies, emplois, notesLuesJusqua, edtLuJusqua, navigate]);
+  }, [semestresPublies, emplois, lecons, notesLuesJusqua, edtLuJusqua, coursLusJusqua, leconsVues, navigate]);
 
   // Lu jusqu'à la plus récente reçue (heure du serveur : pas de décalage avec l'horloge du poste)
   const marquer = (dates, actuel, setter, cle) => {
@@ -147,14 +186,27 @@ export const NotificationsEtudiantProvider = ({ children }) => {
     () => marquer(emplois.map(dateEdt), edtLuJusqua, setEdtLuJusqua, cleEdt),
     [emplois, edtLuJusqua, cleEdt]
   );
+  const marquerCoursLus = useCallback(
+    () => marquer((lecons || []).map((l) => l.publie_le), coursLusJusqua, setCoursLusJusqua, cleCours),
+    [lecons, coursLusJusqua, cleCours]
+  );
+  const marquerLeconVue = useCallback((id) => {
+    setLeconsVues((vues) => {
+      if (vues.includes(Number(id))) return vues;
+      const suivantes = [Number(id), ...vues].slice(0, 200); // les plus anciennes sont de toute façon déjà lues
+      ecrire(cleVues, suivantes.join(','));
+      return suivantes;
+    });
+  }, [cleVues]);
   const toutMarquerLu = useCallback(() => {
     marquerNotesLues();
     marquerEdtLu();
-  }, [marquerNotesLues, marquerEdtLu]);
+    marquerCoursLus();
+  }, [marquerNotesLues, marquerEdtLu, marquerCoursLus]);
 
   const valeur = useMemo(
-    () => ({ elements, marquerNotesLues, marquerEdtLu, toutMarquerLu }),
-    [elements, marquerNotesLues, marquerEdtLu, toutMarquerLu]
+    () => ({ elements, coursLusJusqua, leconsVues, marquerNotesLues, marquerEdtLu, marquerCoursLus, marquerLeconVue, toutMarquerLu }),
+    [elements, coursLusJusqua, leconsVues, marquerNotesLues, marquerEdtLu, marquerCoursLus, marquerLeconVue, toutMarquerLu]
   );
 
   return <NotificationsEtudiantContext.Provider value={valeur}>{children}</NotificationsEtudiantContext.Provider>;

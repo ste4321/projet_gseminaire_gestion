@@ -752,7 +752,144 @@
 .gstf-fiche__chiffres span { display: block; font-size: 0.8rem; color: var(--gstf-text-muted); }
 .gstf-fiche__chiffres strong { font-size: 1.4rem; color: var(--gstf-heading); font-variant-numeric: tabular-nums; }
 
+.gstf-fiche__enseignant {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gstf-border);
+  border-radius: 0.5rem;
+}
+.gstf-fiche__enseignant .bx { flex-shrink: 0; font-size: 1.4rem; color: var(--gstf-text-muted); }
+.gstf-fiche__enseignant span { display: block; font-size: 0.8rem; color: var(--gstf-text-muted); }
+.gstf-fiche__enseignant strong { color: var(--gstf-heading); }
+.gstf-fiche__enseignant em { font-size: 0.875rem; }
+
 .gstf-fiche__liste { max-height: 16rem; overflow-y: auto; }
+
+/* ─── Espace étudiant : leçons (liste « Mes cours » et page de détail) ─── */
+.gstf-cours-ligne {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.5rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.gstf-cours-ligne:hover, .gstf-cours-ligne:focus-visible { background: var(--gstf-surface-2); color: inherit; }
+.gstf-cours-ligne__icone {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+  font-size: 1.25rem;
+}
+.gstf-cours-ligne__texte { display: flex; flex-direction: column; gap: 0.25rem; flex-grow: 1; min-width: 0; }
+.gstf-cours-ligne__titre { color: var(--gstf-heading); }
+/* Deux lignes du texte, pour savoir de quoi parle la leçon avant de l'ouvrir */
+.gstf-cours-ligne__extrait {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.875rem;
+  color: var(--gstf-text);
+}
+.gstf-cours-ligne__fleche { flex-shrink: 0; font-size: 1.4rem; color: var(--gstf-text-muted); }
+
+.gstf-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.875rem;
+  color: var(--gstf-text-muted);
+  text-decoration: none;
+}
+.gstf-retour:hover { color: var(--gstf-primary); }
+.gstf-retour .bx { font-size: 1.2rem; }
+
+.gstf-lecon__contenu {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--gstf-text);
+  max-width: 72ch; /* lignes courtes : plus confortables à lire */
+}
+.gstf-lecon__fichier { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.gstf-lecon__fichier-icone { font-size: 2.4rem; color: var(--gstf-primary); flex-shrink: 0; }
+.gstf-lecon__apercu { border: 1px solid var(--gstf-border); border-radius: 0.5rem; overflow: hidden; background: var(--gstf-surface-2); }
+.gstf-lecon__apercu iframe { display: block; width: 100%; height: 75vh; border: 0; }
+.gstf-lecon__apercu img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+@media (max-width: 575.98px) {
+  .gstf-cours-ligne { padding: 0.85rem 1rem; gap: 0.75rem; }
+  .gstf-lecon__fichier > .d-flex { width: 100%; }
+  .gstf-lecon__fichier > .d-flex > * { flex: 1 1 auto; }
+}
+
+/* ─── Espace enseignant : une ligne pleine largeur par matière ─── */
+.gstf-matiere-prof__corps {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem 2rem;
+  padding: 1.25rem 1.5rem;
+}
+.gstf-matiere-prof__identite { display: flex; align-items: center; gap: 1rem; min-width: 0; }
+.gstf-matiere-prof__pastille {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.6rem;
+  background: var(--gstf-primary-soft);
+  color: var(--gstf-primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+}
+.gstf-matiere-prof__nom { margin: 0 0 0.35rem; font-size: 1.1rem; color: var(--gstf-heading); overflow-wrap: anywhere; }
+.gstf-matiere-prof__details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  color: var(--gstf-text-muted);
+}
+/* Séparateur discret entre les détails (après le badge du niveau) */
+.gstf-matiere-prof__details > span:not(.badge) + span::before { content: "·"; margin-right: 0.5rem; }
+.gstf-matiere-prof__compte { color: var(--gstf-heading); font-variant-numeric: tabular-nums; }
+.gstf-matiere-prof__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+.gstf-matiere-prof__groupe {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  color: var(--gstf-heading);
+}
+.gstf-matiere-prof__groupe span { font-size: 0.8rem; font-weight: 400; color: var(--gstf-text-muted); }
+
+/* Tablette : les actions passent sous l'identité et l'avancement */
+@media (max-width: 991.98px) {
+  .gstf-matiere-prof__corps { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .gstf-matiere-prof__actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+/* Téléphone : tout en colonne, boutons pleine largeur */
+@media (max-width: 575.98px) {
+  .gstf-matiere-prof__corps { grid-template-columns: minmax(0, 1fr); padding: 1rem; gap: 1rem; }
+  .gstf-matiere-prof__actions > * { flex: 1 1 auto; }
+}
 .gstf-fiche__ligne {
   display: flex;
   justify-content: space-between;

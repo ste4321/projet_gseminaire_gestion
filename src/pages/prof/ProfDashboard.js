@@ -2,12 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Accueil from '../Accueil';
 import useMesMatieres from '../../hooks/useMesMatieres';
+import { StatsChargement } from '../../components/Squelettes';
 
 // Chiffres de l'année et matières dont les notes ne sont pas complètes
 const Resume = () => {
   const { annee, matieres, chargement, erreur } = useMesMatieres('');
 
-  if (chargement || erreur) return null;
+  // Squelette à la place des chiffres : la page ne saute pas quand ils arrivent
+  if (chargement) return <StatsChargement libelle="Chargement de vos chiffres…" />;
+  if (erreur) return null;
   if (matieres.length === 0) {
     return (
       <div className="alert alert-info d-flex align-items-start gap-2 mb-4" role="note">

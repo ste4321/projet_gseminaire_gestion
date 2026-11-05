@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import api, { errorMessage, estAnnulee } from '../../api/client';
+import api, { errorMessage } from '../../api/client';
 import { useFeedback } from '../../contexts/FeedbackContext';
+import { useDonneesEnseignant } from '../../contexts/EspaceEnseignantContext';
+import { StatsChargement, TableauCarteChargement } from '../../components/Squelettes';
 import useMesMatieres from '../../hooks/useMesMatieres';
 
 // Saisie accepte la virgule : « 12,5 » vaut 12.5. Renvoie null (vide), un nombre, ou NaN (saisie invalide).
@@ -38,29 +40,31 @@ const SaisieNotes = () => {
   const { annees, annee, matieres, chargement, erreur: erreurMatieres, recharger: rechargerMatieres } = useMesMatieres(anneeParam);
   const matiereId = matiereParam || (matieres[0] ? String(matieres[0].id) : '');
 
-  const [donnees, setDonnees] = useState(null); // réponse du serveur pour la matière affichée
+  // Réponse du serveur pour la matière affichée, gardée en mémoire d'une page à l'autre (EspaceEnseignantContext)
+  const { data: donnees, erreur, recharger: rechargerNotes } = useDonneesEnseignant(
+    matiereId && annee ? `/enseignant/matieres/${matiereId}/notes` : null,
+    { annee },
+    'Impossible de charger les notes.'
+  );
   const [saisies, setSaisies] = useState({}); // id_etudiant_parcours → texte saisi
-  const [erreur, setErreur] = useState(null);
   const [envoi, setEnvoi] = useState(false);
-  const [version, setVersion] = useState(0);
   const champs = useRef({});
+  const recues = useRef({ cle: null, donnees: null }); // réponse d'où viennent les saisies
 
-  useEffect(() => {
-    if (!matiereId || !annee) return undefined;
-    const controle = new AbortController();
-    setDonnees(null);
-    setErreur(null);
-    api
-      .get(`/enseignant/matieres/${matiereId}/notes`, { params: { annee }, signal: controle.signal })
-      .then((res) => {
-        setDonnees(res.data);
-        setSaisies(Object.fromEntries(res.data.etudiants.map((e) => [e.id_etudiant_parcours, e.note === null ? '' : String(e.note)])));
-      })
-      .catch((err) => {
-        if (!estAnnulee(err)) setErreur(errorMessage(err, 'Impossible de charger les notes.'));
-      });
-    return () => controle.abort();
-  }, [matiereId, annee, version]);
+  // Nouvelle réponse : remplit les champs. Pour la même matière (mise à jour en arrière-plan, après un enregistrement),
+  // les notes que l'enseignant est en train de modifier sont conservées.
+  const cle = `${matiereId}:${annee}`;
+  useLayoutEffect(() => {
+    if (!donnees || donnees === recues.current.donnees) return;
+    const avant = recues.current.cle === cle ? recues.current.donnees : null;
+    const anciennes = new Map((avant?.etudiants || []).map((e) => [e.id_etudiant_parcours, e.note]));
+    recues.current = { cle, donnees };
+    setSaisies((actuelles) => Object.fromEntries(donnees.etudiants.map((e) => {
+      const id = e.id_etudiant_parcours;
+      const modifiee = avant && anciennes.has(id) && id in actuelles && lire(actuelles[id]) !== anciennes.get(id);
+      return [id, modifiee ? actuelles[id] : e.note === null ? '' : String(e.note)];
+    })));
+  }, [donnees, cle]);
 
   const etudiants = useMemo(() => donnees?.etudiants || [], [donnees]);
   const verrouillee = Boolean(donnees?.verrouillee);
@@ -111,12 +115,12 @@ const SaisieNotes = () => {
         notes: modifications.map((m) => ({ id_etudiant_parcours: m.id_etudiant_parcours, note: lire(saisies[m.id_etudiant_parcours]) })),
       });
       notify.success(res.data.message);
-      setVersion((v) => v + 1);
+      rechargerNotes();
       rechargerMatieres();
     } catch (err) {
       notify.error(errorMessage(err, "Les notes n'ont pas pu être enregistrées."));
       // Semestre publié entre-temps : la page repasse en lecture seule
-      if (err.response?.status === 409) setVersion((v) => v + 1);
+      if (err.response?.status === 409) rechargerNotes();
     } finally {
       setEnvoi(false);
     }
@@ -157,7 +161,7 @@ const SaisieNotes = () => {
             <i className="bx bx-error-circle d-block"></i>
             <p className="mb-3">{erreurMatieres || erreur}</p>
             <button type="button" className="btn btn-sm btn-outline-primary"
-              onClick={() => { rechargerMatieres(); setVersion((v) => v + 1); }}>Réessayer</button>
+              onClick={() => { rechargerMatieres(); rechargerNotes(); }}>Réessayer</button>
           </div>
         </div>
       ) : !chargement && matieres.length === 0 ? (
@@ -168,10 +172,10 @@ const SaisieNotes = () => {
           </div>
         </div>
       ) : !donnees ? (
-        <div className="text-center py-5" role="status">
-          <div className="spinner-border text-primary"></div>
-          <p className="mt-2 text-muted">Chargement des notes…</p>
-        </div>
+        <>
+          <StatsChargement libelle="Chargement des notes…" />
+          <TableauCarteChargement colonnes={['Matricule', 'Étudiant', 'Note /20']} centrees={[2]} lignes={8} />
+        </>
       ) : (
         <>
           {verrouillee && (

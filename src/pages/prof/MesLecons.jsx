@@ -1,11 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import api, { errorMessage, estAnnulee } from '../../api/client';
+import api, { errorMessage } from '../../api/client';
 import { storageUrl } from '../../config';
 import { useFeedback } from '../../contexts/FeedbackContext';
+import { useDonneesEnseignant } from '../../contexts/EspaceEnseignantContext';
+import { ListeCarteChargement } from '../../components/Squelettes';
 import useMesMatieres from '../../hooks/useMesMatieres';
 
 const dateCourte = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+
+// Même limite que le serveur (EspaceEnseignantController::reglesLecon) : vérifiée avant l'envoi
+const TAILLE_MAX = 10 * 1024 * 1024;
+const CHAMPS_AFFICHES = ['titre', 'contenu', 'fichier'];
+// Un fichier de plusieurs Mo peut mettre plus de 30 s à partir sur une connexion lente
+const DELAI_ENVOI = 120000;
+const tailleLisible = (octets) => `${(octets / 1024 / 1024).toFixed(1).replace('.', ',')} Mo`;
 
 const versFormulaire = ({ titre, contenu, publier }) => {
   const donnees = new FormData();
@@ -34,28 +43,48 @@ const FenetreLecon = ({ lecon, matieres, matiereParDefaut, annee, onEnregistree,
     setErreurs((avant) => ({ ...avant, [champ]: undefined }));
   };
 
+  // Fichier trop lourd : signalé dès qu'il est choisi, sans attendre un envoi voué à l'échec
+  const choisirFichier = (choisi) => {
+    setFichier(choisi);
+    setErreurs((avant) => ({
+      ...avant,
+      fichier: choisi && choisi.size > TAILLE_MAX
+        ? [`Ce fichier fait ${tailleLisible(choisi.size)} : 10 Mo maximum. Compressez-le ou découpez-le en plusieurs leçons.`]
+        : undefined,
+    }));
+  };
+
   const envoyer = async (publier) => {
+    if (fichier && fichier.size > TAILLE_MAX) {
+      choisirFichier(fichier);
+      return;
+    }
     setEnvoi(true);
     setErreurs({});
     setErreurGenerale(null);
     const donnees = versFormulaire({ ...form, publier });
     if (fichier) donnees.append('fichier', fichier);
     if (retirer) donnees.append('supprimer_fichier', '1');
+    const options = { timeout: DELAI_ENVOI };
     try {
       if (lecon) {
-        await api.post(`/enseignant/lecons/${lecon.id}`, donnees);
+        await api.post(`/enseignant/lecons/${lecon.id}`, donnees, options);
       } else {
         donnees.append('id_annee_aca', annee);
         donnees.append('id_matiere', form.id_matiere);
-        await api.post('/enseignant/lecons', donnees);
+        await api.post('/enseignant/lecons', donnees, options);
       }
-      onEnregistree(publier);
     } catch (err) {
       const champs = err.response?.data?.errors;
       if (champs) setErreurs(champs);
-      else setErreurGenerale(errorMessage(err, "La leçon n'a pas pu être enregistrée."));
+      // Erreur sur un champ qui n'est pas dans le formulaire (matière, année…) ou sans détail : message en haut
+      if (!champs || Object.keys(champs).some((c) => !CHAMPS_AFFICHES.includes(c))) {
+        setErreurGenerale(errorMessage(err, "La leçon n'a pas pu être enregistrée. Réessayez dans un instant."));
+      }
       setEnvoi(false);
+      return;
     }
+    onEnregistree(publier);
   };
 
   const soumettre = (e) => {
@@ -111,7 +140,7 @@ const FenetreLecon = ({ lecon, matieres, matiereParDefaut, annee, onEnregistree,
                   </div>
                 )}
                 <input id="lecon-fichier" type="file" className={`form-control ${erreurs.fichier ? 'is-invalid' : ''}`}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.zip,.jpg,.jpeg,.png" onChange={(e) => setFichier(e.target.files[0] || null)} />
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.zip,.jpg,.jpeg,.png" onChange={(e) => choisirFichier(e.target.files[0] || null)} />
                 {erreurs.fichier && <div className="invalid-feedback">{erreurs.fichier[0]}</div>}
                 <div className="form-text">PDF, Word, PowerPoint, Excel, ZIP, JPG ou PNG · 10 Mo maximum.</div>
               </div>
@@ -141,29 +170,19 @@ const MesLecons = () => {
   const filtreMatiere = params.get('matiere') || '';
   const { annees, annee, matieres, chargement, erreur: erreurMatieres, recharger: rechargerMatieres } = useMesMatieres(params.get('annee') || '');
 
-  const [lecons, setLecons] = useState(null);
-  const [erreur, setErreur] = useState(null);
+  // Gardées en mémoire d'une page à l'autre (EspaceEnseignantContext)
+  const { data: lecons, erreur, recharger: rechargerLecons } = useDonneesEnseignant(
+    annee ? '/enseignant/lecons' : null,
+    { annee },
+    'Impossible de charger vos leçons.'
+  );
   const [fenetre, setFenetre] = useState(null); // null, 'nouvelle' ou la leçon modifiée
   const [enCours, setEnCours] = useState(null);
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    if (!annee) return undefined;
-    const controle = new AbortController();
-    setErreur(null);
-    api
-      .get('/enseignant/lecons', { params: { annee }, signal: controle.signal })
-      .then((res) => setLecons(res.data))
-      .catch((err) => {
-        if (!estAnnulee(err)) setErreur(errorMessage(err, 'Impossible de charger vos leçons.'));
-      });
-    return () => controle.abort();
-  }, [annee, version]);
 
   const actualiser = useCallback(() => {
-    setVersion((v) => v + 1);
+    rechargerLecons();
     rechargerMatieres();
-  }, [rechargerMatieres]);
+  }, [rechargerLecons, rechargerMatieres]);
 
   const affichees = useMemo(
     () => (lecons || []).filter((l) => !filtreMatiere || String(l.id_matiere) === filtreMatiere),
@@ -257,10 +276,7 @@ const MesLecons = () => {
           </div>
         </div>
       ) : chargementListe ? (
-        <div className="text-center py-5" role="status">
-          <div className="spinner-border text-primary"></div>
-          <p className="mt-2 text-muted">Chargement de vos leçons…</p>
-        </div>
+        <ListeCarteChargement actions lignes={4} libelle="Chargement de vos leçons…" />
       ) : matieres.length === 0 ? (
         <div className="card">
           <div className="gstf-empty">

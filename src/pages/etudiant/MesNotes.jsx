@@ -4,6 +4,7 @@ import { useParcours, useReleve } from '../../contexts/EspaceEtudiantContext';
 import { useNotificationsEtudiant } from '../../contexts/NotificationsEtudiantContext';
 import { telechargerBulletin } from '../../utils/bulletin';
 import StatutResultat from '../../components/StatutResultat';
+import { StatsChargement, TableauCarteChargement } from '../../components/Squelettes';
 
 const format = (n) => (n === null || n === undefined ? '—' : Number(n).toFixed(2));
 
@@ -79,10 +80,12 @@ const MesNotes = () => {
       </div>
 
       {loading && !releve ? (
-        <div className="text-center py-5" role="status">
-          <div className="spinner-border text-primary"></div>
-          <p className="mt-2 text-muted">Chargement de vos notes…</p>
-        </div>
+        <>
+          <StatsChargement libelle="Chargement de vos notes…" />
+          {[0, 1].map((i) => (
+            <TableauCarteChargement key={i} colonnes={['Matière', 'Coef.', 'Note /20']} centrees={[1, 2]} lignes={4} />
+          ))}
+        </>
       ) : erreur ? (
         <div className="card">
           <div className="gstf-empty">

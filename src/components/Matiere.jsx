@@ -700,11 +700,22 @@ const Matiere = () => {
                     </div>
                   </div>
 
+                  {/* Enseignant en charge pour l'année affichée */}
+                  <div className="gstf-fiche__enseignant">
+                    <i className="bx bx-user-voice"></i>
+                    <div className="min-w-0">
+                      <span>Enseignant en {libelleAnnee}</span>
+                      {detailAJour.enseignant
+                        ? <strong className="text-truncate d-block">{detailAJour.enseignant}</strong>
+                        : <em className="text-muted">Non attribuée{admin ? ' : choisissez un enseignant via « Modifier »' : ''}</em>}
+                    </div>
+                  </div>
+
                   {/* Autres années : une ligne discrète, seulement si la matière y a été enseignée */}
                   {autresAnnees.length > 0 && (
                     <p className="small text-muted mt-3 mb-0">
                       <i className="bx bx-history me-1"></i>
-                      Aussi enseignée en {autresAnnees.map((h) => `${h.annee_aca} (coef. ${h.coefficient})`).join(', ')}.
+                      Aussi enseignée en {autresAnnees.map((h) => `${h.annee_aca} (coef. ${h.coefficient}${h.enseignant ? `, ${h.enseignant}` : ''})`).join(', ')}.
                     </p>
                   )}
                 </div>
