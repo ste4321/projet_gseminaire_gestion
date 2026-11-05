@@ -5,6 +5,7 @@ import { useFeedback } from '../../contexts/FeedbackContext';
 import { useDonneesEnseignant } from '../../contexts/EspaceEnseignantContext';
 import { StatsChargement, TableauCarteChargement } from '../../components/Squelettes';
 import useMesMatieres from '../../hooks/useMesMatieres';
+import ImportNotes from '../../components/ImportNotes';
 
 // Saisie accepte la virgule : « 12,5 » vaut 12.5. Renvoie null (vide), un nombre, ou NaN (saisie invalide).
 const lire = (texte) => {
@@ -15,21 +16,6 @@ const lire = (texte) => {
 };
 
 const format = (n) => (n === null || n === undefined ? '—' : Number(n).toFixed(2));
-
-// Fichier ouvert directement par Excel : point-virgule et marque UTF-8 pour les accents
-const exporterCsv = (donnees) => {
-  const cellule = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lignes = [
-    ['Matricule', 'Nom et prénom', 'Note /20'],
-    ...donnees.etudiants.map((e) => [e.matricule, e.nom_prenom, e.note === null ? '' : String(e.note).replace('.', ',')]),
-  ];
-  const fichier = new Blob([`﻿${lignes.map((l) => l.map(cellule).join(';')).join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
-  const lien = document.createElement('a');
-  lien.href = URL.createObjectURL(fichier);
-  lien.download = `Notes_${donnees.matiere.code || donnees.matiere.matiere}_${donnees.matiere.niveau}.csv`;
-  lien.click();
-  URL.revokeObjectURL(lien.href);
-};
 
 const SaisieNotes = () => {
   const { notify, confirm } = useFeedback();
@@ -48,6 +34,7 @@ const SaisieNotes = () => {
   );
   const [saisies, setSaisies] = useState({}); // id_etudiant_parcours → texte saisi
   const [envoi, setEnvoi] = useState(false);
+  const [importOuvert, setImportOuvert] = useState(false);
   const champs = useRef({});
   const recues = useRef({ cle: null, donnees: null }); // réponse d'où viennent les saisies
 
@@ -127,6 +114,37 @@ const SaisieNotes = () => {
   };
 
   const lectureSeule = verrouillee || envoi;
+
+  // Import : les notes du fichier remplacent celles affichées, la saisie en cours serait perdue
+  const ouvrirImport = async () => {
+    if (modifications.length > 0) {
+      const ok = await confirm({
+        title: 'Importer sans enregistrer ?',
+        message: `${modifications.length} note${modifications.length > 1 ? 's' : ''} modifiée${modifications.length > 1 ? 's' : ''} ne ${modifications.length > 1 ? 'sont' : 'est'} pas enregistrée${modifications.length > 1 ? 's' : ''}. Elles seront remplacées par celles du fichier.`,
+        confirmLabel: 'Continuer',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    setImportOuvert(true);
+  };
+
+  // Nom de fichier attendu pour la matière affichée (le serveur refuse toute matière qui n'est pas la sienne)
+  const anneeLibelle = annees.find((a) => String(a.id) === String(annee))?.annee_aca;
+  const nomAttendu = donnees
+    ? `NOTES_${donnees.matiere.code || 'CODE'}_${donnees.matiere.niveau || 'L1'}_${donnees.matiere.code_semestre || 'S1'}_${anneeLibelle || '2025-2026'}.xlsx`
+    : undefined;
+
+  const apresImport = (reponse) => {
+    // Fichier d'une autre de ses matières (ou d'une autre année) : on l'affiche
+    if (String(reponse.matiere) !== String(matiereId) || String(reponse.annee) !== String(annee)) {
+      setParams({ matiere: String(reponse.matiere), annee: String(reponse.annee) });
+    } else {
+      recues.current = { cle: null, donnees: null }; // les notes importées remplacent la saisie en cours
+      rechargerNotes();
+    }
+    rechargerMatieres();
+  };
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
@@ -209,10 +227,12 @@ const SaisieNotes = () => {
             <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
               <h5 className="card-title gstf-section-title mb-0">{donnees.matiere.matiere}</h5>
               <div className="d-flex flex-wrap gap-2">
-                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => exporterCsv(donnees)} disabled={etudiants.length === 0}
-                  title="Notes enregistrées, au format Excel (CSV)">
-                  <i className="bx bx-download me-1"></i>Exporter
-                </button>
+                {!verrouillee && (
+                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={ouvrirImport} disabled={envoi || etudiants.length === 0}
+                    title="Importer les notes depuis un fichier Excel ou CSV">
+                    <i className="bx bx-import me-1"></i>Importer
+                  </button>
+                )}
                 {!verrouillee && (
                   <button type="submit" className="btn btn-sm btn-primary" disabled={envoi || modifications.length === 0}>
                     {envoi ? <span className="spinner-border spinner-border-sm me-1" /> : <i className="bx bx-save me-1"></i>}
@@ -269,6 +289,15 @@ const SaisieNotes = () => {
               </div>
             )}
           </form>
+
+          <ImportNotes
+            ouvert={importOuvert}
+            onClose={() => setImportOuvert(false)}
+            url="/enseignant/notes/import"
+            exemple={nomAttendu}
+            consigne="Seules les matières qui vous sont attribuées peuvent être importées, tant que le semestre n'est pas publié."
+            onImporte={apresImport}
+          />
 
           {!verrouillee && etudiants.length > 0 && (
             <p className="small text-muted mt-3">
