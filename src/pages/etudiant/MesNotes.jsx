@@ -4,21 +4,59 @@ import { useParcours, useReleve } from '../../contexts/EspaceEtudiantContext';
 import { useNotificationsEtudiant } from '../../contexts/NotificationsEtudiantContext';
 import { telechargerBulletin } from '../../utils/bulletin';
 import StatutResultat from '../../components/StatutResultat';
-import { StatsChargement, TableauCarteChargement } from '../../components/Squelettes';
+import { NotesEtudiantChargement } from '../../components/Squelettes';
 
 const format = (n) => (n === null || n === undefined ? '—' : Number(n).toFixed(2));
+const estNote = (n) => n !== null && n !== undefined;
 
-// Chiffres sobres : seule une note sous la moyenne est signalée (une seule couleur d'accent)
-const BadgeNote = ({ valeur }) => {
-  if (valeur === null || valeur === undefined) {
-    return <span className="text-muted" title="Note pas encore saisie">—</span>;
-  }
-  const faible = valeur < 10;
+// Jauge circulaire de la moyenne sur 20
+const Jauge = ({ valeur }) => {
+  const r = 52;
+  const tour = 2 * Math.PI * r;
+  const ratio = estNote(valeur) ? Math.min(Math.max(valeur / 20, 0), 1) : 0;
+  const faible = estNote(valeur) && valeur < 10;
   return (
-    <span className={`gstf-note${faible ? ' gstf-note--faible' : ''}`} title={faible ? 'Inférieure à 10 / 20' : undefined}>
-      {format(valeur)}
-      {faible && <span className="visually-hidden"> (inférieure à 10)</span>}
-    </span>
+    <div className={`gstf-jauge${faible ? ' is-faible' : ''}`} role="img"
+      aria-label={estNote(valeur) ? `Moyenne ${format(valeur)} sur 20` : 'Moyenne non disponible'}>
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle className="gstf-jauge__fond" cx="60" cy="60" r={r} />
+        <circle className="gstf-jauge__arc" cx="60" cy="60" r={r}
+          strokeDasharray={tour} strokeDashoffset={tour * (1 - ratio)} />
+      </svg>
+      <div className="gstf-jauge__texte" aria-hidden="true">
+        <strong>{format(valeur)}</strong>
+        <span>/ 20</span>
+      </div>
+    </div>
+  );
+};
+
+// Une matière : nom, détails, note et barre sur 20 (seule une note sous la moyenne est signalée)
+const LigneMatiere = ({ m }) => {
+  const saisie = estNote(m.note);
+  const faible = saisie && m.note < 10;
+  return (
+    <li className={`gstf-note-ligne${faible ? ' is-faible' : ''}`}>
+      <div className="gstf-note-ligne__matiere">
+        <span className="gstf-note-ligne__nom">{m.matiere}</span>
+        <span className="gstf-note-ligne__details">
+          {m.code} · {m.heures} h · <span className="gstf-note-ligne__coef">coef. {m.coefficient}</span>
+        </span>
+      </div>
+      <div className="gstf-note-ligne__note">
+        <div className="gstf-note-ligne__barre" aria-hidden="true">
+          <span style={{ width: saisie ? `${Math.min(m.note / 20, 1) * 100}%` : 0 }}></span>
+        </div>
+        {saisie ? (
+          <strong title={faible ? 'Inférieure à 10 / 20' : undefined}>
+            {format(m.note)}
+            {faible && <span className="visually-hidden"> (inférieure à 10)</span>}
+          </strong>
+        ) : (
+          <strong className="is-vide" title="Note pas encore saisie">—</strong>
+        )}
+      </div>
+    </li>
   );
 };
 
@@ -29,6 +67,7 @@ const MesNotes = () => {
   // Gardé en mémoire : revenir sur la page (ou sur une année déjà vue) l'affiche aussitôt
   const { releve, loading, erreur, recharger } = useReleve(parcoursId);
   const [pdfEnCours, setPdfEnCours] = useState(false);
+  const [semestreChoisi, setSemestreChoisi] = useState(null);
 
   // Page consultée : les notes publiées ne comptent plus comme nouvelles (cloche de l'en-tête)
   const { marquerNotesLues } = useNotificationsEtudiant();
@@ -52,6 +91,13 @@ const MesNotes = () => {
   const progression = general?.matieres_total ? Math.round((general.notes_saisies / general.matieres_total) * 100) : 0;
   const aucunePublication = general && general.semestres_publies === 0;
   const publicationPartielle = general && general.semestres_publies > 0 && general.semestres_publies < general.semestres_total;
+
+  // Semestre affiché : celui choisi, sinon le dernier publié, sinon le premier
+  const semestres = releve?.semestres ?? [];
+  const cle = (s) => s.id ?? 'hors';
+  const semestre = semestres.find((s) => cle(s) === semestreChoisi)
+    ?? [...semestres].reverse().find((s) => s.publie)
+    ?? semestres[0];
 
   return (
     <div className="container-xxl flex-grow-1 container-p-y">
@@ -80,12 +126,7 @@ const MesNotes = () => {
       </div>
 
       {loading && !releve ? (
-        <>
-          <StatsChargement libelle="Chargement de vos notes…" />
-          {[0, 1].map((i) => (
-            <TableauCarteChargement key={i} colonnes={['Matière', 'Coef.', 'Note /20']} centrees={[1, 2]} lignes={4} />
-          ))}
-        </>
+        <NotesEtudiantChargement libelle="Chargement de vos notes…" />
       ) : erreur ? (
         <div className="card">
           <div className="gstf-empty">
@@ -96,43 +137,29 @@ const MesNotes = () => {
         </div>
       ) : releve && (
         <>
-          <div className="row">
-            <div className="col-sm-6 col-xl-4 mb-4">
-              <div className="card h-100">
-                <div className="card-body gstf-stat">
-                  <div className="gstf-stat__icon" aria-hidden="true"><i className="bx bx-medal"></i></div>
-                  <div>
-                    <div className="gstf-stat__value">{general.moyenne === null ? '—' : `${format(general.moyenne)} / 20`}</div>
-                    <div className="gstf-stat__label">{publicationPartielle ? 'Moyenne des semestres publiés' : 'Moyenne générale'}</div>
+          <div className="card mb-4">
+            <div className="card-body gstf-bilan-notes">
+              <Jauge valeur={general.moyenne} />
+              <div className="gstf-bilan-notes__infos">
+                <div>
+                  <div className="gstf-bilan-notes__titre">
+                    {publicationPartielle ? 'Moyenne des semestres publiés' : 'Moyenne générale'}
                   </div>
+                  <StatutResultat statut={general.statut} attente={general.semestres_publies < general.semestres_total ? 'Après publication' : 'Notes incomplètes'} />
                 </div>
-              </div>
-            </div>
-            <div className="col-sm-6 col-xl-4 mb-4">
-              <div className="card h-100">
-                <div className="card-body gstf-stat">
-                  <div className="gstf-stat__icon gstf-stat__icon--gold" aria-hidden="true"><i className="bx bx-spreadsheet"></i></div>
-                  <div className="flex-grow-1">
-                    <div className="gstf-stat__value">{general.notes_saisies} / {general.matieres_total}</div>
-                    <div className="gstf-stat__label">Notes disponibles</div>
-                    <div className="gstf-bar mt-2" role="progressbar" aria-valuenow={progression} aria-valuemin="0" aria-valuemax="100" aria-label="Notes disponibles">
+                <dl className="gstf-bilan-notes__chiffres">
+                  <div>
+                    <dt>Notes disponibles</dt>
+                    <dd>{general.notes_saisies} <small>/ {general.matieres_total}</small></dd>
+                    <div className="gstf-bar mt-1" role="progressbar" aria-valuenow={progression} aria-valuemin="0" aria-valuemax="100" aria-label="Notes disponibles">
                       <span style={{ width: `${progression}%` }}></span>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-sm-6 col-xl-4 mb-4">
-              <div className="card h-100">
-                <div className="card-body gstf-stat">
-                  <div className="gstf-stat__icon" aria-hidden="true"><i className="bx bx-check-shield"></i></div>
                   <div>
-                    <div className="gstf-stat__value fs-5">
-                      <StatutResultat statut={general.statut} attente={general.semestres_publies < general.semestres_total ? 'Après publication' : 'Notes incomplètes'} />
-                    </div>
-                    <div className="gstf-stat__label">Résultat de l'année</div>
+                    <dt>Semestres publiés</dt>
+                    <dd>{general.semestres_publies} <small>/ {general.semestres_total}</small></dd>
                   </div>
-                </div>
+                </dl>
               </div>
             </div>
           </div>
@@ -156,52 +183,45 @@ const MesNotes = () => {
                 Aucune matière n'est encore au programme de votre niveau pour cette année.
               </div>
             </div>
-          ) : (
-            releve.semestres.map((s) => (
-              <div className="card mb-4" key={s.id ?? 'hors'}>
-                <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                  <h5 className="card-title gstf-section-title mb-0">{s.semestre}</h5>
-                  {s.publie ? (
-                    <span className="text-muted d-flex align-items-center gap-2">
-                      Moyenne : <strong className="text-body">{s.moyenne === null ? '—' : `${format(s.moyenne)} / 20`}</strong>
-                      {s.statut && <StatutResultat statut={s.statut} />}
-                    </span>
-                  ) : (
-                    <span className="badge bg-label-secondary">Pas encore publié</span>
-                  )}
-                </div>
-                {!s.publie ? (
-                  <div className="card-body pt-0 text-muted">
-                    <i className="bx bx-lock-alt me-1"></i>
-                    Les notes de ce semestre ({s.matieres.length} matière{s.matieres.length > 1 ? 's' : ''}) seront visibles après leur publication.
+          ) : semestre && (
+            <div className="card mb-4">
+              <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+                {semestres.length > 1 ? (
+                  <div className="gstf-segments" role="group" aria-label="Choisir le semestre">
+                    {semestres.map((s) => (
+                      <button key={cle(s)} type="button" aria-pressed={s === semestre}
+                        className={`gstf-segments__item ${s === semestre ? 'is-active' : ''}`}
+                        onClick={() => setSemestreChoisi(cle(s))}
+                        title={s.publie ? undefined : 'Pas encore publié'}>
+                        {!s.publie && <i className="bx bx-lock-alt" aria-hidden="true"></i>}
+                        {s.semestre}
+                      </button>
+                    ))}
                   </div>
                 ) : (
-                <div className="table-responsive">
-                  <table className="table table-hover mb-0">
-                    <thead>
-                      <tr>
-                        <th scope="col">Matière</th>
-                        <th scope="col" className="text-center text-nowrap" title="Coefficient">Coef.</th>
-                        <th scope="col" className="text-center text-nowrap">Note /20</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {s.matieres.map((m) => (
-                        <tr key={m.id}>
-                          <td>
-                            <span className="fw-semibold">{m.matiere}</span>
-                            <small className="text-muted d-block">{m.code} · {m.heures} h</small>
-                          </td>
-                          <td className="text-center">{m.coefficient}</td>
-                          <td className="text-center"><BadgeNote valeur={m.note} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                  <h5 className="card-title gstf-section-title mb-0">{semestre.semestre}</h5>
+                )}
+                {semestre.publie ? (
+                  <div className="gstf-note-semestre">
+                    <span>Moyenne du semestre</span>
+                    <strong>{format(semestre.moyenne)}<small> / 20</small></strong>
+                    {semestre.statut && <StatutResultat statut={semestre.statut} />}
+                  </div>
+                ) : (
+                  <span className="badge bg-label-secondary">Pas encore publié</span>
                 )}
               </div>
-            ))
+              {!semestre.publie ? (
+                <div className="gstf-empty">
+                  <i className="bx bx-lock-alt d-block"></i>
+                  Les notes de ce semestre ({semestre.matieres.length} matière{semestre.matieres.length > 1 ? 's' : ''}) seront visibles après leur publication.
+                </div>
+              ) : (
+                <ul className="gstf-notes-liste">
+                  {semestre.matieres.map((m) => <LigneMatiere key={m.id} m={m} />)}
+                </ul>
+              )}
+            </div>
           )}
 
           <p className="small text-muted">

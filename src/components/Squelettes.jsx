@@ -99,6 +99,59 @@ export const TableauCarteChargement = ({ colonnes, lignes = 6, titre = true, lib
   </div>
 );
 
+/** Mes notes (étudiant) : bilan avec jauge, puis carte du semestre (mêmes classes que la page) */
+export const NotesEtudiantChargement = ({ lignes = 5, libelle }) => (
+  <div aria-busy="true">
+    {libelle && <Annonce libelle={libelle} />}
+    <div className="card mb-4" aria-hidden="true">
+      <div className="card-body gstf-bilan-notes">
+        <span className="gstf-squelette gstf-jauge gstf-jauge--squelette" />
+        <div className="gstf-bilan-notes__infos">
+          <div>
+            <Os className="d-block mb-2" largeur="11rem" hauteur="1.2rem" />
+            <Os className="d-block" largeur="5.5rem" hauteur="1.3rem" style={{ borderRadius: '2rem' }} />
+          </div>
+          <div className="gstf-bilan-notes__chiffres">
+            <div>
+              <Os className="d-block mb-2" largeur="7rem" hauteur="0.75rem" />
+              <Os className="d-block mb-2" largeur="3.5rem" hauteur="1.35rem" />
+              <Os className="d-block" hauteur="0.5rem" />
+            </div>
+            <div>
+              <Os className="d-block mb-2" largeur="7.5rem" hauteur="0.75rem" />
+              <Os className="d-block" largeur="3rem" hauteur="1.35rem" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div className="card mb-4" aria-hidden="true">
+      <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <Os largeur="8rem" hauteur="2.3rem" />
+        <div className="d-flex align-items-center gap-2">
+          <Os largeur="8rem" hauteur="0.8rem" />
+          <Os largeur="3.5rem" hauteur="1.15rem" />
+        </div>
+      </div>
+      <ul className="gstf-notes-liste">
+        {Array.from({ length: lignes }, (_, i) => (
+          <li className="gstf-note-ligne" key={i}>
+            <div className="gstf-note-ligne__matiere">
+              <Os className="d-block mb-2" largeur={largeur(i, 9, 3)} hauteur="1rem" />
+              <Os className="d-block" largeur={largeur(i + 1, 8, 1.5)} hauteur="0.7rem" />
+            </div>
+            <div className="gstf-note-ligne__note">
+              {/* Largeur laissée à la classe (plus courte sur mobile) */}
+              <span className="gstf-squelette gstf-note-ligne__barre" />
+              <Os largeur="3rem" hauteur="1.05rem" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+);
+
 /** Lignes de matières de l'enseignant (même grille que gstf-matiere-prof) */
 export const MatieresChargement = ({ nombre = 2, libelle }) => (
   <div aria-busy="true">
