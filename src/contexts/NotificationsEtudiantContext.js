@@ -3,8 +3,9 @@
 // - emploi du temps ajouté ou remplacé ;
 // - leçon publiée par un enseignant (matière de son niveau).
 // Reçues en direct (WebSocket) : données à jour + notification en bas à droite.
-// Non lues (cloche de l'en-tête) : publiées depuis la dernière visite de la page concernée (mémorisé dans ce navigateur),
-// calculées à partir des données elles-mêmes : ce qui a été publié pendant l'absence de l'étudiant compte aussi.
+// Non lues (cloche de l'en-tête) : publiées depuis la dernière visite de la page concernée (gardé sur le compte,
+// voir utils/notificationsLues : identique sur tous les navigateurs), calculées à partir des données elles-mêmes :
+// ce qui a été publié pendant l'absence de l'étudiant compte aussi.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFeedback } from './FeedbackContext';
@@ -12,6 +13,9 @@ import { useEmploi } from './EmploiContext';
 import { useActualiserLecons, useActualiserReleves, useLecons, useReleve } from './EspaceEtudiantContext';
 import { getUser } from '../auth/session';
 import { ecouterUtilisateur, onConnectionChange } from '../realtime';
+import {
+  chargerLues, ecrireLocal as ecrire, enregistrerLues, fusionnerDate, lireLocal as lire, plusRecente, surRetourOnglet,
+} from '../utils/notificationsLues';
 
 const NotificationsEtudiantContext = createContext(null);
 const SANS_FOURNISSEUR = {
@@ -22,20 +26,7 @@ const SANS_FOURNISSEUR = {
 // Première visite (rien de mémorisé) : seules les nouveautés des 14 derniers jours comptent
 const RECENT = 14 * 24 * 60 * 60 * 1000;
 const instant = (iso) => (iso ? new Date(iso).getTime() : 0);
-const lire = (cle) => {
-  try {
-    return localStorage.getItem(cle) || '';
-  } catch (e) {
-    return '';
-  }
-};
-const ecrire = (cle, valeur) => {
-  try {
-    localStorage.setItem(cle, valeur);
-  } catch (e) {
-    // Stockage indisponible (navigation privée) : le compteur repartira au prochain chargement
-  }
-};
+const idsLocaux = (cle) => lire(cle).split(',').filter(Boolean).map(Number);
 
 /** Date d'un élément de l'emploi du temps : ajout ou remplacement */
 const dateEdt = (e) => (instant(e.updated_at) > instant(e.created_at) ? e.updated_at : e.created_at);
@@ -58,9 +49,41 @@ export const NotificationsEtudiantProvider = ({ children }) => {
   const [coursLusJusqua, setCoursLusJusqua] = useState(() => lire(cleCours));
   // Leçons ouvertes une à une (depuis la cloche ou une notification) : elles ne comptent plus comme nouvelles
   const cleVues = `lecons_vues_${userId}`;
-  const [leconsVues, setLeconsVues] = useState(() => lire(cleVues).split(',').filter(Boolean).map(Number));
+  const [leconsVues, setLeconsVues] = useState(() => idsLocaux(cleVues));
   const [ouverture] = useState(() => Date.now());
   const seuil = (lu) => (lu ? instant(lu) : ouverture - RECENT);
+
+  // ---------- Lu sur un autre navigateur ----------
+  // À l'ouverture et à chaque retour sur l'onglet : on reprend ce que le compte a déjà lu.
+  // Ce que ce navigateur avait lu de plus récent (avant cette mise à jour, ou hors ligne) est renvoyé au serveur.
+  useEffect(() => {
+    if (!userId) return undefined;
+    let actif = true;
+    const synchroniser = async () => {
+      const serveur = await chargerLues();
+      if (!actif || !serveur) return;
+      const envoi = {};
+      const notes = fusionnerDate(serveur.notes, cleNotes, setNotesLuesJusqua);
+      const edt = fusionnerDate(serveur.edt, cleEdt, setEdtLuJusqua);
+      const cours = fusionnerDate(serveur.cours, cleCours, setCoursLusJusqua);
+      if (notes) envoi.notes = notes;
+      if (edt) envoi.edt = edt;
+      if (cours) envoi.cours = cours;
+
+      const surServeur = (serveur.lecons_vues || []).map(Number);
+      const locales = idsLocaux(cleVues);
+      const manquantes = locales.filter((id) => !surServeur.includes(id));
+      const toutes = [...new Set([...surServeur, ...locales])].slice(0, 200);
+      ecrire(cleVues, toutes.join(','));
+      setLeconsVues(toutes);
+      if (manquantes.length > 0) envoi.lecons_vues = manquantes;
+
+      enregistrerLues(envoi);
+    };
+    synchroniser();
+    const arreter = surRetourOnglet(synchroniser);
+    return () => { actif = false; arreter(); };
+  }, [userId, cleNotes, cleEdt, cleCours, cleVues]);
 
   // ---------- En direct ----------
   useEffect(
@@ -171,33 +194,35 @@ export const NotificationsEtudiantProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semestresPublies, emplois, lecons, notesLuesJusqua, edtLuJusqua, coursLusJusqua, leconsVues, navigate]);
 
-  // Lu jusqu'à la plus récente reçue (heure du serveur : pas de décalage avec l'horloge du poste)
-  const marquer = (dates, actuel, setter, cle) => {
-    const plusRecente = dates.reduce((max, d) => (instant(d) > instant(max) ? d : max), actuel);
-    if (!plusRecente || plusRecente === actuel) return;
-    setter(plusRecente);
-    ecrire(cle, plusRecente);
+  // Lu jusqu'à la plus récente reçue (heure du serveur : pas de décalage avec l'horloge du poste),
+  // enregistré sur le compte pour les autres navigateurs
+  const marquer = (dates, actuel, setter, cle, cleServeur) => {
+    const nouvelle = dates.reduce((max, d) => plusRecente(max, d), actuel);
+    if (!nouvelle || nouvelle === actuel) return;
+    setter(nouvelle);
+    ecrire(cle, nouvelle);
+    enregistrerLues({ [cleServeur]: nouvelle });
   };
   const marquerNotesLues = useCallback(
-    () => marquer(semestresPublies.map((s) => s.publie_le), notesLuesJusqua, setNotesLuesJusqua, cleNotes),
+    () => marquer(semestresPublies.map((s) => s.publie_le), notesLuesJusqua, setNotesLuesJusqua, cleNotes, 'notes'),
     [semestresPublies, notesLuesJusqua, cleNotes]
   );
   const marquerEdtLu = useCallback(
-    () => marquer(emplois.map(dateEdt), edtLuJusqua, setEdtLuJusqua, cleEdt),
+    () => marquer(emplois.map(dateEdt), edtLuJusqua, setEdtLuJusqua, cleEdt, 'edt'),
     [emplois, edtLuJusqua, cleEdt]
   );
   const marquerCoursLus = useCallback(
-    () => marquer((lecons || []).map((l) => l.publie_le), coursLusJusqua, setCoursLusJusqua, cleCours),
+    () => marquer((lecons || []).map((l) => l.publie_le), coursLusJusqua, setCoursLusJusqua, cleCours, 'cours'),
     [lecons, coursLusJusqua, cleCours]
   );
   const marquerLeconVue = useCallback((id) => {
-    setLeconsVues((vues) => {
-      if (vues.includes(Number(id))) return vues;
-      const suivantes = [Number(id), ...vues].slice(0, 200); // les plus anciennes sont de toute façon déjà lues
-      ecrire(cleVues, suivantes.join(','));
-      return suivantes;
-    });
-  }, [cleVues]);
+    const lecon = Number(id);
+    if (leconsVues.includes(lecon)) return;
+    const suivantes = [lecon, ...leconsVues].slice(0, 200); // les plus anciennes sont de toute façon déjà lues
+    setLeconsVues(suivantes);
+    ecrire(cleVues, suivantes.join(','));
+    enregistrerLues({ lecons_vues: [lecon] });
+  }, [leconsVues, cleVues]);
   const toutMarquerLu = useCallback(() => {
     marquerNotesLues();
     marquerEdtLu();

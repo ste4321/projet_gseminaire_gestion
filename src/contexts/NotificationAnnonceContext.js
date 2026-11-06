@@ -2,26 +2,21 @@
 // - en direct (WebSocket, voir realtime.js) : dès qu'une annonce qui les concerne est publiée, modifiée
 //   ou supprimée, la liste des annonces se met à jour (et une notification s'affiche pour une nouvelle) ;
 // - annonces non lues : celles publiées depuis la dernière visite de la page Annonces
-//   (mémorisé dans ce navigateur), comptées sur la cloche de l'en-tête.
+//   (gardé sur le compte, voir utils/notificationsLues : identique sur tous les navigateurs),
+//   comptées sur la cloche de l'en-tête.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAnnonce } from './AnnonceContext';
 import { useFeedback } from './FeedbackContext';
 import { getRole, getUser } from '../auth/session';
 import { ecouterUtilisateur, onConnectionChange } from '../realtime';
+import { chargerLues, ecrireLocal, enregistrerLues, fusionnerDate, lireLocal, plusRecente, surRetourOnglet } from '../utils/notificationsLues';
 
 const NotificationAnnonceContext = createContext(null);
 const SANS_FOURNISSEUR = { actif: false, nonLues: [], marquerLues: () => {}, ouvrir: () => {} };
 
 const ROLES_NOTIFIES = ['prof', 'etudiant'];
 const cleLecture = (userId) => `annonces_lues_${userId}`;
-const lireDate = (cle) => {
-  try {
-    return localStorage.getItem(cle) || '';
-  } catch (e) {
-    return '';
-  }
-};
 const instant = (iso) => (iso ? new Date(iso).getTime() : 0);
 
 // L'administration publie les annonces : pas de notification (ni de chargement des annonces sur chaque page)
@@ -39,7 +34,21 @@ const Notifications = ({ role, userId, children }) => {
   const { annonces, fetchAnnonces: recharger } = useAnnonce();
   const { notify } = useFeedback();
   const navigate = useNavigate();
-  const [luJusquA, setLuJusquA] = useState(() => lireDate(cleLecture(userId)));
+  const [luJusquA, setLuJusquA] = useState(() => lireLocal(cleLecture(userId)));
+
+  // Lu sur un autre navigateur : repris à l'ouverture et à chaque retour sur l'onglet
+  useEffect(() => {
+    let actif = true;
+    const synchroniser = async () => {
+      const serveur = await chargerLues();
+      if (!actif || !serveur) return;
+      const enRetard = fusionnerDate(serveur.annonces, cleLecture(userId), setLuJusquA);
+      if (enRetard) enregistrerLues({ annonces: enRetard });
+    };
+    synchroniser();
+    const arreter = surRetourOnglet(synchroniser);
+    return () => { actif = false; arreter(); };
+  }, [userId]);
 
   /** Ouvre la page Annonces, et le détail de l'annonce si précisée */
   const ouvrir = useCallback((id) => navigate(pageAnnonces, { state: id ? { annonce: id } : undefined }), [navigate, pageAnnonces]);
@@ -88,14 +97,11 @@ const Notifications = ({ role, userId, children }) => {
   // Date de la plus récente annonce reçue (heure du serveur : pas de décalage avec l'horloge du poste)
   const marquerLues = useCallback(() => {
     if (annonces.length === 0) return;
-    const plusRecente = annonces.reduce((max, a) => (instant(a.created_at) > instant(max) ? a.created_at : max), luJusquA);
-    if (plusRecente === luJusquA) return;
-    setLuJusquA(plusRecente);
-    try {
-      localStorage.setItem(cleLecture(userId), plusRecente);
-    } catch (e) {
-      // Stockage indisponible (navigation privée) : le compteur repartira au prochain chargement
-    }
+    const nouvelle = annonces.reduce((max, a) => plusRecente(max, a.created_at), luJusquA);
+    if (!nouvelle || nouvelle === luJusquA) return;
+    setLuJusquA(nouvelle);
+    ecrireLocal(cleLecture(userId), nouvelle);
+    enregistrerLues({ annonces: nouvelle });
   }, [annonces, luJusquA, userId]);
 
   const valeur = useMemo(() => ({ actif: true, nonLues, marquerLues, ouvrir }), [nonLues, marquerLues, ouvrir]);
