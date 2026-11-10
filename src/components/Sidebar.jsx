@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { getRole } from '../auth/session';
 import { MENUS } from '../navigation';
+import { useMessagesSite } from '../contexts/MessagesSiteContext';
 
 // Ferme le menu en mobile. La classe est posée à deux endroits : sur <body> par le bouton du Header,
 // et sur <html> par le script du thème (assets/js/main.js, branché sur tout .layout-menu-toggle).
@@ -13,6 +14,9 @@ export const closeSidebar = () => {
 
 const Sidebar = () => {
   const menu = MENUS[getRole()] || [];
+  const { compteurs } = useMessagesSite();
+  // Compteurs des liens qui en ont un (navigation.js, « badge »), mis à jour en direct
+  const badges = { messages: compteurs.non_lus };
 
   // Échap ferme le menu mobile
   useEffect(() => {
@@ -60,6 +64,11 @@ const Sidebar = () => {
               >
                 <i className={`menu-icon tf-icons bx ${item.icon}`} aria-hidden="true"></i>
                 <div>{item.label}</div>
+                {badges[item.badge] > 0 && (
+                  <span className="badge rounded-pill bg-danger ms-auto" title={`${badges[item.badge]} non lu${badges[item.badge] > 1 ? 's' : ''}`}>
+                    {badges[item.badge] > 99 ? '99+' : badges[item.badge]}
+                  </span>
+                )}
               </NavLink>
             </li>
           )

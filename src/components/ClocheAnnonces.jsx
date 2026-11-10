@@ -1,38 +1,23 @@
 import React from 'react';
 import { useNotificationsAnnonces } from '../contexts/NotificationAnnonceContext';
 import { useNotificationsEtudiant } from '../contexts/NotificationsEtudiantContext';
+import { useMessagesSite } from '../contexts/MessagesSiteContext';
 import { ilYA } from '../utils/dates';
 
 const MAX_AFFICHEES = 8;
 const instant = (iso) => (iso ? new Date(iso).getTime() : 0);
 
 /**
- * Cloche de l'en-tête : tout ce qui est nouveau depuis la dernière visite, au même endroit.
- * Enseignants : annonces. Étudiants : annonces, notes publiées, emploi du temps mis à jour, nouvelles leçons.
+ * Menu de la cloche (présentation commune).
+ * @param total     nombre de nouveautés (pastille rouge) — peut dépasser la liste chargée
+ * @param elements  [{ cle, icone, titre, detail, quand, ouvrir }], du plus récent au plus ancien
+ * @param toutLu    « Tout lire »
+ * @param pied      { label, onClick } : lien vers la page complète
+ * @param vide      texte quand il n'y a rien de nouveau
  */
-const ClocheAnnonces = () => {
-  const { actif, nonLues, marquerLues, ouvrir } = useNotificationsAnnonces();
-  const { elements: nouveautesEtudiant, toutMarquerLu } = useNotificationsEtudiant();
-  if (!actif) return null;
-
-  const elements = [
-    ...nonLues.map((a) => ({
-      cle: `annonce-${a.id}`,
-      icone: 'bxs-megaphone',
-      titre: a.titre,
-      detail: `Annonce · ${a.expediteur}`,
-      quand: a.created_at,
-      ouvrir: () => ouvrir(a.id),
-    })),
-    ...nouveautesEtudiant,
-  ].sort((a, b) => instant(b.quand) - instant(a.quand));
-
-  const total = elements.length;
+const Cloche = ({ total, elements, toutLu, pied, vide = "Rien de nouveau pour l'instant." }) => {
   const affichees = elements.slice(0, MAX_AFFICHEES);
-  const toutLu = () => {
-    marquerLues();
-    toutMarquerLu();
-  };
+  const autres = total - affichees.length;
 
   return (
     <div className="dropdown">
@@ -66,7 +51,7 @@ const ClocheAnnonces = () => {
         {total === 0 ? (
           <div className="text-center text-muted small px-3 py-4">
             <i className="bx bx-bell-off d-block fs-3 mb-1"></i>
-            Rien de nouveau pour l'instant.
+            {vide}
           </div>
         ) : (
           <ul className="list-unstyled mb-0 gstf-cloche__liste">
@@ -84,14 +69,71 @@ const ClocheAnnonces = () => {
             ))}
           </ul>
         )}
-        {total > MAX_AFFICHEES && (
-          <div className="text-center small text-muted py-2">et {total - MAX_AFFICHEES} autre{total - MAX_AFFICHEES > 1 ? 's' : ''}…</div>
+        {autres > 0 && total > 0 && (
+          <div className="text-center small text-muted py-2">et {autres} autre{autres > 1 ? 's' : ''}…</div>
         )}
-        <button type="button" className="dropdown-item gstf-cloche__pied" onClick={() => ouvrir()}>
-          Voir toutes les annonces
+        <button type="button" className="dropdown-item gstf-cloche__pied" onClick={pied.onClick}>
+          {pied.label}
         </button>
       </div>
     </div>
+  );
+};
+
+/**
+ * Cloche de l'en-tête : tout ce qui est nouveau depuis la dernière visite, au même endroit.
+ * Enseignants : annonces. Étudiants : annonces, notes publiées, emploi du temps mis à jour, nouvelles leçons.
+ * Administration : messages du site (formulaire « Contactez-nous ») pas encore lus, en direct.
+ */
+const ClocheAnnonces = () => {
+  const { actif, nonLues, marquerLues, ouvrir } = useNotificationsAnnonces();
+  const { elements: nouveautesEtudiant, toutMarquerLu } = useNotificationsEtudiant();
+  const messagesSite = useMessagesSite();
+
+  if (messagesSite.actif) {
+    const { nonLus, compteurs } = messagesSite;
+    return (
+      <Cloche
+        total={compteurs.non_lus}
+        elements={nonLus.map((m) => ({
+          cle: `message-${m.id}`,
+          icone: 'bx-envelope',
+          titre: m.name,
+          detail: `Message du site · ${String(m.message || '').replace(/\s+/g, ' ').slice(0, 80)}`,
+          quand: m.created_at,
+          ouvrir: () => messagesSite.ouvrir(m.id),
+        }))}
+        toutLu={messagesSite.toutMarquerLu}
+        pied={{ label: 'Voir tous les messages', onClick: () => messagesSite.ouvrir() }}
+        vide="Aucun nouveau message du site."
+      />
+    );
+  }
+
+  if (!actif) return null;
+
+  const elements = [
+    ...nonLues.map((a) => ({
+      cle: `annonce-${a.id}`,
+      icone: 'bxs-megaphone',
+      titre: a.titre,
+      detail: `Annonce · ${a.expediteur}`,
+      quand: a.created_at,
+      ouvrir: () => ouvrir(a.id),
+    })),
+    ...nouveautesEtudiant,
+  ].sort((a, b) => instant(b.quand) - instant(a.quand));
+
+  return (
+    <Cloche
+      total={elements.length}
+      elements={elements}
+      toutLu={() => {
+        marquerLues();
+        toutMarquerLu();
+      }}
+      pied={{ label: 'Voir toutes les annonces', onClick: () => ouvrir() }}
+    />
   );
 };
 

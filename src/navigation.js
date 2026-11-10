@@ -1,5 +1,6 @@
 // Menus de l'application, par rôle. Source unique pour la barre latérale et le titre des onglets.
 // Une entrée { section } ouvre un groupe ; les autres sont des liens.
+// badge : compteur affiché à côté du lien (voir Sidebar).
 
 export const ROLE_LABELS = {
   admin: 'Administration',
@@ -23,6 +24,7 @@ export const MENUS = {
     { to: '/admin/annonce', label: 'Annonces', icon: 'bx-message-square-dots' },
     { to: '/admin/info', label: 'Actualités du site', icon: 'bx-globe' },
     { to: '/admin/calendrier', label: 'Calendrier académique', icon: 'bx-calendar-event' },
+    { to: '/admin/messages', label: 'Messages du site', icon: 'bx-envelope', badge: 'messages' },
 
     { section: 'Paramètres' },
     { to: '/admin/portal', label: 'Comptes et accès', icon: 'bx-lock-open-alt' },

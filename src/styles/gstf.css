@@ -345,6 +345,17 @@
    sinon ils en sortent, élargissent la page et le téléphone dézoome tout l'écran */
 .table-responsive { position: relative; }
 .gstf-table.is-refreshing tbody { opacity: 0.6; }
+.gstf-messages { transition: opacity 0.2s ease; }
+.gstf-messages.is-refreshing { opacity: 0.6; }
+/* Message arrivé en direct : fond teinté qui s'estompe */
+.gstf-messages .gstf-annonce.is-fresh { animation: gstf-message-frais 6s ease-out; }
+@keyframes gstf-message-frais {
+  0%, 30% { background-color: var(--gstf-primary-soft); }
+  100% { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gstf-messages .gstf-annonce.is-fresh { animation: none; background-color: var(--gstf-primary-soft); }
+}
 
 @keyframes gstf-squelette {
   from { background-position: 200% 0; }

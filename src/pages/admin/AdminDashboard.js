@@ -151,6 +151,16 @@ const tachesAFaire = (stats) => {
       to: '/admin/noteEtudiant', action: 'Publier',
     }));
 
+  const messages = stats.messages_non_lus || 0;
+  if (messages > 0) {
+    taches.push({
+      cle: 'messages', icon: 'bx-envelope', ton: 'info',
+      titre: `${nombre(messages)} message(s) du site non lu(s)`,
+      detail: 'Envoyés depuis « Contactez-nous » sur le site du séminaire',
+      to: '/admin/messages', action: 'Lire',
+    });
+  }
+
   const aActiver = comptes.prof.inactifs + comptes.etudiant.inactifs;
   if (aActiver > 0) {
     taches.push({
