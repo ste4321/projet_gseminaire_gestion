@@ -662,6 +662,36 @@
 .gstf-lien-espace:focus-visible {
   text-decoration-color: currentColor;
 }
+/* Barre du haut (en-tête) figée au défilement, avec son écart habituel.
+   Pendant une consultation, le bandeau ci-dessous est déjà figé en haut : la barre défile normalement. */
+.layout-page > #layout-navbar {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 1030;
+}
+/* Bande au-dessus de la barre (son écart de 0,75rem), couleur du fond de la page :
+   le contenu qui défile disparaît sous la barre au lieu de rester visible, coupé, tout en haut */
+.layout-page > #layout-navbar::before {
+  content: '';
+  position: absolute;
+  left: -1rem;
+  right: -1rem;
+  bottom: 100%;
+  height: calc(0.75rem + 1px);
+  background: var(--bs-body-bg);
+  pointer-events: none;
+}
+.layout-page:has(.gstf-consultation) > #layout-navbar::before {
+  content: none;
+}
+/* Fond plein : le contenu qui défile dessous ne doit pas se lire au travers (le thème le laisse à 95 %) */
+.layout-page > #layout-navbar.bg-navbar-theme {
+  background-color: var(--gstf-surface) !important;
+}
+.layout-page:has(.gstf-consultation) > #layout-navbar {
+  position: relative;
+  top: auto;
+}
 .gstf-consultation {
   position: sticky;
   top: 0;
