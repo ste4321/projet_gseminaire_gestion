@@ -14,7 +14,7 @@
       (function () {
         try {
           var p = localStorage.getItem('gstf-theme');
-          var sombre = p === 'sombre' || ((!p || p === 'systeme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var sombre = p === 'sombre' || (p === 'systeme' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.setAttribute('data-theme-mode', sombre ? 'dark' : 'light');
         } catch (e) {}
       })();

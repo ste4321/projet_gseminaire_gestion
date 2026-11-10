@@ -236,6 +236,8 @@
 .gstf-cloche .gstf-cloche__point { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--gstf-primary); }
 .gstf-cloche .gstf-cloche__pied { padding: 0.65rem 1rem; text-align: center; font-size: 0.85rem; font-weight: 500; color: var(--gstf-primary); }
 .gstf-cloche__compteur { font-size: 0.65rem; margin-top: 0.1rem; }
+/* Choix du thème : ouvert par React (sans Popper), aligné à droite sous le bouton */
+.dropdown-menu.gstf-choix-theme.show { top: 100%; right: 0; left: auto; margin-top: 0.25rem; }
 /* Téléphone : Popper place le menu hors de l'écran (au-dessus et à droite).
    Panneau pleine largeur, posé sous la barre du haut. */
 @media (max-width: 575.98px) {

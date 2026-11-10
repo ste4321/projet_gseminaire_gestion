@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 // Thème de l'application : 'clair', 'sombre' ou 'systeme' (suit le réglage de l'ordinateur / du téléphone).
-// Le choix est gardé dans ce navigateur. Il s'applique par <html data-theme-mode="dark|light">,
+// Par défaut (aucun choix fait) : clair. Le choix est gardé dans ce navigateur. Il s'applique par <html data-theme-mode="dark|light">,
 // que lit styles/sombre.css. public/index.html applique le même choix avant le premier affichage
 // (pas de flash blanc) : garder CLE et la logique alignées avec ce script.
 
@@ -19,9 +19,9 @@ const media = () => (typeof window !== 'undefined' && window.matchMedia ? window
 export const lirePreference = () => {
   try {
     const valeur = localStorage.getItem(CLE_THEME);
-    return THEMES.some((t) => t.valeur === valeur) ? valeur : 'systeme';
+    return THEMES.some((t) => t.valeur === valeur) ? valeur : 'clair';
   } catch {
-    return 'systeme'; // stockage bloqué (navigation privée…) : on suit le système
+    return 'clair'; // stockage bloqué (navigation privée…) : thème par défaut
   }
 };
 
