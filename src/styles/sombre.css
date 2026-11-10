@@ -240,6 +240,7 @@
 [data-theme-mode="dark"] .authentication-wrapper.authentication-basic .authentication-inner::before,
 [data-theme-mode="dark"] .authentication-wrapper.authentication-basic .authentication-inner::after { opacity: 0.25; }
 /* Sans fondu « multiply » (il noircirait l'image) : le blanc de l'image devient un halo autour de la sainte */
+
 [data-theme-mode="dark"] .gstf-login__sainte { mix-blend-mode: normal; opacity: 0.95; }
 
 /* ─── Composants GSTF qui ne passent pas par les variables ─ */

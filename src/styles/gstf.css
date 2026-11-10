@@ -440,7 +440,18 @@
 }
 .min-w-0 { min-width: 0; }
 
+/* Portrait de Sainte Thérèse dans les cartes d'accueil */
+.gstf-avatar-sainte {
+  object-fit: cover;
+  background-color: #fff;
+  border: 2px solid rgba(140, 47, 57, 0.25);
+}
+
 /* ─── Connexion : visuel de Sainte Thérèse + formulaire ─────────────── */
+.gstf-login-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 .authentication-wrapper.authentication-basic .authentication-inner.gstf-login {
   max-width: 860px;
 }
@@ -481,10 +492,16 @@
   font-weight: 600;
 }
 .gstf-login__form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: 2.5rem 2.25rem;
 }
 
 @media (max-width: 767.98px) {
+  .authentication-wrapper.authentication-basic .authentication-inner.gstf-login {
+    max-width: 440px;
+  }
   .gstf-login__card {
     grid-template-columns: 1fr;
   }
@@ -499,6 +516,7 @@
   }
   .gstf-login__sainte {
     width: 72px;
+    flex-shrink: 0;
   }
   .gstf-login__legende {
     font-size: 0.8rem;
@@ -508,6 +526,33 @@
   }
   .gstf-login__form {
     padding: 1.75rem 1.5rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .gstf-login-page {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  /* Place réservée au choix du thème, fixé en haut à droite */
+  .gstf-login-page .authentication-wrapper {
+    padding-top: 4rem;
+    padding-bottom: 1.5rem;
+    align-items: flex-start;
+  }
+  .gstf-login__form {
+    padding: 1.5rem 1.25rem;
+  }
+  .gstf-login__form h4 {
+    font-size: 1.25rem;
+  }
+  /* 16px minimum : évite le zoom automatique d'iOS sur les champs */
+  .gstf-login__form .form-control {
+    font-size: 1rem;
+    min-height: 2.75rem;
+  }
+  .gstf-login__form .btn {
+    min-height: 2.75rem;
   }
 }
 

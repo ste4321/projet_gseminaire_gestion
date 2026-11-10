@@ -4,6 +4,7 @@
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import api from './api/client';
+import { versHoteDeLaPage } from './config';
 
 const KEY = process.env.REACT_APP_REVERB_KEY;
 const SCHEME = process.env.REACT_APP_REVERB_SCHEME || 'https';
@@ -29,7 +30,7 @@ export const getEcho = () => {
     echo = new Echo({
       broadcaster: 'reverb',
       key: KEY,
-      wsHost: process.env.REACT_APP_REVERB_HOST || window.location.hostname,
+      wsHost: versHoteDeLaPage(process.env.REACT_APP_REVERB_HOST || window.location.hostname),
       wsPort: port,
       wssPort: port,
       forceTLS: SCHEME === 'https',

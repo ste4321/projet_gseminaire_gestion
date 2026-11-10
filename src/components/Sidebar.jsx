@@ -21,7 +21,7 @@ const Sidebar = () => {
       <div className="app-brand demo">
         <div className="app-brand-link">
           <span className="app-brand-logo demo">
-            <img src="/images/logo-GS.jpg" alt="" width="40" height="40" />
+            <img src="/images/Sainte.jpg" alt="" width="40" height="40" className="rounded-circle gstf-avatar-sainte" />
           </span>
           <span className="app-brand-text demo menu-text fw-bolder ms-2 gstf-brand">
             GSTF

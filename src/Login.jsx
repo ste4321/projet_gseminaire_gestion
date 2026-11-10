@@ -106,7 +106,7 @@ const Login = () => {
   }
 
   return (
-    <div className="container-xxl">
+    <div className="container-xxl gstf-login-page">
       {/* Thème choisi avant même de se connecter */}
       <ChoixTheme className="position-fixed top-0 end-0 m-3" />
       <div className="authentication-wrapper authentication-basic container-p-y">
@@ -126,14 +126,6 @@ const Login = () => {
               </p>
             </aside>
             <div className="card-body gstf-login__form">
-              <div className="app-brand justify-content-center">
-                <img
-                  src="/images/logo-GS.jpg"
-                  alt="Logo du Grand Séminaire de Théologie Faliarivo"
-                  width="90"
-                  height="90"
-                />
-              </div>
               <h4 className="mb-1 text-center">Espace de gestion GSTF</h4>
               <p className="mb-4 text-center text-muted">Grand Séminaire de Théologie Faliarivo</p>
 
@@ -163,7 +155,9 @@ const Login = () => {
                     id="email"
                     name="email"
                     placeholder="Entrer votre email"
-                    autoFocus
+                    // Sur mobile, le focus automatique ouvrirait le clavier et masquerait le formulaire
+                    autoFocus={window.matchMedia('(pointer: fine)').matches}
+                    inputMode="email"
                     autoComplete="username"
                     autoCorrect="off"
                     autoCapitalize="off"

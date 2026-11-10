@@ -263,7 +263,7 @@ const AdminDashboard = () => {
       {/* Accueil */}
       <div className="card mb-4">
         <div className="card-body d-flex flex-wrap align-items-center gap-3">
-          <img src="/images/logo-GS.jpg" alt="" width="64" height="64" className="rounded-circle" />
+          <img src="/images/Sainte.jpg" alt="Sainte Thérèse de l'Enfant Jésus" width="64" height="64" className="rounded-circle gstf-avatar-sainte flex-shrink-0" />
           <div className="flex-grow-1">
             <h4 className="mb-1">{salutation()}{nomPrenom ? `, ${nomPrenom}` : ''}</h4>
             <p className="mb-0 text-muted">

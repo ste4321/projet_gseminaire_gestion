@@ -56,7 +56,7 @@ const EtudiantDashboard = () => {
       {/* Bienvenue */}
       <div className="card mb-4 gstf-bienvenue">
         <div className="card-body d-flex flex-wrap align-items-center gap-3">
-          <img src="/images/logo-GS.jpg" alt="" width="56" height="56" className="rounded-circle flex-shrink-0" />
+          <img src="/images/Sainte.jpg" alt="Sainte Thérèse de l'Enfant Jésus" width="56" height="56" className="rounded-circle gstf-avatar-sainte flex-shrink-0" />
           <div className="min-w-0 flex-grow-1">
             <p className="text-muted small mb-1">{aujourdhui()}</p>
             <h4 className="mb-1">{salutation()}{nomPrenom ? `, ${nomPrenom}` : ''}</h4>
