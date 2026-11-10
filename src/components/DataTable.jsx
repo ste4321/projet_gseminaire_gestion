@@ -17,6 +17,8 @@ const DataTable = ({
   deleteIcon = 'bx-trash'
 }) => {
   const avecActions = showActions && role === 'admin';
+  // Sur téléphone, chaque ligne devient une fiche (libellé : valeur) au lieu d'un tableau à faire défiler
+  const classeTable = headers.length > 1 ? 'gstf-table-fiches' : '';
 
   if (loading) {
     return (
@@ -58,13 +60,13 @@ const DataTable = ({
   return (
     <div className={`card gstf-table ${refreshing ? 'is-refreshing' : ''}`} aria-busy={refreshing}>
       <div className="table-responsive text-nowrap">
-        <table className="table table-hover">
+        <table className={`table table-hover ${classeTable}`}>
           <thead>
             <tr>
               {headers.map((header, index) => (
                 <th key={index}>{header.label}</th>
               ))}
-              {showActions && role === 'admin' && <th>Actions</th>}
+              {avecActions && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -75,12 +77,12 @@ const DataTable = ({
                 style={{ cursor: onRowClick ? 'pointer' : 'default' }}
               >
                 {headers.map((header, headerIndex) => (
-                  <td key={headerIndex}>
+                  <td key={headerIndex} data-label={header.label}>
                     {renderCell ? renderCell(item, header.field) : item[header.field]}
                   </td>
                 ))}
-                {showActions && role === 'admin' && (
-                  <td className="text-nowrap">
+                {avecActions && (
+                  <td className="text-nowrap gstf-table-fiches__actions">
                     {/* Chaque bouton n'apparaît que si la page fournit l'action correspondante */}
                     {actionLabel && onRowClick && (
                       <button

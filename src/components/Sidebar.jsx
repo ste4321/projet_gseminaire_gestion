@@ -3,8 +3,13 @@ import { NavLink } from 'react-router-dom';
 import { getRole } from '../auth/session';
 import { MENUS } from '../navigation';
 
-// Ferme le menu en mobile (classe ajoutée par le bouton « menu » du Header)
-export const closeSidebar = () => document.body.classList.remove('layout-menu-expanded');
+// Ferme le menu en mobile. La classe est posée à deux endroits : sur <body> par le bouton du Header,
+// et sur <html> par le script du thème (assets/js/main.js, branché sur tout .layout-menu-toggle).
+// Il faut retirer les deux, sinon le menu reste ouvert après avoir choisi une page.
+export const closeSidebar = () => {
+  document.body.classList.remove('layout-menu-expanded');
+  document.documentElement.classList.remove('layout-menu-expanded');
+};
 
 const Sidebar = () => {
   const menu = MENUS[getRole()] || [];

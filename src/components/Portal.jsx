@@ -445,7 +445,7 @@ const Portal = () => {
                   ? Array.from({ length: 6 }, (_, i) => (
                       <tr key={i} aria-hidden="true">
                         <td><span className="gstf-squelette" style={{ width: '1rem', height: '1rem' }} /></td>
-                        <td>
+                        <td className="gstf-comptes__compte">
                           <span className="d-flex align-items-center gap-2">
                             <span className="gstf-squelette rounded-circle" style={{ width: '2.25rem', height: '2.25rem' }} />
                             <span className="d-block">
@@ -456,9 +456,9 @@ const Portal = () => {
                         </td>
                         {role === 'etudiant' && <td className="d-none d-lg-table-cell"><span className="gstf-squelette" style={{ width: '4.5rem', height: '0.8rem' }} /></td>}
                         <td className="d-none d-md-table-cell"><span className="gstf-squelette" style={{ width: '5rem', height: '0.8rem' }} /></td>
-                        <td><span className="gstf-squelette" style={{ width: '5.5rem', height: '1.2rem' }} /></td>
-                        <td><span className="gstf-squelette" style={{ width: '5rem', height: '1.2rem' }} /></td>
-                        <td />
+                        <td className="gstf-comptes__acces"><span className="gstf-squelette" style={{ width: '5.5rem', height: '1.2rem' }} /></td>
+                        <td className="gstf-comptes__mdp"><span className="gstf-squelette" style={{ width: '5rem', height: '1.2rem' }} /></td>
+                        <td className="gstf-comptes__actions" />
                       </tr>
                     ))
                   : visibles.map((u) => {
@@ -471,7 +471,7 @@ const Portal = () => {
                               aria-label={`Sélectionner ${u.nom_prenom || u.email}`}
                               title={estMoi ? 'Votre propre compte ne peut pas être modifié ici' : undefined} />
                           </td>
-                          <td>
+                          <td className="gstf-comptes__compte">
                             <span className="d-flex align-items-center gap-2 min-w-0">
                               <span className={`avatar avatar-sm flex-shrink-0 ${u.en_ligne ? 'avatar-online' : ''}`} title={u.en_ligne ? 'En ligne' : undefined}>
                                 <span className="avatar-initial rounded-circle bg-label-primary">{initiales(u.nom_prenom || u.email)}</span>
@@ -506,7 +506,7 @@ const Portal = () => {
                               <span className="text-muted fst-italic">Jamais connecté</span>
                             )}
                           </td>
-                          <td>
+                          <td className="gstf-comptes__acces">
                             <div className="form-check form-switch mb-0 text-nowrap">
                               <input className="form-check-input" type="checkbox" role="switch" id={`acces-${u.id}`}
                                 checked={!!u.is_verified} onChange={() => basculer(u)} disabled={occupe || estMoi}
@@ -516,7 +516,7 @@ const Portal = () => {
                               </label>
                             </div>
                           </td>
-                          <td className="text-nowrap">
+                          <td className="text-nowrap gstf-comptes__mdp">
                             {u.must_change_password ? (
                               <span className="d-inline-flex align-items-center gap-1">
                                 <span className="gstf-etat gstf-etat--alerte"
@@ -534,7 +534,7 @@ const Portal = () => {
                               <span className="small text-muted">Personnel</span>
                             )}
                           </td>
-                          <td className="text-end text-nowrap">
+                          <td className="text-end text-nowrap gstf-comptes__actions">
                             {!estMoi && (
                               <div className="d-inline-flex gap-1">
                                 {u.role !== 'admin' && (

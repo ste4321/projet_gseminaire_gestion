@@ -236,6 +236,22 @@
 .gstf-cloche .gstf-cloche__point { flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--gstf-primary); }
 .gstf-cloche .gstf-cloche__pied { padding: 0.65rem 1rem; text-align: center; font-size: 0.85rem; font-weight: 500; color: var(--gstf-primary); }
 .gstf-cloche__compteur { font-size: 0.65rem; margin-top: 0.1rem; }
+/* Téléphone : Popper place le menu hors de l'écran (au-dessus et à droite).
+   Panneau pleine largeur, posé sous la barre du haut. */
+@media (max-width: 575.98px) {
+  .dropdown-menu.gstf-cloche.show {
+    position: fixed !important;
+    inset: 5rem 0.75rem auto 0.75rem !important;
+    transform: none !important;
+    width: auto;
+    max-width: none;
+    box-shadow: 0 0.75rem 2rem var(--gstf-ombre);
+  }
+  .gstf-cloche .gstf-cloche__liste { max-height: calc(100dvh - 13rem); }
+  .gstf-cloche .gstf-cloche__item { padding: 0.85rem 1rem; }
+  .gstf-cloche .gstf-cloche__tout-lire { padding: 0.35rem 0; }
+  .gstf-cloche .gstf-cloche__pied { padding: 0.9rem 1rem; }
+}
 
 @keyframes gstf-toast-in {
   from { opacity: 0; transform: translateY(-0.5rem); }
@@ -323,6 +339,9 @@
 }
 /* Tableau en cours d'actualisation (filtre, page, recherche) : les lignes actuelles restent visibles, estompées */
 .gstf-table tbody { transition: opacity 0.2s ease; }
+/* Les textes .visually-hidden (position: absolute) des cellules restent dans la zone qui défile :
+   sinon ils en sortent, élargissent la page et le téléphone dézoome tout l'écran */
+.table-responsive { position: relative; }
 .gstf-table.is-refreshing tbody { opacity: 0.6; }
 
 @keyframes gstf-squelette {
@@ -535,11 +554,9 @@
     padding-right: 0.75rem;
   }
   /* Place réservée au choix du thème, fixé en haut à droite */
-  .gstf-login-page .authentication-wrapper {
-    padding-top: 4rem;
-    padding-bottom: 1.5rem;
-    align-items: flex-start;
-  }
+  /* (le padding de .container-p-y est en !important dans le thème : on passe par la marge de la carte) */
+  .gstf-login-page .authentication-wrapper { align-items: flex-start; }
+  .gstf-login-page .authentication-inner.gstf-login { margin-top: 2.75rem; }
   .gstf-login__form {
     padding: 1.5rem 1.25rem;
   }
@@ -1188,6 +1205,15 @@
 .gstf-edt__fleche:disabled { opacity: 0; pointer-events: none; }
 .gstf-edt__fleche--gauche { left: 0.75rem; }
 .gstf-edt__fleche--droite { right: 0.75rem; }
+.gstf-edt__astuce {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  color: var(--gstf-text-muted);
+  font-size: 0.8rem;
+}
 .gstf-edt__miniatures { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; border-top: 1px solid var(--gstf-border); }
 .gstf-edt__miniature {
   position: relative;
@@ -1215,8 +1241,11 @@
 .gstf-edt__miniature:hover { opacity: 1; }
 .gstf-edt__miniature.is-active { opacity: 1; border-color: var(--gstf-primary); }
 @media (max-width: 575.98px) {
-  .gstf-edt__zone { height: 55vh; }
+  /* Image en paysage : le cadre prend sa hauteur au lieu d'un grand vide autour */
+  .gstf-edt__zone { height: auto; min-height: 12rem; }
+  .gstf-edt__image { height: auto; }
   .gstf-edt__fleche { width: 2.1rem; height: 2.1rem; font-size: 1.3rem; }
+  .gstf-edt__astuce { display: flex; }
 }
 @media (prefers-reduced-motion: reduce) {
   .gstf-edt__image,
@@ -1313,6 +1342,101 @@
   min-width: 1.4rem; padding: 0 0.35rem; border-radius: 1rem;
   background: var(--gstf-badge); color: inherit; font-size: 0.72rem; text-align: center; font-variant-numeric: tabular-nums;
 }
+/* ─── Tableaux sur téléphone : une fiche par ligne au lieu de colonnes à faire défiler ─ */
+@media (max-width: 575.98px) {
+  /* DataTable : « Libellé ............ valeur », la 1re colonne sert de titre */
+  .gstf-table-fiches,
+  .gstf-table-fiches tbody,
+  .gstf-table-fiches tr,
+  .gstf-table-fiches td { display: block; width: 100%; }
+  .gstf-table-fiches thead { display: none; }
+  .gstf-table-fiches tr { padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--gstf-border); }
+  .gstf-table-fiches td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.2rem 0;
+    border: 0;
+    white-space: normal;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .gstf-table-fiches td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--gstf-text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+  }
+  .gstf-table-fiches td:first-child {
+    justify-content: flex-start;
+    padding-bottom: 0.4rem;
+    color: var(--gstf-heading);
+    font-weight: 600;
+    text-align: left;
+  }
+  .gstf-table-fiches td:first-child::before,
+  .gstf-table-fiches td.gstf-table-fiches__actions::before { content: none; }
+  .gstf-table-fiches td.gstf-table-fiches__actions { justify-content: flex-end; padding-top: 0.6rem; }
+
+  /* Comptes et accès : identité en haut, accès / mot de passe / boutons dessous */
+  .gstf-comptes thead th:not(.gstf-comptes__case) { display: none; }
+  .gstf-comptes thead tr { display: flex; }
+  .gstf-comptes,
+  .gstf-comptes thead,
+  .gstf-comptes tbody { display: block; }
+  .gstf-comptes tbody tr {
+    display: grid;
+    grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      "case compte compte"
+      ".    acces  actions"
+      ".    mdp    actions";
+    column-gap: 0.5rem;
+    row-gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--gstf-border);
+  }
+  .gstf-comptes tbody td { padding: 0; border: 0; }
+  .gstf-comptes tbody .gstf-comptes__case { grid-area: case; width: auto; align-self: center; }
+  .gstf-comptes__compte { grid-area: compte; min-width: 0; padding-bottom: 0.25rem !important; }
+  .gstf-comptes__acces { grid-area: acces; }
+  .gstf-comptes__mdp { grid-area: mdp; }
+  .gstf-comptes__actions { grid-area: actions; align-self: center; }
+  .gstf-comptes__action { width: 2.5rem; height: 2.5rem; }
+  .gstf-comptes__nom { max-width: none; }
+
+  /* Réinscriptions : étudiant, résultat, puis décision et niveau côte à côte */
+  .gstf-reinscription { min-width: 0; table-layout: auto; }
+  .gstf-reinscription,
+  .gstf-reinscription tbody { display: block; }
+  .gstf-reinscription colgroup,
+  .gstf-reinscription thead { display: none; }
+  .gstf-reinscription tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.5rem 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--gstf-border);
+  }
+  .gstf-reinscription tr.gstf-reinscription__groupe { display: block; padding: 0; }
+  .gstf-reinscription tr.gstf-reinscription__groupe th { display: block; }
+  .gstf-reinscription td { display: block; padding: 0 !important; border: 0; }
+  .gstf-reinscription td:first-child,
+  .gstf-reinscription td:nth-child(2),
+  .gstf-reinscription td[colspan] { grid-column: 1 / -1; }
+  .gstf-reinscription td:first-child .text-truncate { white-space: normal; }
+  .gstf-reinscription tr.is-corrigee td:first-child { box-shadow: none; }
+  .gstf-reinscription tr.is-corrigee { box-shadow: inset 3px 0 0 var(--gstf-primary); }
+  .gstf-reinscription .form-select-sm,
+  .gstf-reinscription .form-control-sm { font-size: 1rem; min-height: 2.5rem; }
+  .gstf-reinscription td:last-child { align-self: center; }
+}
+
 .gstf-reinscription__pied { position: sticky; bottom: 0; background: var(--gstf-surface); border-top: 1px solid var(--gstf-border); z-index: 2; }
 .gstf-choix {
   display: flex;

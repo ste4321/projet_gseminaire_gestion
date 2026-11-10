@@ -113,6 +113,8 @@
 }
 [data-theme-mode="dark"] .card-header,
 [data-theme-mode="dark"] .card-footer { background-color: transparent; border-color: var(--sombre-bordure); color: var(--sombre-titre); }
+/* Pied collé en bas de l'écran : doit rester opaque, sinon le tableau se lit au travers */
+[data-theme-mode="dark"] .gstf-reinscription__pied { background-color: var(--gstf-surface); }
 /* Carte dans une carte (tableau dans la liste) : pas de second relief */
 [data-theme-mode="dark"] .card .card { box-shadow: none; }
 

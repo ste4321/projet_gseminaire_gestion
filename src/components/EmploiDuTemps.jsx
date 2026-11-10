@@ -331,6 +331,7 @@ const EmploiDuTemps = () => {
     }
 
     return (
+      <>
       <div className="gstf-edt__zone" tabIndex={totalPages > 1 ? 0 : undefined} onKeyDown={naviguerClavier}
         aria-label={totalPages > 1 ? 'Emploi du temps : flèches gauche et droite pour changer de page' : undefined}>
         {isLoading && (
@@ -366,6 +367,11 @@ const EmploiDuTemps = () => {
           </>
         )}
       </div>
+      {/* Téléphone seulement : le tableau est trop petit pour être lu sans zoom */}
+      <p className="gstf-edt__astuce">
+        <i className="bx bx-zoom-in" aria-hidden="true"></i>Touchez l'image pour l'agrandir
+      </p>
+      </>
     );
   })();
 
