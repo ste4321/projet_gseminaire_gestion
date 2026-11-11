@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import api, { errorMessage } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
-import { useAnnee } from '../contexts/AnneeContext';
-import useParcoursPagines from '../hooks/useParcoursPagines';
-import { useNiveau } from '../contexts/NiveauContext';
-import { trierNiveaux, libelleNiveau } from '../utils/niveaux';
+import useFiltresInscriptions from '../hooks/useFiltresInscriptions';
+import { getRole } from '../auth/session';
+import { libelleNiveau } from '../utils/niveaux';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -17,6 +16,19 @@ import { telechargerBulletin } from '../utils/bulletin';
 import { releveEnDirect } from '../utils/moyenne';
 import BoutonCopier from './BoutonCopier';
 import { ouvrirEspace } from '../auth/consultation';
+
+// Relevés préparés au survol d'une ligne : la fenêtre « Notes de … » s'ouvre déjà remplie.
+// Fraîcheur courte : au-delà, le relevé est relu (des notes ont pu être saisies ailleurs entre-temps).
+const FRAICHEUR_RELEVE = 30 * 1000;
+const relevesPrets = new Map(); // id d'inscription → { promesse, date }
+const lireReleve = (parcoursId, { neuf = false } = {}) => {
+  const deja = relevesPrets.get(parcoursId);
+  if (!neuf && deja && Date.now() - deja.date < FRAICHEUR_RELEVE) return deja.promesse;
+  const promesse = api.get(`/notes/releve/${parcoursId}`).then((res) => res.data);
+  promesse.catch(() => relevesPrets.delete(parcoursId)); // échec : le prochain essai relira
+  relevesPrets.set(parcoursId, { promesse, date: Date.now() });
+  return promesse;
+};
 
 /** Relevé en cours de chargement : même structure que les semestres affichés ensuite */
 const SqueletteReleve = () => (
@@ -56,19 +68,19 @@ const SqueletteReleve = () => (
 
 const NoteEtudiant = () => {
   const { notify, confirm } = useFeedback();
-  const { niveaux, loading: loadingNiveaux } = useNiveau();
-  const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
   const [selectedFile, setSelectedFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importLoading, setImportLoading] = useState(false);
-  // États pour les filtres
-  // Année la plus récente choisie dès le premier rendu si les années sont déjà en mémoire (pas de squelette au retour sur la page)
-  const [selectedAnnee, setSelectedAnnee] = useState(() =>
-    anneesListe.length > 0 ? String(Math.max(...anneesListe.map(a => a.id))) : ''
-  );
-  const [niveau, setNiveau] = useState('L1'); // code du niveau (table `niveaux`), L1 par défaut
-  const [searchTerm, setSearchTerm] = useState('');
+
+  const itemsPerPage = 10;
+  // Année, niveau, page et recherche (gardés dans l'adresse) + liste paginée par le serveur
+  const {
+    annees, anneesListe, loadingAnnees, niveaux, niveauxTries, loadingNiveaux,
+    selectedAnnee, anneeAffichee, niveau, searchTerm, currentPage, setCurrentPage,
+    handleSearchChange, handleNiveauChange, handleAnneeChange,
+    lignes, total, pages: totalPages, chargement, attente, actualisation, erreur: erreurListe, recharger,
+  } = useFiltresInscriptions({ parPage: itemsPerPage });
 
   // États de la fenêtre « Notes de … » : relevé calculé par le serveur + valeurs en cours de saisie
   const [selectedEtudiant, setSelectedEtudiant] = useState(null);
@@ -80,13 +92,7 @@ const NoteEtudiant = () => {
   const [savingNotes, setSavingNotes] = useState(false);
   const [versionNotes, setVersionNotes] = useState(0); // rafraîchit le panneau de publication
 
-  // État pour la pagination
-  // État pour la pagination
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 10;
-
-  // État pour le rôle
-  const [role] = useState(localStorage.getItem('role'));
+  const role = getRole();
   const niveauCourant = niveaux.find((n) => n.niveau === niveau);
 
   // Remise à zéro quand la fenêtre des notes se ferme (bouton, Échap désactivé, etc.)
@@ -103,23 +109,6 @@ const NoteEtudiant = () => {
     el.addEventListener('hidden.bs.modal', reinitialiser);
     return () => el.removeEventListener('hidden.bs.modal', reinitialiser);
   });
-
-  // Année affichée par défaut : la plus récente
-  const annees = [...anneesListe].sort((a, b) => b.id - a.id);
-  useEffect(() => {
-    if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
-  }, [annees, selectedAnnee]);
-
-  // Niveaux de la base, dans l'ordre (L1, L2, L3, M1…) ; si L1 n'existe pas, le premier niveau est affiché
-  const niveauxTries = trierNiveaux(niveaux);
-  useEffect(() => {
-    if (niveauxTries.length > 0 && !niveauxTries.some(n => n.niveau === niveau)) setNiveau(niveauxTries[0].niveau);
-  }, [niveauxTries, niveau]);
-
-  // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
-  const { lignes, total, pages: totalPages, premierChargement, attente, actualisation, erreur: erreurListe, recharger } =
-    useParcoursPagines({ annee: selectedAnnee, niveau, recherche: searchTerm, page: currentPage, parPage: itemsPerPage });
-  const chargement = premierChargement && !erreurListe && (loadingAnnees || anneesListe.length > 0);
 
   const currentEtudiants = lignes.map(parcours => {
     const etu = parcours.etudiant;
@@ -145,31 +134,15 @@ const NoteEtudiant = () => {
     { label: 'Niveau', field: 'niveau' }
   ];
 
-  // Handlers
-  const handleSearchChange = (value) => {
-    setSearchTerm(value);
-    setCurrentPage(0);
-  };
-
-  const handleNiveauChange = (newNiveau) => {
-    setNiveau(newNiveau);
-    setCurrentPage(0);
-  };
-
-  const handleAnneeChange = (newAnnee) => {
-    setSelectedAnnee(newAnnee);
-    setCurrentPage(0);
-  };
-
   const notesModal = () => window.bootstrap.Modal.getOrCreateInstance(document.getElementById('notesModal'));
 
-  const chargerReleve = async (parcoursId) => {
-    const res = await api.get(`/notes/releve/${parcoursId}`);
+  const chargerReleve = async (parcoursId, options) => {
+    const donnees = await lireReleve(parcoursId, options);
     const valeurs = {};
-    res.data.semestres.forEach((s) => s.matieres.forEach((m) => {
+    donnees.semestres.forEach((s) => s.matieres.forEach((m) => {
       valeurs[m.id] = m.note === null ? '' : String(m.note);
     }));
-    setReleve(res.data);
+    setReleve(donnees);
     setSaisie(valeurs);
     setModifie(false);
   };
@@ -190,6 +163,15 @@ const NoteEtudiant = () => {
     }
   };
 
+  // Survol d'une ligne (ou focus clavier) : relevé préparé si la souris s'y arrête un instant
+  const survol = useRef(null);
+  useEffect(() => () => clearTimeout(survol.current), []);
+  const preparerReleve = (etudiant) => {
+    clearTimeout(survol.current);
+    if (!etudiant.parcours_id) return;
+    survol.current = setTimeout(() => lireReleve(etudiant.parcours_id).catch(() => {}), 120);
+  };
+
   // Moyennes et résultats recalculés à chaque frappe, sans attendre l'enregistrement
   const direct = useMemo(() => (releve ? releveEnDirect(releve, saisie) : null), [releve, saisie]);
   const notesInvalides = direct?.invalides.size > 0;
@@ -207,7 +189,7 @@ const NoteEtudiant = () => {
         etudiant_parcours_id: selectedEtudiant.parcours_id,
         notes: Object.entries(saisie).map(([id, note]) => ({ id_matiere: Number(id), note: note === '' ? null : note })),
       });
-      await chargerReleve(selectedEtudiant.parcours_id);
+      await chargerReleve(selectedEtudiant.parcours_id, { neuf: true });
       setVersionNotes((v) => v + 1);
       notify.success('Notes enregistrées. Moyenne et résultat recalculés.');
     } catch (error) {
@@ -298,8 +280,7 @@ const NoteEtudiant = () => {
       const response = await api.post("/notes/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (progressEvent) => {
-          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percent);
+          if (progressEvent.total) setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
         },
       });
 
@@ -311,13 +292,12 @@ const NoteEtudiant = () => {
         notify.success(response.data.message, { title: 'Import terminé' });
       }
       setVersionNotes((v) => v + 1);
+      relevesPrets.clear(); // des notes ont changé : les relevés préparés sont périmés
 
       // Fermer le modal et rafraîchir
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('importNotesModal'));
       if (modal) modal.hide();
       } catch (err) {
-      console.error("Erreur lors de l'importation :", err);
-
       // Afficher un message d'erreur plus détaillé
       notify.error(errorMessage(err, "Erreur lors de l'importation. Vérifiez le format du fichier et réessayez."), { title: 'Import impossible' });
     } finally {
@@ -333,8 +313,8 @@ const NoteEtudiant = () => {
       return;
     }
     try {
-      const res = await api.get(`/notes/releve/${selectedEtudiant.parcours_id}`);
-      await telechargerBulletin(res.data);
+      // Relevé affiché = notes enregistrées (relu après chaque enregistrement) : inutile de le redemander
+      await telechargerBulletin(releve || await lireReleve(selectedEtudiant.parcours_id, { neuf: true }));
       notify.success("Bulletin PDF téléchargé (notes enregistrées uniquement).");
     } catch (error) {
       notify.error(errorMessage(error, "Le bulletin PDF n'a pas pu être généré."));
@@ -406,10 +386,8 @@ const NoteEtudiant = () => {
             <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '11rem', height: '1rem' }} aria-hidden="true" />
           ) : (
             <>
-              {selectedAnnee && annees.find(a => String(a.id) === String(selectedAnnee)) && (
-                <span className="text-muted ms-2">
-                  - {annees.find(a => String(a.id) === String(selectedAnnee))?.annee_aca}
-                </span>
+              {anneeAffichee && (
+                <span className="text-muted ms-2">- {anneeAffichee.annee_aca}</span>
               )}
               {!erreurListe && (actualisation ? (
                 // Effectif d'un autre filtre en attente de la réponse : squelette plutôt qu'un nombre périmé
@@ -501,16 +479,18 @@ const NoteEtudiant = () => {
                 )}
 
                 {/* Barre de progression */}
-                {importLoading && uploadProgress > 0 && (
-                  <div className="mb-3 mt-3">
+                {importLoading && (
+                  <div className="mb-3 mt-3" role="status" aria-live="polite">
                     <div className="d-flex justify-content-between align-items-center mb-1">
-                      <small className="text-muted">Progression</small>
-                      <small className="text-muted">{uploadProgress}%</small>
+                      <small className="text-muted">
+                        {uploadProgress < 100 ? 'Envoi du fichier…' : 'Fichier envoyé · enregistrement des notes…'}
+                      </small>
+                      {uploadProgress < 100 && <small className="text-muted">{uploadProgress}%</small>}
                     </div>
                     <div className="progress" style={{ height: '8px' }}>
                       <div
                         className="progress-bar progress-bar-striped progress-bar-animated"
-                        style={{ width: `${uploadProgress}%` }}
+                        style={{ width: `${uploadProgress < 100 ? Math.max(uploadProgress, 3) : 100}%` }}
                       ></div>
                     </div>
                   </div>
@@ -585,6 +565,7 @@ const NoteEtudiant = () => {
           headers={tableHeaders}
           data={currentEtudiants}
           onRowClick={openNotesModal}
+          onRowSurvol={preparerReleve}
           role={role}
           loading={chargement}
           refreshing={actualisation}

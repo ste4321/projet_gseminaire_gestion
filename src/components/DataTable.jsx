@@ -4,6 +4,7 @@ const DataTable = ({
   headers,
   data,
   onRowClick,
+  onRowSurvol, // souris arrêtée sur une ligne ou focus clavier : permet de préparer ce que le clic ouvrira
   onEdit,
   onDelete,
   showActions = true,
@@ -74,6 +75,9 @@ const DataTable = ({
               <tr
                 key={item.id || index}
                 onClick={() => onRowClick && onRowClick(item)}
+                onMouseEnter={onRowSurvol && (() => onRowSurvol(item))}
+                onFocus={onRowSurvol && (() => onRowSurvol(item))}
+                onTouchStart={onRowSurvol && (() => onRowSurvol(item))}
                 style={{ cursor: onRowClick ? 'pointer' : 'default' }}
               >
                 {headers.map((header, headerIndex) => (
