@@ -14,6 +14,34 @@ const memoriser = (cle, valeur) => {
   if (memoire.size > TAILLE_MEMOIRE) memoire.delete(memoire.keys().next().value);
 };
 
+// Clé de mémoire d'une combinaison de filtres (le jeton évite de servir la liste d'une autre session)
+const cleDe = (annee, niveau, terme, page, parPage) =>
+  JSON.stringify([localStorage.getItem('token'), annee, niveau, terme, page, parPage]);
+
+const lire = (params, signal) =>
+  api.get('/etudiant_parcours', { params, signal }).then((res) => ({
+    lignes: res.data.data,
+    total: res.data.total,
+    pages: res.data.last_page,
+  }));
+
+/**
+ * Prépare en arrière-plan une page qui sera probablement demandée (page suivante, autre niveau) :
+ * elle s'affichera alors sans attente. Sans effet si elle est déjà en mémoire ou en cours.
+ */
+const enVol = new Set();
+export const prechargerParcours = ({ annee, niveau, recherche = '', page = 0, parPage = 10 }) => {
+  if (!annee) return;
+  const terme = recherche.trim();
+  const cle = cleDe(annee, niveau, terme, page, parPage);
+  if (memoire.has(cle) || enVol.has(cle)) return;
+  enVol.add(cle);
+  lire({ annee, niveau, q: terme || undefined, page: page + 1, per_page: parPage })
+    .then((valeur) => memoriser(cle, valeur))
+    .catch(() => {}) // simple anticipation : la page sera chargée normalement à l'ouverture
+    .finally(() => enVol.delete(cle));
+};
+
 const DELAI_RECHERCHE = 300; // ms sans frappe avant d'interroger le serveur
 const DELAI_ESTOMPAGE = 250; // ms d'attente avant d'estomper les anciennes lignes
 
@@ -34,7 +62,7 @@ const useDiffere = (valeur, delai) => {
  */
 const useParcoursPagines = ({ annee, niveau, recherche = '', page = 0, parPage = 10 }) => {
   const terme = useDiffere(recherche.trim(), DELAI_RECHERCHE);
-  const cle = JSON.stringify([localStorage.getItem('token'), annee, niveau, terme, page, parPage]);
+  const cle = cleDe(annee, niveau, terme, page, parPage);
 
   // Chaque résultat garde la clé de filtres qui l'a produit : on sait ainsi si les lignes affichées
   // correspondent au choix actuel (rafraîchissement silencieux) ou à l'ancien (lignes estompées).
@@ -49,13 +77,8 @@ const useParcoursPagines = ({ annee, niveau, recherche = '', page = 0, parPage =
 
     const controle = new AbortController(); // une frappe ou un filtre plus récent annule la requête en cours
     setErreur(null);
-    api
-      .get('/etudiant_parcours', {
-        params: { annee, niveau, q: terme || undefined, page: page + 1, per_page: parPage },
-        signal: controle.signal,
-      })
-      .then((res) => {
-        const valeur = { lignes: res.data.data, total: res.data.total, pages: res.data.last_page };
+    lire({ annee, niveau, q: terme || undefined, page: page + 1, per_page: parPage }, controle.signal)
+      .then((valeur) => {
         memoriser(cle, valeur);
         setResultat({ cle, ...valeur });
       })
@@ -87,6 +110,7 @@ const useParcoursPagines = ({ annee, niveau, recherche = '', page = 0, parPage =
   // Après un ajout, une modification, une suppression ou un import : tout ce qui est en mémoire est périmé
   const recharger = useCallback(() => {
     memoire.clear();
+    enVol.clear();
     setVersion((v) => v + 1);
   }, []);
 

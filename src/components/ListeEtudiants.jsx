@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import api, { errorMessage as messageErreur } from '../api/client';
 import { useFeedback } from '../contexts/FeedbackContext';
 import { useAnnee } from '../contexts/AnneeContext';
-import useParcoursPagines from '../hooks/useParcoursPagines';
+import useParcoursPagines, { prechargerParcours } from '../hooks/useParcoursPagines';
 
 // Import des composants modulaires
 import SearchBar from './SearchBar';
@@ -21,6 +21,7 @@ import { prechargerExcel, telechargerIdentifiants } from '../utils/identifiants'
 import BoutonCopier from './BoutonCopier';
 import { ouvrirEspace } from '../auth/consultation';
 import { useNiveau } from '../contexts/NiveauContext';
+import { getRole } from '../auth/session';
 import { trierNiveaux, libelleNiveau, optionsNiveaux } from '../utils/niveaux';
 
 const ListeEtudiant = () => {
@@ -28,13 +29,37 @@ const ListeEtudiant = () => {
   const { annees: anneesListe, loading: loadingAnnees } = useAnnee();
   const { niveaux, loading: loadingNiveaux } = useNiveau();
 
-  // États pour les filtres
-  // Année la plus récente choisie dès le premier rendu si les années sont déjà en mémoire (pas de squelette au retour sur la page)
-  const [selectedAnnee, setSelectedAnnee] = useState(() =>
-    anneesListe.length > 0 ? String(Math.max(...anneesListe.map(a => a.id))) : ''
-  );
-  const [niveau, setNiveau] = useState('L1'); // code du niveau (table `niveaux`), L1 par défaut
-  const [searchTerm, setSearchTerm] = useState('');
+  // Filtres gardés dans l'adresse (?annee=2&niveau=L2&page=3&q=jean) : au retour sur la page
+  // (après une fiche, la page Notes, un rafraîchissement…), on retrouve la même liste au même endroit
+  const [params, setParams] = useSearchParams();
+  const majFiltres = (valeurs) =>
+    setParams((avant) => {
+      const p = new URLSearchParams(avant);
+      Object.entries(valeurs).forEach(([cle, valeur]) => {
+        const vide = valeur === '' || valeur === null || valeur === undefined || (cle === 'page' && valeur === 1);
+        if (vide) p.delete(cle);
+        else p.set(cle, String(valeur));
+      });
+      return p;
+    }, { replace: true });
+
+  // Année affichée par défaut : la plus récente
+  const annees = useMemo(() => [...anneesListe].sort((a, b) => b.id - a.id), [anneesListe]);
+  const selectedAnnee = params.get('annee') || (annees.length > 0 ? String(annees[0].id) : '');
+  const anneeAffichee = annees.find(a => String(a.id) === selectedAnnee);
+
+  // Niveaux de la base, dans l'ordre (L1, L2, L3, M1…) ; si le niveau demandé n'existe pas, le premier est affiché
+  const niveauxTries = useMemo(() => trierNiveaux(niveaux), [niveaux]);
+  const niveauDemande = params.get('niveau') || 'L1';
+  const niveau = niveauxTries.length === 0 || niveauxTries.some(n => n.niveau === niveauDemande)
+    ? niveauDemande
+    : niveauxTries[0].niveau;
+
+  const currentPage = Math.max(0, (parseInt(params.get('page'), 10) || 1) - 1);
+  const setCurrentPage = (page) => majFiltres({ page: page + 1 });
+
+  // Saisie immédiate dans le champ ; l'adresse et la requête suivent (requête différée de 300 ms)
+  const [searchTerm, setSearchTerm] = useState(() => params.get('q') || '');
 
   // États pour les modales
   const [editEtudiant, setEditEtudiant] = useState(null);
@@ -56,24 +81,8 @@ const ListeEtudiant = () => {
   const [loadingImport, setLoadingImport] = useState(false);
   const [identifiants, setIdentifiants] = useState(null); // mot de passe provisoire à afficher une fois
 
-  // État pour la pagination
-  const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 10;
-
-  // État pour le rôle
-  const [role, setRole] = useState(localStorage.getItem('role'));
-
-  // Année affichée par défaut : la plus récente
-  const annees = [...anneesListe].sort((a, b) => b.id - a.id);
-  useEffect(() => {
-    if (!selectedAnnee && annees.length > 0) setSelectedAnnee(String(annees[0].id));
-  }, [annees, selectedAnnee]);
-
-  // Niveaux de la base, dans l'ordre (L1, L2, L3, M1…) ; si L1 n'existe pas, le premier niveau est affiché
-  const niveauxTries = trierNiveaux(niveaux);
-  useEffect(() => {
-    if (niveauxTries.length > 0 && !niveauxTries.some(n => n.niveau === niveau)) setNiveau(niveauxTries[0].niveau);
-  }, [niveauxTries, niveau]);
+  const role = getRole();
 
   // Filtrage, recherche et pagination faits par le serveur : seule la page affichée est chargée
   const { lignes, total, pages: totalPages, premierChargement, attente, actualisation, erreur: erreurListe, recharger } =
@@ -83,7 +92,26 @@ const ListeEtudiant = () => {
   // Page devenue vide (suppression du dernier étudiant de la page) : retour à la dernière page existante
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages - 1) setCurrentPage(totalPages - 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalPages, currentPage]);
+
+  // Anticipation : une fois la page affichée, la page suivante et les autres niveaux sont préparés
+  // en arrière-plan ; « Suivant » et le changement d'onglet L1 / L2 / L3 s'affichent alors sans attente.
+  useEffect(() => {
+    if (attente || erreurListe || !selectedAnnee) return undefined;
+    const t = setTimeout(() => {
+      const base = { annee: selectedAnnee, parPage: itemsPerPage };
+      if (currentPage + 1 < totalPages) {
+        prechargerParcours({ ...base, niveau, recherche: searchTerm, page: currentPage + 1 });
+      }
+      if (!searchTerm.trim()) {
+        niveauxTries
+          .filter(n => n.niveau !== niveau)
+          .forEach(n => prechargerParcours({ ...base, niveau: n.niveau, page: 0 }));
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [attente, erreurListe, selectedAnnee, niveau, searchTerm, currentPage, totalPages, niveauxTries]);
 
   const currentEtudiants = lignes.map(parcours => {
     const etu = parcours.etudiant;
@@ -126,18 +154,13 @@ const ListeEtudiant = () => {
   // Handlers
   const handleSearchChange = (value) => {
     setSearchTerm(value);
-    setCurrentPage(0);
+    majFiltres({ q: value.trim(), page: 1 });
   };
 
-  const handleNiveauChange = (newNiveau) => {
-    setNiveau(newNiveau);
-    setCurrentPage(0);
-  };
+  const handleNiveauChange = (newNiveau) => majFiltres({ niveau: newNiveau === 'L1' ? '' : newNiveau, page: 1 });
 
-  const handleAnneeChange = (newAnnee) => {
-    setSelectedAnnee(newAnnee);
-    setCurrentPage(0);
-  };
+  const handleAnneeChange = (newAnnee) =>
+    majFiltres({ annee: annees.length > 0 && newAnnee === String(annees[0].id) ? '' : newAnnee, page: 1 });
 
   const handleFormChange = (field, value, isEdit = false) => {
     if (isEdit) {
@@ -171,10 +194,7 @@ const ListeEtudiant = () => {
         niveau: ''
       });
 
-      // 🔹 Recharger les données du contexte
       recharger();
-
-      console.log("Étudiant ajouté avec succès et données rechargées");
 
     } catch (error) {
       if ([409, 422].includes(error.response?.status)) {
@@ -234,7 +254,8 @@ const ListeEtudiant = () => {
   };
 
   // Fonction handleImport améliorée pour ListeEtudiant.jsx
-  const handleImport = async (file) => {
+  // onProgression : pourcentage d'envoi du fichier, affiché dans la fenêtre d'import
+  const handleImport = async (file, onProgression) => {
     setLoadingImport(true);
     prechargerExcel().catch(() => {}); // prêt à l'arrivée des identifiants, pendant l'envoi du fichier
     const formData = new FormData();
@@ -250,10 +271,7 @@ const ListeEtudiant = () => {
           },
           timeout: 300000,
           onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            console.log(`Upload: ${percentCompleted}%`);
+            if (progressEvent.total) onProgression?.(Math.round((progressEvent.loaded * 100) / progressEvent.total));
           }
         }
       );
@@ -288,14 +306,9 @@ const ListeEtudiant = () => {
       const modal = window.bootstrap.Modal.getInstance(document.getElementById('importModal'));
       if (modal) modal.hide();
 
-      // 🔹 Recharger les données du contexte
       recharger();
 
-      console.log("Import terminé et données rechargées");
-
     } catch (error) {
-      console.error("Erreur lors de l'import :", error.response?.data, error);
-
       let errorMessage = "Erreur lors de l'import du fichier";
 
       if (error.response?.data?.message) {
@@ -438,10 +451,8 @@ const ListeEtudiant = () => {
             <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '11rem', height: '1rem' }} aria-hidden="true" />
           ) : (
             <>
-              {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
-                <span className="text-muted ms-2">
-                  - {annees.find(a => a.id == selectedAnnee)?.annee_aca}
-                </span>
+              {anneeAffichee && (
+                <span className="text-muted ms-2">- {anneeAffichee.annee_aca}</span>
               )}
               {!erreurListe && (actualisation ? (
                 // Effectif d'un autre filtre en attente de la réponse : squelette plutôt qu'un nombre périmé
@@ -526,9 +537,7 @@ const ListeEtudiant = () => {
         {!chargement && !erreurListe && !attente && currentEtudiants.length === 0 && (
           <div className="text-center py-4 text-warning">
             Aucun étudiant trouvé pour {niveau}
-            {selectedAnnee && annees.find(a => a.id == selectedAnnee) && (
-              <span> en {annees.find(a => a.id == selectedAnnee)?.annee_aca}</span>
-            )}
+            {anneeAffichee && <span> en {anneeAffichee.annee_aca}</span>}
           </div>
         )}
 

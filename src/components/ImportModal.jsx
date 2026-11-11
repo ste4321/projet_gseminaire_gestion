@@ -148,23 +148,32 @@ const ImportModal = ({ modalId, title, onImport, loading, acceptedFormats = ".cs
                 </div>
               )}
 
-              {/* Barre de progression */}
-              {loading && uploadProgress > 0 && (
-                <div className="mb-3">
+              {/* Progression : envoi du fichier, puis traitement par le serveur (création des comptes…) */}
+              {loading && (
+                <div className="mb-3" role="status" aria-live="polite">
                   <div className="d-flex justify-content-between align-items-center mb-1">
-                    <small className="text-muted">Progression de l'import</small>
-                    <small className="text-muted">{uploadProgress}%</small>
+                    <small className="text-muted">
+                      {uploadProgress < 100
+                        ? 'Envoi du fichier…'
+                        : 'Fichier envoyé · enregistrement des étudiants et création des comptes…'}
+                    </small>
+                    {uploadProgress < 100 && <small className="text-muted">{uploadProgress}%</small>}
                   </div>
                   <div className="progress" style={{ height: '8px' }}>
-                    <div 
-                      className="progress-bar progress-bar-striped progress-bar-animated" 
-                      role="progressbar" 
-                      style={{ width: `${uploadProgress}%` }}
-                      aria-valuenow={uploadProgress} 
-                      aria-valuemin="0" 
+                    <div
+                      className="progress-bar progress-bar-striped progress-bar-animated"
+                      role="progressbar"
+                      style={{ width: `${uploadProgress < 100 ? Math.max(uploadProgress, 3) : 100}%` }}
+                      aria-valuenow={uploadProgress}
+                      aria-valuemin="0"
                       aria-valuemax="100"
                     ></div>
                   </div>
+                  {uploadProgress >= 100 && (
+                    <small className="text-muted d-block mt-1">
+                      Cela peut prendre quelques secondes : gardez cette fenêtre ouverte.
+                    </small>
+                  )}
                 </div>
               )}
 
