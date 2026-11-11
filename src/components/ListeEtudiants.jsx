@@ -17,7 +17,7 @@ import SortieEtudiant from './SortieEtudiant';
 import { dateCourte, libelleStatut } from '../utils/parcours';
 import ImportModal from './ImportModal';
 import MotDePasseProvisoire from './MotDePasseProvisoire';
-import { telechargerIdentifiants } from '../utils/identifiants';
+import { prechargerExcel, telechargerIdentifiants } from '../utils/identifiants';
 import BoutonCopier from './BoutonCopier';
 import { ouvrirEspace } from '../auth/consultation';
 import { useNiveau } from '../contexts/NiveauContext';
@@ -236,6 +236,7 @@ const ListeEtudiant = () => {
   // Fonction handleImport améliorée pour ListeEtudiant.jsx
   const handleImport = async (file) => {
     setLoadingImport(true);
+    prechargerExcel().catch(() => {}); // prêt à l'arrivée des identifiants, pendant l'envoi du fichier
     const formData = new FormData();
     formData.append('file', file);
 
@@ -269,7 +270,7 @@ const ListeEtudiant = () => {
       // Identifiants provisoires des nouveaux comptes : fichier Excel téléchargé chez l'admin uniquement
       const comptes = response.data.comptes || [];
       if (comptes.length > 0) {
-        telechargerIdentifiants(comptes, `identifiants_${file.name.replace(/\.(xlsx|xls|csv)$/i, '')}.xlsx`);
+        await telechargerIdentifiants(comptes, `identifiants_${file.name.replace(/\.(xlsx|xls|csv)$/i, '')}.xlsx`);
         notify.info(
           `${comptes.length} compte(s) créé(s) : le fichier des mots de passe provisoires a été téléchargé.\n` +
           'Il ne pourra pas être régénéré : conservez-le en lieu sûr et supprimez-le après distribution.',

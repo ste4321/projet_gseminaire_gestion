@@ -40,11 +40,12 @@
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Connexion au serveur de l'API ouverte d'avance (gagne la négociation DNS + TLS de la première requête) -->
+    <link rel="preconnect" href="%REACT_APP_API_URL%" crossorigin />
+    <!-- Police chargée sans bloquer l'affichage (italique : seulement 400, la seule utilisée) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" /></noscript>
 
     <!-- Icons -->
     <link rel="stylesheet" href="%PUBLIC_URL%/assets/vendor/fonts/boxicons.css" />
@@ -67,15 +68,12 @@
       rel="stylesheet"
       href="%PUBLIC_URL%/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css"
     />
-    <link
-      rel="stylesheet"
-      href="%PUBLIC_URL%/assets/vendor/libs/apex-charts/apex-charts.css"
-    />
     <link rel="stylesheet" href="%PUBLIC_URL%/assets/vendor/css/pages/page-auth.css" />
 
     <!-- Helpers -->
-    <script src="%PUBLIC_URL%/assets/vendor/js/helpers.js"></script>
-    <script src="%PUBLIC_URL%/assets/js/config.js"></script>
+    <!-- defer : n'empêchent plus l'affichage ; exécutés dans l'ordre, avant l'application -->
+    <script defer src="%PUBLIC_URL%/assets/vendor/js/helpers.js"></script>
+    <script defer src="%PUBLIC_URL%/assets/js/config.js"></script>
   </head>
   <body>
     <div id="root"></div>
@@ -95,7 +93,5 @@
     <!-- Page JS -->
     <!-- <script src="%PUBLIC_URL%/assets/js/dashboards-analytics.js"></script> -->
 
-    <!-- GitHub Buttons -->
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
   </body>
 </html>

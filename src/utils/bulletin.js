@@ -1,8 +1,9 @@
 // Bulletin de notes (PDF), généré à partir du relevé calculé par le serveur :
 // GET /api/etudiant/releve (étudiant) ou GET /api/notes/releve/{parcours} (administration).
 // Utilisé par l'espace étudiant et par la page Notes de l'administration : un seul format, un seul calcul.
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// jsPDF est volumineux : il n'est téléchargé qu'au premier bulletin généré, pas à l'ouverture de l'application.
+const chargerPdf = () =>
+  Promise.all([import('jspdf'), import('jspdf-autotable')]).then(([{ jsPDF }, { default: autoTable }]) => ({ jsPDF, autoTable }));
 
 const BORDEAUX = [140, 47, 57];
 const OR = [201, 162, 39];
@@ -24,6 +25,7 @@ export const nomFichierBulletin = (releve) => {
 
 // options.publiesSeulement : n'imprime que les semestres publiés (bulletin de l'étudiant)
 export const telechargerBulletin = async (releve, { publiesSeulement = false } = {}) => {
+  const { jsPDF, autoTable } = await chargerPdf();
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const largeur = doc.internal.pageSize.getWidth();
   const marge = 14;

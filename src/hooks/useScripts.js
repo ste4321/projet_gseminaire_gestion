@@ -1,28 +1,18 @@
 import { useEffect } from "react";
 
+// Charge des scripts classiques (non modules).
+// Ils sont tous ajoutés d'un coup : le navigateur les télécharge en parallèle,
+// et `async = false` garantit qu'ils s'exécutent quand même dans l'ordre de la liste
+// (jQuery d'abord, puis ses plugins, puis main.js).
 const useScripts = (scripts) => {
   useEffect(() => {
-    const loadScript = (src) => {
-      return new Promise((resolve, reject) => {
-        if (document.querySelector(`script[src="${src}"]`)) {
-          resolve();
-          return;
-        }
-
-        const script = document.createElement("script");
-        script.src = src;
-        script.async = false; // ← Désactive l'async par défaut
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script); // ← Utilisez head plutôt que body
-      });
-    };
-
-    // Charge les scripts dans l'ordre
-    scripts.reduce((promise, src) => 
-      promise.then(() => loadScript(src)), 
-      Promise.resolve()
-    );
+    scripts.forEach((src) => {
+      if (document.querySelector(`script[src="${src}"]`)) return;
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = false;
+      document.body.appendChild(script);
+    });
   }, [scripts]);
 };
 export default useScripts;

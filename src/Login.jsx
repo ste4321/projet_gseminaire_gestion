@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from './api/client';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { saveSession, isSessionValid, getRole, HOME_BY_ROLE, mustChangePassword, CHANGE_PASSWORD_PATH } from './auth/session';
 import ChoixTheme from './components/ChoixTheme';
+import { prechargerConnexion } from './pages/chargement';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
@@ -11,6 +12,11 @@ const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionExpiree = searchParams.get('session') === 'expiree';
+
+  // Pendant la saisie : on prépare déjà l'ouverture de l'espace (structure et tableau de bord)
+  useEffect(() => {
+    prechargerConnexion();
+  }, []);
 
   // Validation des champs
   const validateForm = (email, password) => {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import Sidebar, { closeSidebar } from '../components/Sidebar';
@@ -9,6 +9,8 @@ import useScripts from '../hooks/useScripts';
 import usePresence from '../hooks/usePresence';
 import { getRole } from '../auth/session';
 import { pageTitle } from '../navigation';
+import { prechargerEspace } from '../pages/chargement';
+import { ChargementPage } from '../components/ChargementEspace';
 
 // Scripts du thème (menus déroulants, modales Bootstrap, défilement du menu)
 const THEME_SCRIPTS = [
@@ -25,6 +27,11 @@ const AppShell = () => {
   useScripts(THEME_SCRIPTS);
   usePresence();
   const { pathname } = useLocation();
+
+  // Les autres écrans de l'espace sont téléchargés en arrière-plan : changer de page reste instantané
+  useEffect(() => {
+    prechargerEspace(getRole());
+  }, []);
 
   // Titre de l'onglet du navigateur
   useEffect(() => {
@@ -44,7 +51,10 @@ const AppShell = () => {
             <Header />
             <div className="content-wrapper">
               <main className="flex-grow-1">
-                <Outlet />
+                {/* Écran pas encore téléchargé : squelette à la place du contenu, le menu reste utilisable */}
+                <Suspense fallback={<ChargementPage />}>
+                  <Outlet />
+                </Suspense>
               </main>
               <Footer />
             </div>
