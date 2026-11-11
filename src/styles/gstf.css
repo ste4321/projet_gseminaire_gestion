@@ -347,6 +347,8 @@
 .gstf-table.is-refreshing tbody { opacity: 0.6; }
 .gstf-messages { transition: opacity 0.2s ease; }
 .gstf-messages.is-refreshing { opacity: 0.6; }
+.gstf-annonces { transition: opacity 0.2s ease; }
+.gstf-annonces.is-refreshing { opacity: 0.6; }
 /* Message arrivé en direct : fond teinté qui s'estompe */
 .gstf-messages .gstf-annonce.is-fresh { animation: gstf-message-frais 6s ease-out; }
 @keyframes gstf-message-frais {

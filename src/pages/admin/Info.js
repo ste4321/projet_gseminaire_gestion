@@ -1,24 +1,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useInfo } from '../../contexts/InfoContext';
 import api, { errorMessage } from '../../api/client';
 import { useFeedback } from '../../contexts/FeedbackContext';
 import { confirmerAvecCode } from '../../utils/confirmation';
 import SearchBar from '../../components/SearchBar';
 import Pagination from '../../components/Pagination';
 import LigneAnnonce, { LignesAnnonceChargement } from '../../components/LigneAnnonce';
-import { plusRecentsDabord } from '../../utils/tri';
+import usePageServeur, { useDiffere } from '../../hooks/usePageServeur';
 
 // Actualités du site vitrine (projet_gseminaire_frontend) : publiées ici, visibles par tous les visiteurs.
 // Publication : code de confirmation à recopier (vérifié aussi par le serveur). Le site se met à jour en direct.
-// Après un ajout, une modification ou une suppression, la liste est mise à jour avec la réponse du serveur
-// (pas de rechargement complet).
+// Liste paginée et recherchée par le serveur : seule la page affichée transite.
 
 const FORMULAIRE_VIDE = { titre: '', auteur: '', description: '' };
 const MAX_TITRE = 255; // mêmes limites que le serveur
 const MAX_TEXTE = 20000;
 const PAR_PAGE = 8;
 
-const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 // « Jeudi 23 octobre 2026 à 10 h 15 »
 const dateHeure = (iso) => {
   if (!iso) return '';
@@ -39,7 +36,6 @@ const modal = (id) => window.bootstrap.Modal.getOrCreateInstance(document.getEle
 
 const Info = () => {
   const { notify, confirm } = useFeedback();
-  const { infos, setInfos, loading } = useInfo();
   const nomAdmin = localStorage.getItem('nom_prenom') || '';
 
   const [recherche, setRecherche] = useState('');
@@ -48,35 +44,43 @@ const Info = () => {
   const [enEdition, setEnEdition] = useState(null); // actualité modifiée (null = nouvelle)
   const [enregistrement, setEnregistrement] = useState(false);
   const [detail, setDetail] = useState(null);
+  // Page voisine à charger depuis le détail, puis actualité à ouvrir dedans : 'premiere' ou 'derniere'
+  const [aOuvrir, setAOuvrir] = useState(null);
 
   useEffect(() => setPage(0), [recherche]);
 
-  // ---------- Liste ----------
-  const terme = normaliser(recherche);
-  const filtrees = useMemo(
-    () => plusRecentsDabord(infos).filter((a) => !terme || [a.titre, a.description, a.auteur].some((v) => normaliser(v).includes(terme))),
-    [infos, terme]
-  );
-  const totalPages = Math.ceil(filtrees.length / PAR_PAGE);
-  const visibles = filtrees.slice(page * PAR_PAGE, (page + 1) * PAR_PAGE);
-  // Auteurs déjà utilisés : proposés à la saisie
-  const auteurs = useMemo(() => [...new Set(infos.map((a) => a.auteur).filter(Boolean))].sort(), [infos]);
+  // ---------- Liste : une page à la fois, recherchée par le serveur ----------
+  const terme = useDiffere(recherche.trim(), 300);
+  const {
+    lignes: visibles, total, totalTout, pages: totalPages,
+    premierChargement: loading, attente, actualisation, erreur: erreurListe, recharger,
+  } = usePageServeur('/infos', { page: page + 1, per_page: PAR_PAGE, q: terme }, 'Impossible de charger les actualités.');
+  // Auteurs déjà utilisés (page affichée) : proposés à la saisie
+  const auteurs = useMemo(() => [...new Set([nomAdmin, ...visibles.map((a) => a.auteur)].filter(Boolean))].sort(), [visibles, nomAdmin]);
 
-  // Détail : actualités voisines dans la liste affichée
-  const rang = detail ? filtrees.findIndex((a) => a.id === detail.id) : -1;
-  const plusRecente = rang > 0 ? filtrees[rang - 1] : null;
-  const plusAncienne = rang >= 0 && rang < filtrees.length - 1 ? filtrees[rang + 1] : null;
+  // Détail : actualités voisines, y compris sur la page d'avant ou d'après
+  const rang = detail ? visibles.findIndex((a) => a.id === detail.id) : -1;
+  const position = rang >= 0 ? page * PAR_PAGE + rang + 1 : 0;
+  const aPlusRecente = rang > 0 || (rang === 0 && page > 0);
+  const aPlusAncienne = rang >= 0 && (rang < visibles.length - 1 || page + 1 < totalPages);
+  const allerPlusRecente = () => {
+    if (rang > 0) setDetail(visibles[rang - 1]);
+    else if (page > 0) { setAOuvrir('derniere'); setPage(page - 1); }
+  };
+  const allerPlusAncienne = () => {
+    if (rang < visibles.length - 1) setDetail(visibles[rang + 1]);
+    else if (page + 1 < totalPages) { setAOuvrir('premiere'); setPage(page + 1); }
+  };
+  useEffect(() => {
+    if (!aOuvrir || loading || attente || visibles.length === 0) return;
+    setDetail(aOuvrir === 'premiere' ? visibles[0] : visibles[visibles.length - 1]);
+    setAOuvrir(null);
+  }, [aOuvrir, loading, attente, visibles]);
   const naviguer = (e) => {
     if (e.target.closest('input, textarea, select')) return;
-    if (e.key === 'ArrowLeft' && plusRecente) setDetail(plusRecente);
-    if (e.key === 'ArrowRight' && plusAncienne) setDetail(plusAncienne);
+    if (e.key === 'ArrowLeft' && aPlusRecente) allerPlusRecente();
+    if (e.key === 'ArrowRight' && aPlusAncienne) allerPlusAncienne();
   };
-
-  // Mise à jour locale avec l'actualité renvoyée par le serveur
-  const remplacer = (info) => setInfos((liste) => {
-    const existe = liste.some((a) => a.id === info.id);
-    return existe ? liste.map((a) => (a.id === info.id ? info : a)) : [info, ...liste];
-  });
 
   // ---------- Formulaire (ajout et modification) ----------
   const ouvrirAjout = () => {
@@ -125,7 +129,8 @@ const Info = () => {
       const res = enEdition
         ? await api.put(`/infos/${enEdition.id}`, donnees())
         : await api.post('/infos', { ...donnees(), code_confirmation: code });
-      remplacer(res.data);
+      if (!enEdition) setPage(0); // la nouvelle actualité est en tête de liste
+      recharger();
       if (detail?.id === res.data.id) setDetail(res.data);
       modal('infoModal').hide();
       notify.success(enEdition ? 'Actualité modifiée : le site est à jour.' : 'Actualité publiée sur le site.');
@@ -147,7 +152,7 @@ const Info = () => {
     if (!ok) return;
     try {
       await api.delete(`/infos/${info.id}`);
-      setInfos((liste) => liste.filter((a) => a.id !== info.id));
+      recharger();
       notify.success('Actualité supprimée du site.');
     } catch (err) {
       notify.error(errorMessage(err, 'Erreur lors de la suppression.'));
@@ -186,13 +191,13 @@ const Info = () => {
             <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '7rem', height: '1rem' }} aria-hidden="true" />
           ) : (
             <small className="text-muted fw-normal ms-2">
-              · {terme ? `${filtrees.length} sur ${infos.length}` : infos.length} actualité{infos.length > 1 ? 's' : ''}
+              · {recherche.trim() ? `${total} sur ${totalTout}` : totalTout} actualité{totalTout > 1 ? 's' : ''}
             </small>
           )}
         </h5>
 
         <div className="mb-3 ms-4">
-          <button className="btn btn-primary" onClick={ouvrirAjout} disabled={loading}>
+          <button className="btn btn-primary" onClick={ouvrirAjout}>
             <i className="bx bx-plus me-1"></i>Nouvelle actualité
           </button>
         </div>
@@ -201,7 +206,7 @@ const Info = () => {
           <SearchBar searchTerm={recherche} onSearchChange={setRecherche} placeholder="Rechercher par titre, contenu ou auteur…" />
         </div>
 
-        <ul className="list-group list-group-flush gstf-annonces" aria-busy={loading}>
+        <ul className={`list-group list-group-flush gstf-annonces ${actualisation ? 'is-refreshing' : ''}`} aria-busy={loading || actualisation}>
           {loading ? (
             <LignesAnnonceChargement />
           ) : (
@@ -211,7 +216,14 @@ const Info = () => {
           )}
         </ul>
 
-        {!loading && filtrees.length === 0 && (
+        {erreurListe && (
+          <div className="alert alert-danger d-flex justify-content-between align-items-center m-3" role="alert">
+            <span>{erreurListe}</span>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={recharger}>Réessayer</button>
+          </div>
+        )}
+
+        {!loading && !attente && !erreurListe && visibles.length === 0 && (
           <div className="gstf-empty">
             {terme ? (
               <>
@@ -324,15 +336,15 @@ const Info = () => {
                 </div>
 
                 <div className="modal-footer gstf-annonce-detail__pied">
-                  {filtrees.length > 1 && rang >= 0 && (
+                  {total > 1 && rang >= 0 && (
                     <div className="btn-group me-auto" role="group" aria-label="Autres actualités">
-                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusRecente}
-                        onClick={() => setDetail(plusRecente)} title="Actualité plus récente (←)">
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!aPlusRecente || Boolean(aOuvrir)}
+                        onClick={allerPlusRecente} title="Actualité plus récente (←)">
                         <i className="bx bx-chevron-left"></i><span className="d-none d-sm-inline">Plus récente</span>
                       </button>
-                      <span className="btn btn-sm btn-outline-secondary disabled gstf-annonce-detail__position">{rang + 1} / {filtrees.length}</span>
-                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusAncienne}
-                        onClick={() => setDetail(plusAncienne)} title="Actualité plus ancienne (→)">
+                      <span className="btn btn-sm btn-outline-secondary disabled gstf-annonce-detail__position">{position} / {total}</span>
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!aPlusAncienne || Boolean(aOuvrir)}
+                        onClick={allerPlusAncienne} title="Actualité plus ancienne (→)">
                         <span className="d-none d-sm-inline">Plus ancienne</span><i className="bx bx-chevron-right"></i>
                       </button>
                     </div>

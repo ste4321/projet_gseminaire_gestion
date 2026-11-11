@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -10,7 +10,7 @@ import { useAnnee } from '../contexts/AnneeContext';
 import { useNotificationsAnnonces } from '../contexts/NotificationAnnonceContext';
 import SearchBar from './SearchBar';
 import Pagination from './Pagination';
-import { plusRecentsDabord } from '../utils/tri';
+import usePageServeur, { useDiffere } from '../hooks/usePageServeur';
 import { trierNiveaux } from '../utils/niveaux';
 import LigneAnnonce, { ETUDIANTS, ENSEIGNANTS, TOUS, libelleDestinataires, iconeDestinataires, LignesAnnonceChargement } from './LigneAnnonce';
 import { ROLE_LABELS } from '../navigation';
@@ -35,7 +35,6 @@ const choixDestinataires = ({ destinataires, id_niveau }) =>
 const depuisChoix = (choix) =>
   choix.startsWith('niveau:') ? { destinataires: ETUDIANTS, id_niveau: choix.slice(7) } : { destinataires: choix, id_niveau: '' };
 
-const normaliser = (texte) => String(texte ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const extension = (nom) => String(nom ?? '').split('?')[0].split('.').pop().toLowerCase();
 const estImage = (url) => ['jpg', 'jpeg', 'png'].includes(extension(url));
 const iconeFichier = (url) => {
@@ -94,8 +93,33 @@ const AnnonceAdminProf = () => {
   const [enEdition, setEnEdition] = useState(null); // annonce modifiée (null = nouvelle)
   const [enregistrement, setEnregistrement] = useState(false);
   const [detail, setDetail] = useState(null);
+  // Page voisine à charger, puis annonce à ouvrir dedans : 'premiere' ou 'derniere'
+  const [aOuvrir, setAOuvrir] = useState(null);
 
   useEffect(() => setPage(0), [recherche, filtreNiveau, filtreAnnee]);
+
+  // ---------- Liste : une page à la fois, filtrée et recherchée par le serveur ----------
+  const terme = useDiffere(recherche.trim(), 300);
+  const {
+    lignes: visibles, total, totalTout, pages: totalPages,
+    premierChargement, attente, actualisation, erreur: erreurListe, recharger: rechargerPage,
+  } = usePageServeur('/annonces', {
+    page: page + 1,
+    per_page: PAR_PAGE,
+    q: terme,
+    destinataires: filtreNiveau,
+    annee: filtreAnnee,
+  }, 'Impossible de charger les annonces.');
+  const chargementListe = premierChargement;
+
+  // Annonce publiée, modifiée ou supprimée (en direct, ou après une action de cette page) :
+  // les annonces récentes partagées changent, la page affichée est relue
+  const signature = annonces.map((a) => `${a.id}:${a.updated_at}`).join('|');
+  const signaturePrecedente = useRef(signature);
+  useEffect(() => {
+    if (signaturePrecedente.current && signature !== signaturePrecedente.current) rechargerPage();
+    signaturePrecedente.current = signature;
+  }, [signature, rechargerPage]);
 
   // Page consultée : les annonces affichées ne comptent plus comme non lues (cloche de l'en-tête)
   useEffect(() => {
@@ -104,11 +128,11 @@ const AnnonceAdminProf = () => {
     marquerLues();
   }, [loading, nonLues, marquerLues]);
 
-  // Liste mise à jour (en direct ou après une action) : l'annonce ouverte suit ;
+  // Page mise à jour (en direct ou après une action) : l'annonce ouverte suit ;
   // si elle a été supprimée (ou ne concerne plus ce lecteur), sa fenêtre se ferme
   useEffect(() => {
-    if (!detail || loading) return;
-    const aJour = annonces.find((a) => a.id === detail.id);
+    if (!detail || chargementListe || attente || aOuvrir) return; // aOuvrir : changement de page en cours depuis le détail
+    const aJour = visibles.find((a) => a.id === detail.id) || annonces.find((a) => a.id === detail.id);
     if (aJour) {
       if (aJour !== detail) setDetail(aJour);
       return;
@@ -120,7 +144,7 @@ const AnnonceAdminProf = () => {
     }
     setDetail(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [annonces]);
+  }, [visibles]);
 
   // Arrivée depuis une notification : ouvre directement l'annonce
   const annonceDemandee = location.state?.annonce;
@@ -132,29 +156,30 @@ const AnnonceAdminProf = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annonceDemandee, loading, annonces]);
 
-  // ---------- Filtres ----------
-  const terme = normaliser(recherche);
-  const filtrees = useMemo(
-    () =>
-      plusRecentsDabord(annonces).filter((a) => {
-        if (filtreNiveau && choixDestinataires(a) !== filtreNiveau) return false;
-        if (filtreAnnee && String(a.id_annee_aca) !== filtreAnnee) return false;
-        return !terme || [a.titre, a.description, a.expediteur].some((v) => normaliser(v).includes(terme));
-      }),
-    [annonces, filtreNiveau, filtreAnnee, terme]
-  );
-  const totalPages = Math.ceil(filtrees.length / PAR_PAGE);
-  // Détail : annonces voisines dans la liste affichée (plus récente / plus ancienne)
-  const rang = detail ? filtrees.findIndex((a) => a.id === detail.id) : -1;
-  const plusRecente = rang > 0 ? filtrees[rang - 1] : null;
-  const plusAncienne = rang >= 0 && rang < filtrees.length - 1 ? filtrees[rang + 1] : null;
+  // Détail : annonces voisines (plus récente / plus ancienne), y compris sur la page d'avant ou d'après
+  const rang = detail ? visibles.findIndex((a) => a.id === detail.id) : -1;
+  const position = rang >= 0 ? page * PAR_PAGE + rang + 1 : 0; // rang parmi toutes les annonces trouvées
+  const aPlusRecente = rang > 0 || (rang === 0 && page > 0);
+  const aPlusAncienne = rang >= 0 && (rang < visibles.length - 1 || page + 1 < totalPages);
+  const allerPlusRecente = () => {
+    if (rang > 0) setDetail(visibles[rang - 1]);
+    else if (page > 0) { setAOuvrir('derniere'); setPage(page - 1); }
+  };
+  const allerPlusAncienne = () => {
+    if (rang < visibles.length - 1) setDetail(visibles[rang + 1]);
+    else if (page + 1 < totalPages) { setAOuvrir('premiere'); setPage(page + 1); }
+  };
+  useEffect(() => {
+    if (!aOuvrir || chargementListe || attente || visibles.length === 0) return;
+    setDetail(aOuvrir === 'premiere' ? visibles[0] : visibles[visibles.length - 1]);
+    setAOuvrir(null);
+  }, [aOuvrir, chargementListe, attente, visibles]);
   const naviguer = (e) => {
     if (e.target.closest('input, textarea, select')) return;
-    if (e.key === 'ArrowLeft' && plusRecente) setDetail(plusRecente);
-    if (e.key === 'ArrowRight' && plusAncienne) setDetail(plusAncienne);
+    if (e.key === 'ArrowLeft' && aPlusRecente) allerPlusRecente();
+    if (e.key === 'ArrowRight' && aPlusAncienne) allerPlusAncienne();
   };
-  const visibles = filtrees.slice(page * PAR_PAGE, (page + 1) * PAR_PAGE);
-  const filtresActifs = Boolean(terme || filtreNiveau || filtreAnnee);
+  const filtresActifs = Boolean(recherche.trim() || filtreNiveau || filtreAnnee);
   const effacerFiltres = () => {
     setRecherche('');
     setFiltreNiveau('');
@@ -214,6 +239,7 @@ const AnnonceAdminProf = () => {
       const url = enEdition ? `/annonces/${enEdition.id}?_method=PUT` : '/annonces';
       await api.post(url, donnees, { headers: { 'Content-Type': 'multipart/form-data' } });
       await fetchAnnonces();
+      rechargerPage();
       modal('annonceModal').hide();
       notify.success(enEdition ? 'Annonce modifiée.' : 'Annonce publiée.');
     } catch (err) {
@@ -234,6 +260,7 @@ const AnnonceAdminProf = () => {
     try {
       await api.delete(`/annonces/${annonce.id}`);
       await fetchAnnonces();
+      rechargerPage();
       notify.success('Annonce supprimée.');
     } catch (err) {
       notify.error(errorMessage(err, "Erreur lors de la suppression de l'annonce."));
@@ -264,23 +291,23 @@ const AnnonceAdminProf = () => {
       <h4 className="fw-bold py-3 mb-4">
         <span className="text-muted fw-light">{ROLE_LABELS[role]} /</span> Annonces
       </h4>
-      {loading && <span className="visually-hidden" role="status">Chargement des annonces…</span>}
+      {chargementListe && <span className="visually-hidden" role="status">Chargement des annonces…</span>}
 
       <div className="card">
         <h5 className="card-header">
           {etudiant ? 'Mes annonces' : 'Liste des annonces'}
-          {loading ? (
+          {chargementListe || actualisation ? (
             <span className="gstf-squelette d-inline-block align-middle ms-2" style={{ width: '7rem', height: '1rem' }} aria-hidden="true" />
-          ) : (
+          ) : !erreurListe && (
             <small className="text-muted fw-normal ms-2">
-              · {filtresActifs ? `${filtrees.length} sur ${annonces.length}` : annonces.length} annonce{annonces.length > 1 ? 's' : ''}
+              · {filtresActifs ? `${total} sur ${totalTout}` : totalTout} annonce{totalTout > 1 ? 's' : ''}
             </small>
           )}
         </h5>
 
         {admin && (
           <div className="mb-3 ms-4">
-            <button className="btn btn-primary" onClick={ouvrirAjout} disabled={loading}>
+            <button className="btn btn-primary" onClick={ouvrirAjout}>
               <i className="bx bx-plus me-1"></i>Nouvelle annonce
             </button>
           </div>
@@ -316,8 +343,8 @@ const AnnonceAdminProf = () => {
         </div>
 
         {/* Liste */}
-        <ul className="list-group list-group-flush gstf-annonces" aria-busy={loading}>
-          {loading ? (
+        <ul className={`list-group list-group-flush gstf-annonces ${actualisation ? 'is-refreshing' : ''}`} aria-busy={chargementListe || actualisation}>
+          {chargementListe ? (
             <LignesAnnonceChargement />
           ) : (
             visibles.map((a) => (
@@ -326,7 +353,14 @@ const AnnonceAdminProf = () => {
           )}
         </ul>
 
-        {!loading && filtrees.length === 0 && (
+        {erreurListe && (
+          <div className="alert alert-danger d-flex justify-content-between align-items-center m-3" role="alert">
+            <span>{erreurListe}</span>
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={rechargerPage}>Réessayer</button>
+          </div>
+        )}
+
+        {!chargementListe && !attente && !erreurListe && visibles.length === 0 && (
           <div className="gstf-empty">
             {filtresActifs ? (
               <>
@@ -491,15 +525,15 @@ const AnnonceAdminProf = () => {
                 </div>
 
                 <div className="modal-footer gstf-annonce-detail__pied">
-                  {filtrees.length > 1 && rang >= 0 && (
+                  {total > 1 && rang >= 0 && (
                     <div className="btn-group me-auto" role="group" aria-label="Autres annonces">
-                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusRecente}
-                        onClick={() => setDetail(plusRecente)} title="Annonce plus récente (←)">
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!aPlusRecente || Boolean(aOuvrir)}
+                        onClick={allerPlusRecente} title="Annonce plus récente (←)">
                         <i className="bx bx-chevron-left"></i><span className="d-none d-sm-inline">Plus récente</span>
                       </button>
-                      <span className="btn btn-sm btn-outline-secondary disabled gstf-annonce-detail__position">{rang + 1} / {filtrees.length}</span>
-                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!plusAncienne}
-                        onClick={() => setDetail(plusAncienne)} title="Annonce plus ancienne (→)">
+                      <span className="btn btn-sm btn-outline-secondary disabled gstf-annonce-detail__position">{position} / {total}</span>
+                      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={!aPlusAncienne || Boolean(aOuvrir)}
+                        onClick={allerPlusAncienne} title="Annonce plus ancienne (→)">
                         <span className="d-none d-sm-inline">Plus ancienne</span><i className="bx bx-chevron-right"></i>
                       </button>
                     </div>
